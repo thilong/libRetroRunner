@@ -7,14 +7,15 @@
 namespace libRetroRunner {
 
     Utils::ReadResult Utils::readFileAsBytes(const std::string &filePath) {
-        std::ifstream fileStream(filePath);
-        fileStream.seekg(0, std::ios::end);
-        size_t size = fileStream.tellg();
-        char *bytes = new char[size];
-        fileStream.seekg(0, std::ios::beg);
-        fileStream.read(bytes, size);
-        fileStream.close();
+        FILE *file = fopen(filePath.c_str(), "rb");
+        if (file == nullptr) {
+            return ReadResult{0, nullptr};
+        }
+        size_t size = getFileSize(file);
 
+        char *bytes = new char[size];
+        fread(bytes, sizeof(char), size, file);
+        fclose(file);
         return ReadResult{size, bytes};
     }
 
@@ -40,6 +41,24 @@ namespace libRetroRunner {
         char *result = new char[input.length() + 1];
         std::strcpy(result, input.c_str());
         return result;
+    }
+
+    int Utils::writeBytesToFile(const std::string &filePath, const char *data, size_t size) {
+        FILE *file = fopen(filePath.c_str(), "wb");
+        if (file == nullptr) {
+            return -1;
+        }
+        size_t wrote = fwrite(data, sizeof(char), size, file);
+        fclose(file);
+        return wrote;
+    }
+
+    std::string Utils::getFilePathWithoutExtension(const std::string &filePath) {
+        size_t pos = filePath.find_last_of('.');
+        if (pos != std::string::npos) {
+            return filePath.substr(0, pos);
+        }
+        return std::string(filePath);
     }
 
 }

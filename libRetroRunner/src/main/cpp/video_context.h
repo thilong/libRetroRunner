@@ -6,7 +6,7 @@
 #define _VIDEO_CONTEXT_H
 
 #include <memory>
-
+#include <string>
 #include <jni.h>
 
 
@@ -22,11 +22,14 @@ namespace libRetroRunner {
         static std::unique_ptr<VideoContext> NewInstance();
 
         virtual void Init() = 0;
+
         virtual void Reinit() = 0;
+
         virtual void Destroy() = 0;
 
         //用于每一帧模拟前的准备
         virtual void Prepare() = 0;
+
         virtual void DrawFrame() = 0;
 
         virtual void OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) = 0;
@@ -38,6 +41,13 @@ namespace libRetroRunner {
         virtual void SetSurfaceSize(unsigned width, unsigned height) = 0;
 
         virtual unsigned int GetCurrentFramebuffer() = 0;
+
+        void SetTakeScreenshot(std::string &path);
+
+    protected:
+
+        //抓取当前帧到的位置，为空时不抓取
+        std::string dumpPath;
     };
 }
 #endif

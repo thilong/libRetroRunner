@@ -1,46 +1,141 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#000">
 
-    <FrameLayout
-        android:id="@+id/gamecontainer"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"/>
+    <LinearLayout
+        android:id="@+id/game_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="horizontal" />
 
-    <FrameLayout
-        android:id="@+id/leftcontainer"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintWidth_max="192dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/guideline"
-        app:layout_constraintStart_toStartOf="parent"
-        android:alpha="0"
-        app:layout_constraintTop_toTopOf="parent" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="left|bottom"
+        android:orientation="vertical">
 
-    <FrameLayout
-        android:id="@+id/rightcontainer"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintWidth_max="192dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/guideline"
-        android:alpha="0"
-        app:layout_constraintTop_toTopOf="parent" />
+        <Button
+            android:id="@+id/test_cheat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cheat code" />
 
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guideline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.5"
-        app:layout_constraintGuide_begin="20dp" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+            <Button
+                android:id="@+id/test_fastward"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="fastward" />
+
+            <Button
+                android:id="@+id/test_screen_shot"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Screen shot" />
+
+            <Button
+                android:id="@+id/test_resete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="reset" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+
+            <Button
+                android:id="@+id/test_save_state"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="save state" />
+
+            <Button
+                android:id="@+id/test_load_state"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="load state" />
+
+            <Button
+                android:id="@+id/test_save_ram"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="save SRAM" />
+
+            <Button
+                android:id="@+id/test_load_ram"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="load SRAM" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/test_layouts"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/test_layout_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:tag="0"
+                android:text="FULL SCREEN" />
+
+            <Button
+                android:id="@+id/test_layout_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:tag="1"
+                android:text="1:1" />
+
+            <Button
+                android:id="@+id/test_layout_4_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:tag="3"
+                android:text="4:3" />
+
+            <Button
+                android:id="@+id/test_layout_16_9"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:tag="4"
+                android:text="16:9" />
+
+            <Button
+                android:id="@+id/test_layout_core"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:tag="2"
+                android:text="core" />
+
+            <Button
+                android:id="@+id/test_layout_3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:tag="5"
+                android:text="Aspect Fill" />
+
+            <Button
+                android:id="@+id/test_layout_4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:tag="6"
+                android:text="MAX INT SCALE" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

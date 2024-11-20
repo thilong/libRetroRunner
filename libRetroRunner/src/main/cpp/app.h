@@ -12,8 +12,10 @@
 #include "video_context.h"
 #include "input_context.h"
 #include "audio_context.h"
-
-#include "utils/threadsafe_queue.hpp"
+#include "setting.h"
+#include "command.hpp"
+#include "time_throne.hpp"
+#include "cheats/cheat_manager.h"
 
 namespace libRetroRunner {
 
@@ -26,6 +28,7 @@ namespace libRetroRunner {
         kRunning = 1 << 4,   //16
         kPaused = 1 << 5,
     };
+
 
     class AppContext {
 
@@ -46,6 +49,8 @@ namespace libRetroRunner {
         void SetVideoRenderSize(unsigned width, unsigned height);
 
         void AddCommand(int command);
+
+        void AddThreadCommand(std::shared_ptr<Command> &command);
 
         void Start();
 
@@ -69,6 +74,16 @@ namespace libRetroRunner {
          */
         void SetController(int port, int device);
 
+        bool SaveRAM();
+
+        bool LoadRAM();
+
+        bool SaveState(int idx = 0);
+
+        bool LoadState(int idx);
+
+        void SetFastForward(bool enable);
+
     public:
         static AppContext *CreateInstance();
 
@@ -78,9 +93,13 @@ namespace libRetroRunner {
 
         /**
          * 获取游戏相关的环境变量
-         * @return
          */
         inline Environment *GetEnvironment() { return environment.get(); }
+
+        /**
+         * 获取应用设置,或者游戏运行时应用相关设置
+         */
+        inline Setting *GetSetting() { return setting.get(); }
 
         inline VideoContext *GetVideo() { return video.get(); }
 
@@ -88,7 +107,9 @@ namespace libRetroRunner {
 
         inline AudioContext *GetAudio() { return audio.get(); }
 
+        inline CheatManager *GetCheatManager() { return cheatManager.get(); }
 
+        inline Core *GetCore() { return core.get(); }
 
         inline int GetState() { return state; }
 
@@ -112,21 +133,24 @@ namespace libRetroRunner {
         std::string rom_path = "";
         std::string core_path = "";
         std::string system_path = "";
-        std::string save_path = "";
 
         int state = 0;
-        threadsafe_queue<int> commands;   //等待处理的命令
+        CommandQueue commands;   //等待处理的命令
 
         std::unique_ptr<Core> core = nullptr;
         std::unique_ptr<Environment> environment = nullptr;
+        std::unique_ptr<Setting> setting = nullptr;
         std::unique_ptr<VideoContext> video = nullptr;
         std::unique_ptr<InputContext> input = nullptr;
         std::unique_ptr<AudioContext> audio = nullptr;
-
+        std::unique_ptr<CheatManager> cheatManager = nullptr;
 
         static std::unique_ptr<AppContext> instance;
 
         friend class RetroCallbacks;
+
+        FpsTimeThrone timeThrone;
+
     };
 
     class RetroCallbacks {

@@ -33,10 +33,8 @@ public:
 
     explicit threadsafe_queue(const container_type &c) : data_queue(c) {}
 
-    threadsafe_queue(std::initializer_list<value_type> list) : threadsafe_queue(list.begin(),
-                                                                                list.end()) {
+    threadsafe_queue(std::initializer_list<value_type> list) : threadsafe_queue(list.begin(), list.end()) {
     }
-
 
     void push(const value_type &new_value) {
         std::lock_guard<std::mutex> lk(mut);
@@ -61,6 +59,7 @@ public:
         std::lock_guard<std::mutex> lk(mut);
         return data_queue.size();
     }
+
 };
 
 #endif

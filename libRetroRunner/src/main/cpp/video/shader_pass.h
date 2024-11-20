@@ -27,6 +27,8 @@ namespace libRetroRunner {
         /*把当前绑定的FBO绘制到屏幕上*/
         void DrawOnScreen(int width, int height);
 
+        /*把当前绑定的FBO绘制到文件中，dump*/
+        void DrawToFile(const std::string &path);
     private:
         void drawTexture(GLuint textureId, int width = -1, int height = -1);
 

@@ -13,9 +13,9 @@ namespace libRetroRunner {
         open(soCorePath);
     }
 
-    void* get_symbol(void* handle, const char* symbol) {
+    void* get_symbol(void* handle, const char* symbol, bool optional = false) {
         void* result = dlsym(handle, symbol);
-        if (!result) {
+        if (!result && !optional) {
             LOGE("Cannot get symbol %s... Quitting", symbol);
             throw std::runtime_error("Missing libretro core symbol");
         }
@@ -28,8 +28,8 @@ namespace libRetroRunner {
             LOGE("Cannot dlopen library, closing");
             throw std::runtime_error("Cannot dlopen library");
         }
-        retro_cheat_reset = (void (*)()) get_symbol(libHandle, "retro_cheat_reset");
-        retro_cheat_set = (void (*)(unsigned, bool, const char*)) get_symbol(libHandle, "retro_cheat_set");
+        retro_cheat_reset = (void (*)()) get_symbol(libHandle, "retro_cheat_reset", true);
+        retro_cheat_set = (void (*)(unsigned, bool, const char*)) get_symbol(libHandle, "retro_cheat_set", true);
         retro_init = (void (*)()) get_symbol(libHandle, "retro_init");
         retro_deinit = (void (*)()) get_symbol(libHandle, "retro_deinit");
         retro_api_version = (unsigned (*)()) get_symbol(libHandle, "retro_api_version");

@@ -8,7 +8,7 @@
 #include "app.h"
 #include "rr_log.h"
 #include "utils/utils.h"
-#include "misc/pref_counter.h"
+#include "utils/pref_counter.h"
 
 #define LOGD_APP(...) LOGD("[Runner] " __VA_ARGS__)
 #define LOGW_APP(...) LOGW("[Runner] " __VA_ARGS__)
@@ -32,6 +32,24 @@ namespace libRetroRunner {
         return instance.get();
     }
 
+    template<typename T>
+    void threadCommandCheckAndSetResultAndNotify(std::shared_ptr<Command> command, T result) {
+        if (command->threaded) {
+            std::shared_ptr<ThreadCommand<T>> threadCommand = std::static_pointer_cast<ThreadCommand<T>>(command);
+            threadCommand->SetResult((result));
+            threadCommand->Signal();
+        }
+    }
+
+    template<typename R, typename T>
+    void threadParamCommandCheckAndSetResultAndNotify(std::shared_ptr<Command> command, T result) {
+        if (command->threaded) {
+            std::shared_ptr<ThreadParamCommand<R, T>> threadCommand = std::static_pointer_cast<ThreadParamCommand<R, T>>(command);
+            threadCommand->SetResult((result));
+            threadCommand->Signal();
+        }
+    }
+
 }
 
 /*-----生命周期相关--------------------------------------------------------------*/
@@ -49,12 +67,12 @@ namespace libRetroRunner {
         core_path = "";
         system_path = "";
         rom_path = "";
-        save_path = "";
 
         input = nullptr;
         core = nullptr;
         video = nullptr;
         audio == nullptr;
+        cheatManager = nullptr;
         environment = nullptr;
     }
 
@@ -62,11 +80,13 @@ namespace libRetroRunner {
         this->rom_path = romPath;
         this->core_path = corePath;
         this->system_path = systemPath;
-        this->save_path = savePath;
         this->environment = std::make_unique<Environment>();
-        environment->SetSavePath(save_path);
-        environment->SetSystemPath(system_path);
+        this->setting = std::make_unique<Setting>();
+        this->cheatManager = std::make_unique<CheatManager>();
 
+        environment->SetSavePath(savePath);
+        environment->SetSystemPath(system_path);
+        this->setting->InitWithPaths(romPath, savePath);
         BIT_SET(state, AppState::kPathSet);
     }
 
@@ -122,7 +142,7 @@ namespace libRetroRunner {
     }
 
     void AppContext::Stop() {
-        AddCommand(AppCommands::kEnableAudio);
+        AddCommand(AppCommands::kSaveSRAM);
         AddCommand(AppCommands::kStopGame);
 
     }
@@ -135,6 +155,12 @@ namespace libRetroRunner {
             while (BIT_TEST(state, AppState::kRunning)) {
                 //先处理命令
                 processCommand();
+                if (!BIT_TEST(state, AppState::kRunning)) break;
+
+                //时间计算, 保持帧率
+                timeThrone.checkFpsAndWait(environment->GetFastForwardFps());
+
+                if (!BIT_TEST(state, AppState::kRunning)) break;
                 //如果模拟处于暂停状态，则等待16ms, 60fps对应1帧16ms
                 if (BIT_TEST(state, AppState::kPaused)) {
                     //sleep for 16ms, for 60fps
@@ -159,9 +185,18 @@ namespace libRetroRunner {
         } catch (std::exception &exception) {
             LOGE_APP("emu end with error: %s", exception.what());
         }
+        if (BIT_TEST(state, AppState::kContentReady)) {
+            core->retro_unload_game();
+            BIT_DELETE(state, AppState::kContentReady);
+        }
+        if (BIT_TEST(state, AppState::kCoreReady)) {
+            core->retro_deinit();
+            BIT_DELETE(state, AppState::kCoreReady);
+        }
         BIT_DELETE(state, AppState::kRunning);
         LOGW_APP("emu stopped");
     }
+
 }
 
 /*-----功能控制相关--------------------------------------------------------------*/
@@ -169,6 +204,89 @@ namespace libRetroRunner {
     void AppContext::SetController(int port, int device) {
         core->retro_set_controller_port_device(port, device);
     }
+
+    bool AppContext::SaveRAM() {
+        const std::string savePath = setting->saveRamPath;
+        if (savePath.empty()) {
+            LOGW_APP("save path is empty, can't save ram");
+            return false;
+        }
+
+        size_t ramSize = core->retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+        unsigned char *ramData = (unsigned char *) core->retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+        if (ramData == nullptr || ramSize == 0) {
+            LOGW_APP("ram data is empty, can't save ram");
+            return false;
+        }
+        size_t wrote = Utils::writeBytesToFile(savePath, (char *) ramData, ramSize);
+        if (wrote != 0 && wrote == ramSize) {
+            LOGD_APP("save ram to %s, size: %d", savePath.c_str(), wrote);
+        }
+        return wrote == ramSize && wrote != 0;
+    }
+
+    bool AppContext::LoadRAM() {
+        const std::string savePath = setting->saveRamPath;
+        if (savePath.empty()) {
+            LOGW_APP("save path is empty, can't save ram");
+            return false;
+        }
+
+        size_t sramSize = core->retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+        void *sramState = core->retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+        if (sramState == nullptr) {
+            LOGE("Cannot load SRAM: empty in core...");
+            return false;
+        }
+        Utils::ReadResult data = Utils::readFileAsBytes(savePath);
+        if (data.data) {
+            memcpy(sramState, data.data, data.size);
+            delete[] data.data;
+        } else {
+            LOGE("Cannot load SRAM: empty in file...");
+            return false;
+        }
+        return true;
+    }
+
+    bool AppContext::SaveState(int idx) {
+        size_t stateSize = core->retro_serialize_size();
+        if (stateSize == 0) {
+            LOGW_APP("state size is 0, can't save state %d", idx);
+            return false;
+        }
+        std::unique_ptr<unsigned char> stateData(new unsigned char[stateSize]);
+        if (!core->retro_serialize(stateData.get(), stateSize)) {
+            LOGW_APP("serialize state %d failed", idx);
+            return false;
+        }
+        std::string stateFile = setting->getSaveStatePath(idx);
+        int wroteSize = Utils::writeBytesToFile(stateFile, (char *) stateData.get(), stateSize);
+        return wroteSize == stateSize;
+    }
+
+    bool AppContext::LoadState(int idx) {
+        std::string stateFile = setting->getSaveStatePath(idx);
+        Utils::ReadResult data = Utils::readFileAsBytes(stateFile);
+        if (data.data == nullptr) {
+            LOGE_APP("Cannot load state %d: file is empty or not found", idx);
+            return false;
+        }
+
+        if (!core->retro_unserialize(data.data, data.size)) {
+            LOGE_APP("Unserialize state %d failed", idx);
+            delete[] data.data;
+            return false;
+        }
+
+        delete[] data.data;
+        return true;
+    }
+
+    void AppContext::SetFastForward(bool enable) {
+        //TODO: 这里需要实现快进功能
+    }
+
 }
 
 /*-----App Commands--------------------------------------------------------------*/
@@ -176,10 +294,11 @@ namespace libRetroRunner {
 
     //这个函数只在模拟线程(绘图线程,android中为OPENGL所在线程)中调用
     void AppContext::processCommand() {
-        int command;
-        while (commands.try_pop(command)) {
-            LOGW_APP("process command: %d", command);
-            switch (command) {
+        std::shared_ptr<Command> command;
+        while (command = commands.Pop(), command.get() != nullptr) {
+            int cmd = command->command;
+            LOGW_APP("process command: %d", cmd);
+            switch (cmd) {
                 case AppCommands::kLoadCore:
                     cmdLoadCore();
                     break;
@@ -214,6 +333,57 @@ namespace libRetroRunner {
                 case AppCommands::kDisableAudio:
                     if (audio) audio->Stop();
                     break;
+                case AppCommands::kTakeScreenshot: {
+                    std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
+                    std::string savePath = paramCommand->GetArg();
+                    if (video)
+                        video->SetTakeScreenshot(savePath);
+                    else
+                        LOGW_APP("video is not ready, can't take screenshot");
+                    break;
+                }
+                case AppCommands::kSaveSRAM: {
+                    bool saveResult = SaveRAM();
+                    threadCommandCheckAndSetResultAndNotify<int>(command, saveResult ? 0 : -1);
+                    break;
+                }
+                case AppCommands::kLoadSRAM: {
+                    bool saveResult = LoadRAM();
+                    threadCommandCheckAndSetResultAndNotify<int>(command, saveResult ? 0 : -1);
+                    break;
+                }
+                case AppCommands::kSaveState: {
+                    int idx = 0;
+                    if (command->threaded) {
+                        std::shared_ptr<ThreadParamCommand<int, int>> threadCommand = std::static_pointer_cast<ThreadParamCommand<int, int>>(command);
+                        idx = threadCommand->GetArg();
+                    }
+                    bool saveResult = SaveState(idx);
+                    threadParamCommandCheckAndSetResultAndNotify<int, int>(command, saveResult ? 0 : -1);
+                    break;
+                }
+                case AppCommands::kLoadState: {
+                    int idx = 0;
+                    if (command->threaded) {
+                        std::shared_ptr<ThreadParamCommand<int, int>> threadCommand = std::static_pointer_cast<ThreadParamCommand<int, int>>(command);
+                        idx = threadCommand->GetArg();
+                    }
+                    bool saveResult = LoadState(idx);
+                    threadParamCommandCheckAndSetResultAndNotify<int, int>(command, saveResult ? 0 : -1);
+                    break;
+                }
+                case AppCommands::kLoadCheats: {
+                    std::shared_ptr<Command> command = std::make_shared<Command>(AppCommands::kLoadCheats);
+                    if (!command->threaded)
+                        cheatManager->LoadFromSetting();
+                    else {
+                        std::shared_ptr<ThreadParamCommand<bool, std::string>> paramCommand = std::static_pointer_cast<ThreadParamCommand<bool, std::string>>(command);
+                        std::string path = paramCommand->GetArg();
+                        cheatManager->LoadFromFile(path);
+                        paramCommand->Signal();
+                    }
+                    break;
+                }
                 case AppCommands::kNone:
                 default:
                     break;
@@ -222,7 +392,12 @@ namespace libRetroRunner {
     }
 
     void AppContext::AddCommand(int command) {
-        commands.push(command);
+        std::shared_ptr<Command> newCommand = std::make_shared<Command>(command);
+        commands.Push(newCommand);
+    }
+
+    void AppContext::AddThreadCommand(std::shared_ptr<Command> &command) {
+        commands.Push(command);
     }
 
     void AppContext::cmdLoadCore() {
@@ -294,6 +469,8 @@ namespace libRetroRunner {
 
         BIT_SET(state, AppState::kContentReady);
 
+        AddCommand(AppCommands::kLoadSRAM);
+        AddCommand(AppCommands::kLoadCheats);
         AddCommand(AppCommands::kInitInput);
         AddCommand(AppCommands::kInitAudio);
     }
@@ -303,22 +480,14 @@ namespace libRetroRunner {
             input = InputContext::NewInstance();
             input->Init();
         }
-
-        /*TODO: 这里需要根据平台不同返回不一样的设备信息，比如PS有可能需要RETRO_DEVICE_ANALOG
-            这里有可能需要先在environment中获取由核心传回的控制器信息来决定
-            @see RETRO_ENVIRONMENT_SET_CONTROLLER_INFO
-         */
-        for (int player = 0; player < MAX_PLAYER; player++) {
-            core->retro_set_controller_port_device(player, RETRO_DEVICE_JOYPAD);
-        }
     }
 
     void AppContext::cmdInitVideo() {
         LOGD_APP("cmd: init video");
-        JNIEnv *env;
-        gVm->AttachCurrentThread(&env, nullptr);
+        //JNIEnv *env;
+        //gVm->AttachCurrentThread(&env, nullptr);
         video->Init();
-        gVm->DetachCurrentThread();
+        //gVm->DetachCurrentThread();
         BIT_SET(state, AppState::kVideoReady);
 
     }
@@ -343,6 +512,7 @@ namespace libRetroRunner {
             AddCommand(AppCommands::kEnableAudio);
         }
     }
+
 
 }
 

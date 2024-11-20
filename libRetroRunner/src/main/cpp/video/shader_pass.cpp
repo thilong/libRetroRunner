@@ -1,6 +1,8 @@
 //
 // Created by aidoo on 2024/11/5.
 //
+
+#include <android/bitmap.h>
 #include "shader_pass.h"
 #include "shaders.h"
 #include "../rr_log.h"
@@ -10,6 +12,73 @@
 #define LOGW_SP(...) LOGW("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
 #define LOGE_SP(...) LOGE("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
 #define LOGI_SP(...) LOGI("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
+namespace libRetroRunner {
+    extern "C" JavaVM *gVm;
+
+    void android_createBitmap(JNIEnv *env, GLubyte *flippedPixels, int width, int height, const std::string &path) {
+        // 3. 创建 Bitmap 对象
+        jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
+
+        // 获取 Bitmap.Config.ARGB_8888 配置的值
+        jclass configClass = env->FindClass("android/graphics/Bitmap$Config");
+        jfieldID argb8888Field = env->GetStaticFieldID(configClass, "ARGB_8888", "Landroid/graphics/Bitmap$Config;");
+        jobject argb8888Config = env->GetStaticObjectField(configClass, argb8888Field);
+
+        // 获取 Bitmap.createBitmap 方法的签名：createBitmap(int width, int height, Bitmap.Config config)
+        jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapClass, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
+
+        if (createBitmapMethod == nullptr) {
+            free(flippedPixels);
+            return; // 方法未找到，退出
+        }
+
+        // 调用 createBitmap 创建 Bitmap 对象
+        jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod, width, height, argb8888Config);
+        if (bitmap == nullptr) {
+            free(flippedPixels);
+            return; // 创建 Bitmap 失败
+        }
+
+        // 4. 将像素数据填充到 Bitmap 对象中
+        AndroidBitmapInfo bitmapInfo;
+        AndroidBitmap_getInfo(env, bitmap, &bitmapInfo);
+
+        void *bitmapPixels;
+        AndroidBitmap_lockPixels(env, bitmap, &bitmapPixels);
+
+        // 拷贝像素数据
+        memcpy(bitmapPixels, flippedPixels, 4 * width * height);
+
+        AndroidBitmap_unlockPixels(env, bitmap); // 解锁 Bitmap
+        jstring filePath = env->NewStringUTF(path.c_str());
+        // 5. 保存 Bitmap 为 PNG 文件
+        jclass fileClass = env->FindClass("java/io/File");
+        jmethodID fileConstructor = env->GetMethodID(fileClass, "<init>", "(Ljava/lang/String;)V");
+        jobject fileObj = env->NewObject(fileClass, fileConstructor, filePath);
+
+        jclass fileOutputStreamClass = env->FindClass("java/io/FileOutputStream");
+        jmethodID fileOutputStreamConstructor = env->GetMethodID(fileOutputStreamClass, "<init>", "(Ljava/io/File;)V");
+        jobject fileOutputStream = env->NewObject(fileOutputStreamClass, fileOutputStreamConstructor, fileObj);
+
+        jclass bitmapClass2 = env->FindClass("android/graphics/Bitmap");
+        jmethodID compressMethod = env->GetMethodID(bitmapClass2, "compress", "(Landroid/graphics/Bitmap$CompressFormat;ILjava/io/OutputStream;)Z");
+
+        jclass compressFormatClass = env->FindClass("android/graphics/Bitmap$CompressFormat");
+        jfieldID pngField = env->GetStaticFieldID(compressFormatClass, "PNG", "Landroid/graphics/Bitmap$CompressFormat;");
+        jobject pngFormat = env->GetStaticObjectField(compressFormatClass, pngField);
+
+        jboolean success = env->CallBooleanMethod(bitmap, compressMethod, pngFormat, 100, fileOutputStream);
+        if (!success) {
+            LOGE_SP("Failed to save bitmap to file");
+        }
+
+        // 清理资源
+        env->DeleteLocalRef(fileOutputStream);
+        env->DeleteLocalRef(fileObj);
+        env->DeleteLocalRef(compressFormatClass);
+        env->DeleteLocalRef(bitmapClass2);
+    }
+}
 
 //静态变量与公共方法
 namespace libRetroRunner {
@@ -231,5 +300,49 @@ namespace libRetroRunner {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
+
+    //只有最后上屏的一张会被保存，因此反转的原则和上屏是一样的
+    void GLShaderPass::DrawToFile(const std::string &path) {
+        glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->GetFrameBuffer());
+        LOGW_SP("dump framebuffer to file: %s", path.c_str());
+        int width = frameBuffer->GetWidth();
+        int height = frameBuffer->GetHeight();
+        GLubyte *pixels = (GLubyte *) malloc(width * height * 4);
+        if (pixels == nullptr) {
+            LOGE_SP("malloc buffer for dump failed.");
+            return;
+        }
+
+        GLubyte *flippedPixels = (GLubyte *) malloc(width * height * 4);
+        if (flippedPixels == nullptr) {
+            LOGE_SP("malloc buffer2 for dump failed.");
+            free(pixels);
+            return;
+        }
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        //翻转图片
+        if (!hardwareAccelerated) {
+            memcpy(flippedPixels, pixels, width * height * 4);
+        } else {
+            for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                    int srcIndex = (y * width + x) * 4;
+                    int destIndex = ((height - 1 - y) * width + x) * 4;
+                    flippedPixels[destIndex] = pixels[srcIndex];
+                    flippedPixels[destIndex + 1] = pixels[srcIndex + 1];
+                    flippedPixels[destIndex + 2] = pixels[srcIndex + 2];
+                    flippedPixels[destIndex + 3] = pixels[srcIndex + 3];
+                }
+            }
+        }
+        JNIEnv *env = nullptr;
+        gVm->AttachCurrentThread(&env, nullptr);
+        android_createBitmap(env, flippedPixels, width, height, path);
+        free(pixels);
+        free(flippedPixels);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+
 }
 

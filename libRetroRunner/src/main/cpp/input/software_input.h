@@ -18,7 +18,7 @@ namespace libRetroRunner {
 
         void UpdateAxis(unsigned int port, unsigned int id, float value) override;
 
-        void UpdateButton(unsigned int port, unsigned int button, bool pressed) override;
+        bool UpdateButton(unsigned int port, unsigned int button, bool pressed) override;
 
 
         int16_t State(unsigned int port, unsigned int device, unsigned int index, unsigned int id) override;

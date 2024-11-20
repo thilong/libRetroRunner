@@ -63,6 +63,7 @@ namespace libRetroRunner {
     }
 
 #endif
+
 }
 
 namespace libRetroRunner {
@@ -227,6 +228,11 @@ namespace libRetroRunner {
                 }
                 prePass = pass->get();
             }
+            if (!dumpPath.empty()) {
+                passes.rbegin()->get()->DrawToFile(dumpPath);
+                dumpPath.clear();
+            }
+
             if (!passes.empty())
                 passes.rbegin()->get()->DrawOnScreen(screen_width, screen_height);
 

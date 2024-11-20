@@ -10,6 +10,8 @@
 
 namespace libRetroRunner {
 
+    int supportKeys[256] = {0};
+
     void _initDefaultButtonMap(int16_t *map_arrays, bool *map_state) {
         for (int port = 0; port < MAX_PLAYER; port++) {
             int16_t *map = map_arrays + port * 256;
@@ -50,8 +52,28 @@ namespace libRetroRunner {
 
             map_state[port] = true;
         }
-    }
+        for (int retroId = 0; retroId < 16; retroId++) {
+            supportKeys[retroId] = 1;
+        }
+        supportKeys[AKEYCODE_BUTTON_A] = 1;
+        supportKeys[AKEYCODE_BUTTON_B] = 1;
+        supportKeys[AKEYCODE_BUTTON_X] = 1;
+        supportKeys[AKEYCODE_BUTTON_Y] = 1;
+        supportKeys[AKEYCODE_BUTTON_L1] = 1;
+        supportKeys[AKEYCODE_BUTTON_R1] = 1;
+        supportKeys[AKEYCODE_BUTTON_SELECT] = 1;
+        supportKeys[AKEYCODE_BUTTON_START] = 1;
+        supportKeys[AKEYCODE_BUTTON_THUMBL] = 1;
+        supportKeys[AKEYCODE_BUTTON_THUMBR] = 1;
+        supportKeys[AKEYCODE_DPAD_UP] = 1;
+        supportKeys[AKEYCODE_DPAD_DOWN] = 1;
+        supportKeys[AKEYCODE_DPAD_LEFT] = 1;
+        supportKeys[AKEYCODE_DPAD_RIGHT] = 1;
+        supportKeys[AKEYCODE_BUTTON_L2] = 1;
+        supportKeys[AKEYCODE_BUTTON_R2] = 1;
 
+
+    }
 
     SoftwareInput::SoftwareInput() {
 
@@ -140,7 +162,8 @@ namespace libRetroRunner {
 
     }
 
-    void SoftwareInput::UpdateButton(unsigned int port, unsigned int button, bool pressed) {
+    bool SoftwareInput::UpdateButton(unsigned int port, unsigned int button, bool pressed) {
+        if (supportKeys[button] != 1) return false;
         int mappedButton = button;
         if (have_button_map[port]) {
             //如果这个玩家映射了按钮
@@ -151,6 +174,7 @@ namespace libRetroRunner {
             buttons[port][mappedButton] = pressed ? 1 : 0;
         }
         buttons[port][button] = pressed ? 1 : 0;
+        return true;
     }
 
     void SoftwareInput::Poll() {

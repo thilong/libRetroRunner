@@ -7,10 +7,9 @@
 
 #include <android/log.h>
 
-#ifdef DEBUG
 /*是否输出核心的日志中debug级别的信息*/
 #define CORE_DEUBG_LOG 1
-#endif
+
 #define LOG_TAG "RetroRunner"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)

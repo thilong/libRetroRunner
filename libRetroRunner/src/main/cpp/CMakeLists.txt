@@ -20,12 +20,19 @@ set(LIBRETRO_COMMON
         libretro-common/time/rtime.c
 )
 
+
 add_library(RetroRunner SHARED
         rr_jni.cpp
+        command.hpp
 
+        time_throne.hpp
         core.cpp
         environment.cpp
         app.cpp
+        setting.cpp
+        cheats/cheat_manager.cpp
+        cheats/retro_cheat_file.cpp
+
         input_context.cpp
         video_context.cpp
         audio_context.cpp
@@ -34,6 +41,7 @@ add_library(RetroRunner SHARED
         video/frame_buffer_object.cpp
         video/texture.cpp
         video/shader_pass.cpp
+
 
         input/software_input.cpp
 
@@ -46,6 +54,7 @@ add_library(RetroRunner SHARED
         utils/utils.cpp
 
         ${LIBRETRO_COMMON}
+
 )
 
 # add lib dependencies
@@ -55,5 +64,6 @@ target_link_libraries(RetroRunner
         EGL
         oboe
         GLESv2
+        jnigraphics
 )
 

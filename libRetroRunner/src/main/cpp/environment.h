@@ -36,6 +36,7 @@ namespace libRetroRunner {
 
         void SetSavePath(const std::string &path);
 
+
         static uintptr_t CoreCallbackGetCurrentFrameBuffer();
 
         static bool CoreCallbackSetRumbleState(unsigned port, enum retro_rumble_effect effect, uint16_t strength);
@@ -69,9 +70,19 @@ namespace libRetroRunner {
 
         const std::string GetVariable(const std::string &key, const std::string &defaultValue = "");
 
+        inline void SetFastForwardSpeed(double speed) { fastForwardSpeed = speed; }
+
+        inline int GetFastForwardFps() { return (int) (gameFps * fastForwardSpeed); }
+
         inline double GetFps() { return gameFps; }
 
         inline double GetSampleRate() { return gameSampleRate; }
+
+        inline double GetAspectRatio() { return gameGeometryAspectRatio; }
+
+        inline unsigned int GetGameWidth() { return gameGeometryWidth; }
+
+        inline unsigned int GetGameHeight() { return gameGeometryHeight; }
 
     private:
         std::unordered_map<std::string, struct Variable> variables;
@@ -113,6 +124,7 @@ namespace libRetroRunner {
         double gameFps;
         double gameSampleRate;
 
+        double fastForwardSpeed = 1.0;    //快进速度  1。0为正常速度
         retro_disk_control_callback *diskControllerCallback;
     };
 

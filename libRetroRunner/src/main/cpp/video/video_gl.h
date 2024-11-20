@@ -62,6 +62,8 @@ namespace libRetroRunner {
         EGLContext eglContext;
 
         bool is_ready;
+
+
     };
 }
 #endif

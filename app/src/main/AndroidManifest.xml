@@ -16,7 +16,7 @@
         android:label="@string/activity_title">
         <activity
             android:name="com.aidoo.test.RetroRunnerActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale"
             android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.AppCompat.NoActionBar">

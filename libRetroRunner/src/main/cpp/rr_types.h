@@ -30,9 +30,19 @@ enum AppCommands {
     kStopGame,
 
     kEnableAudio,
-    kDisableAudio
-};
+    kDisableAudio,
 
+    kSaveSRAM,
+    kLoadSRAM,
+
+    kSaveState,
+    kLoadState,
+
+    kTakeScreenshot,
+
+    kLoadCheats,
+    kSaveCheats
+};
 
 
 #endif

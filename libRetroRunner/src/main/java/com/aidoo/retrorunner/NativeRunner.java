@@ -44,6 +44,10 @@ public class NativeRunner {
     /*停止，停止后不可恢复*/
     public static native void stop();
 
+    /*设置快进或者慢进， 0.1 - 3.0*/
+    public static native void setFastForward(double multiplier);
+
+
     /*设置模拟的输出显示目标*/
     public static native void setVideoTarget(Surface surface);
 
@@ -52,7 +56,53 @@ public class NativeRunner {
 
 
     /*玩家按钮输入*/
-    public static native void updateButtonState(int player, int key, boolean down);
+    public static native boolean updateButtonState(int player, int key, boolean down);
+
     /*玩家摇杆输入*/
-    public static native void UpdateAxisState(int player, int axis, float value);
+    public static native void updateAxisState(int player, int axis, float value);
+
+    public static native double getAspectRatio();
+
+    public static native int getGameWidth();
+
+    public static native int getGameHeight();
+
+    public static native void takeScreenshot(String path);
+
+
+    public static native long addCheat(String code, String desc, boolean enable);
+    public static native void removeCheat(long id);
+    public static native void clearCheat();
+
+    /**
+     * 保存游戏存档
+     * 这个方法会在模拟线程中调用，所以需要注意线程安全
+     *
+     * @return 0:成功 其他：失败错误码
+     */
+    public static native int saveRam();
+
+    /**
+     * 加载游戏存档
+     * 这个方法会在模拟线程中调用，所以需要注意线程安全
+     *
+     * @return 0:成功 其他：失败错误码
+     */
+    public static native int loadRam();
+
+    /**
+     * 保存状态
+     *
+     * @param idx 状态编号 1-9为用户选定的，0为自动存档
+     * @return 0:成功 其他：失败错误码
+     */
+    public static native int saveState(int idx);
+
+    /**
+     * 加载状态
+     *
+     * @param idx 状态编号 1-9为用户选定的，0为自动存档
+     * @return 0:成功 其他：失败错误码
+     */
+    public static native int loadState(int idx);
 }

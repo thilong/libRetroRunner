@@ -590,7 +590,7 @@ namespace libRetroRunner {
         switch (level) {
 #if CORE_DEUBG_LOG
             case RETRO_LOG_DEBUG:
-                __android_log_vprint(ANDROID_LOG_DEBUG, MODULE_NAME_CORE, fmt, argv);
+                __android_log_vprint(ANDROID_LOG_DEBUG, LOG_TAG, fmt, argv);
                 break;
 #endif
             case RETRO_LOG_INFO:

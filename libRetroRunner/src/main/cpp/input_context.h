@@ -21,7 +21,7 @@ namespace libRetroRunner {
 
         virtual void UpdateAxis(unsigned int port, unsigned int id, float value) = 0;
 
-        virtual void UpdateButton(unsigned int port, unsigned int button, bool pressed) = 0;
+        virtual bool UpdateButton(unsigned int port, unsigned int button, bool pressed) = 0;
 
         virtual int16_t State(unsigned int port, unsigned int device, unsigned int index, unsigned int id) = 0;
 

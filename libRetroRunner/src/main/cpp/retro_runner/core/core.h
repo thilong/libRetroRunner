@@ -2,12 +2,12 @@
 // Created by aidoo on 2024/10/31.
 //
 
-#ifndef LIBRETROSD_CORE_H
-#define LIBRETROSD_CORE_H
+#ifndef _CORE_H
+#define _CORE_H
 
 #include <string>
 
-#include "libretro-common/include/libretro.h"
+#include <libretro-common/include/libretro.h>
 
 namespace libRetroRunner {
 
@@ -73,4 +73,4 @@ namespace libRetroRunner {
 
 }
 
-#endif //LIBRETROSD_CORE_H
+#endif

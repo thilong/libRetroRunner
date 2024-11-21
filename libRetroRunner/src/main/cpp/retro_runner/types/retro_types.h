@@ -1,9 +1,10 @@
 //
-// Created by aidoo on 2024/11/8.
+// Created by aidoo on 2024/11/21.
 //
 
-#ifndef LIBRETROSD_RETROARCH_TYPES_H
-#define LIBRETROSD_RETROARCH_TYPES_H
+#ifndef _RETRO_TYPES_H
+#define _RETRO_TYPES_H
+
 
 
 #define RETRO_ENVIRONMENT_RETROARCH_START_BLOCK 0x800000
@@ -36,4 +37,4 @@
 */
 
 
-#endif //LIBRETROSD_RETROARCH_TYPES_H
+#endif

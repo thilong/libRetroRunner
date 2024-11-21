@@ -4,7 +4,7 @@ import android.view.Surface;
 
 public class NativeRunner {
     static {
-        System.loadLibrary("RetroRunner");
+        System.loadLibrary("retro_runner");
     }
 
     private static NativeRunner instance;

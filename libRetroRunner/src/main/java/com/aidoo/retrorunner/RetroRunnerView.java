@@ -41,7 +41,7 @@ public class RetroRunnerView extends SurfaceView implements SurfaceHolder.Callba
      * 生命周期函数，在Activity,Fragment的onPause中调用
      */
     public void onPause() {
-        Log.w("RetroRunner", "onPause");
+        Log.w("retro_runner", "onPause");
         NativeRunner.pause();
     }
 
@@ -57,7 +57,7 @@ public class RetroRunnerView extends SurfaceView implements SurfaceHolder.Callba
      */
     public void onDestroy() {
         //TODO:需要检测是否需要在onStop中做这个操作
-        Log.w("RetroRunner", "onDestroy");
+        Log.w("retro_runner", "onDestroy");
         NativeRunner.stop();
     }
 
@@ -134,19 +134,19 @@ public class RetroRunnerView extends SurfaceView implements SurfaceHolder.Callba
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        Log.w("RetroRunner", "surfaceCreated");
+        Log.w("retro_runner", "surfaceCreated");
         NativeRunner.setVideoTarget(holder.getSurface());
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.w("RetroRunner", "surfaceChanged " + width + "x" + height);
+        Log.w("retro_runner", "surfaceChanged " + width + "x" + height);
         NativeRunner.setVideoTargetSize(width, height);
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.w("RetroRunner", "surfaceDestroyed");
+        Log.w("retro_runner", "surfaceDestroyed");
         NativeRunner.setVideoTarget(null);
     }
 

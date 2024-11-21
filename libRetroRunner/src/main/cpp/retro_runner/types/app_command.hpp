@@ -1,39 +1,49 @@
 //
-// Created by aidoo on 2024/11/13.
+// Created by aidoo on 2024/11/21.
 //
 
-#ifndef _COMMAND_H
-#define _COMMAND_H
+#ifndef _APP_COMMAND_H
+#define _APP_COMMAND_H
 
-
+#include <time.h>
+#include <random>
 #include <memory>
-#include <mutex>
-#include <queue>
 
-#include <condition_variable>
-#include "rr_types.h"
+#include "semaphore.hpp"
 
 namespace libRetroRunner {
-    class Semaphore {
-    public:
-        explicit Semaphore(int count = 0) : count_(count) {}
 
-        void Signal() {
-            std::unique_lock<std::mutex> lock(mutex_);
-            ++count_;
-            cv_.notify_one();
-        }
+    enum AppCommands {
+        kNone = 10,
+        kLoadCore,
+        kLoadContent,
+        kInitVideo,
+        kInitInput,
+        kInitAudio,
 
-        void Wait() {
-            std::unique_lock<std::mutex> lock(mutex_);
-            cv_.wait(lock, [=] { return count_ > 0; });
-            --count_;
-        }
+        kUnloadVideo,
 
-    private:
-        std::mutex mutex_;
-        std::condition_variable cv_;
-        int count_;
+        kResetGame,
+        kPauseGame,
+        kStopGame,
+
+        kEnableAudio,
+        kDisableAudio,
+
+
+        kSaveSRAM,
+        kLoadSRAM,
+
+        kSaveState,
+        kSaveStateAsync,
+        kLoadState,
+        kLoadStateAsync,
+
+        kTakeScreenshot,
+
+        kLoadCheats,
+        kSaveCheats,
+        kSaveCheatsAsync
     };
 
     class Command {
@@ -43,11 +53,32 @@ namespace libRetroRunner {
             id = time(nullptr) + random();
         }
 
+        /**
+         * 发送信号，表示命令已经执行完毕，只在多线程中使用
+         */
+        virtual void Signal() {}
+
+        /**
+         * 等待命令执行完毕，只在多线程中使用
+         */
+        virtual void Wait() {}
+
+        inline bool isThreaded() { return threaded; }
+
+        inline int getCommand() { return command; }
+
+        inline long getId() { return id; }
+
+    protected:
         bool threaded = false;
         int command;
         long id;
     };
 
+    /**
+     * 带有1个参数的命令
+     * @tparam T
+     */
     template<typename T>
     class ParamCommand : public Command {
     public:
@@ -73,9 +104,9 @@ namespace libRetroRunner {
             threaded = true;
         }
 
-        void Signal() { semaphore.Signal(); }
+        void Signal() override { semaphore.Signal(); }
 
-        void Wait() { semaphore.Wait(); }
+        void Wait() override { semaphore.Wait(); }
 
         R GetResult() { return result; }
 
@@ -129,7 +160,7 @@ namespace libRetroRunner {
         std::queue<std::shared_ptr<Command>> queue;
     };
 
-}
 
+}
 
 #endif

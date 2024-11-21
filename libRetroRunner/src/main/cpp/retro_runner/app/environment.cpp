@@ -2,13 +2,16 @@
 // Created by aidoo on 2024/11/1.
 //
 #include "environment.h"
-#include "libretro-common/include/libretro.h"
-#include "rr_log.h"
-#include <EGL/egl.h>
-#include "libretro_types.h"
 
-#include "app.h"
-#include "video_context.h"
+
+#include <EGL/egl.h>
+#include "../types/log.h"
+#include "../types/retro_types.h"
+
+#include "setting.h"
+
+#include "app_context.h"
+#include "paths.h"
 
 #define POINTER_VAL(_TYPE_) (*((_TYPE_*)data))
 #define LOGD_Env(...) LOGD("[Environment] "  __VA_ARGS__)
@@ -28,14 +31,6 @@ namespace libRetroRunner {
 
     Environment::~Environment() {
 
-    }
-
-    void Environment::SetSystemPath(const std::string &path) {
-        this->systemPath = path;
-    }
-
-    void Environment::SetSavePath(const std::string &path) {
-        this->savePath = path;
     }
 }
 
@@ -58,6 +53,8 @@ namespace libRetroRunner {
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
+                const std::shared_ptr<Paths> &paths = AppContext::Current()->GetPaths();
+                std::string systemPath = paths->GetSystemPath();
                 POINTER_VAL(const char*) = systemPath.c_str();
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY -> %s", systemPath.c_str());
                 return !systemPath.empty();
@@ -152,7 +149,8 @@ namespace libRetroRunner {
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: {
-
+                const std::shared_ptr<Paths> &paths = AppContext::Current()->GetPaths();
+                std::string savePath = paths->GetSavePath();
                 POINTER_VAL(const char*) = savePath.c_str();
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY -> %s", savePath.c_str());
                 return !savePath.empty();
@@ -328,7 +326,7 @@ namespace libRetroRunner {
             case RETRO_ENVIRONMENT_GET_INPUT_MAX_USERS: {
                 //返回前端所支持的最大用户数
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_INPUT_MAX_USERS");
-                POINTER_VAL(unsigned) = MAX_PLAYER;
+                POINTER_VAL(unsigned) = Setting::Current()->MaxPlayerCount();
                 return true;
             }
             case RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK: {
@@ -569,13 +567,14 @@ namespace libRetroRunner {
 namespace libRetroRunner {
     uintptr_t Environment::CoreCallbackGetCurrentFrameBuffer() {
         uintptr_t ret = 0;
+        /*
         auto appContext = AppContext::Current();
         if (appContext) {
             auto video = appContext->GetVideo();
             if (video) {
                 ret = (uintptr_t) video->GetCurrentFramebuffer();
             }
-        }
+        }*/
         return ret;
     }
 

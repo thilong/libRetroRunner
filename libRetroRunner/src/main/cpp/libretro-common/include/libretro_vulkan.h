@@ -247,7 +247,7 @@ struct retro_hw_render_interface_vulkan
     * The rationale for including a handle here (which libretro v1
     * doesn't currently do in general) is:
     *
-    * - Vulkan cores should be able to be freely threaded without lots of fuzz.
+    * - Vulkan cores should be able to be freely threaded_ without lots of fuzz.
     *   This would break frontends which currently rely on TLS
     *   to deal with multiple cores loaded at the same time.
     * - Fixing this in general is TODO for an eventual libretro v2.

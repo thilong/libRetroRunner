@@ -19,13 +19,13 @@ public class RetroRunnerView extends SurfaceView implements SurfaceHolder.Callba
         NativeRunner.initEnv();
     }
 
-    private final RunnerArgument config;
+    private final RRParam config;
     private boolean runnerStarted = false;
     private Executor gameThreadExecutor = Executors.newSingleThreadExecutor();
     private Handler mainHandler = new Handler(Looper.getMainLooper());
     private AspectRatio aspectRatio = AspectRatio.FullScreen;
 
-    public RetroRunnerView(Context context, RunnerArgument config) {
+    public RetroRunnerView(Context context, RRParam config) {
         super(context);
         this.config = config;
     }
@@ -209,7 +209,7 @@ public class RetroRunnerView extends SurfaceView implements SurfaceHolder.Callba
     }
 
     /*存档相关*/
-    public void saveStateAsync(int idx, Delegate.Fn<Boolean> callback) {
+    public void saveStateAsync(int idx, RRFuncs.Fn<Boolean> callback) {
         gameThreadExecutor.execute(() -> {
             int ret = NativeRunner.saveState(idx);
             mainHandler.post(() -> {
@@ -221,7 +221,7 @@ public class RetroRunnerView extends SurfaceView implements SurfaceHolder.Callba
 
     }
 
-    public void loadStateAsync(int idx, Delegate.Fn<Boolean> callback) {
+    public void loadStateAsync(int idx, RRFuncs.Fn<Boolean> callback) {
         gameThreadExecutor.execute(() -> {
             int ret = NativeRunner.loadState(idx);
             mainHandler.post(() -> {
@@ -233,7 +233,7 @@ public class RetroRunnerView extends SurfaceView implements SurfaceHolder.Callba
 
     }
 
-    public void saveRamAsync(Delegate.Fn<Boolean> callback) {
+    public void saveRamAsync(RRFuncs.Fn<Boolean> callback) {
         gameThreadExecutor.execute(() -> {
             int ret = NativeRunner.saveRam();
             mainHandler.post(() -> {
@@ -245,7 +245,7 @@ public class RetroRunnerView extends SurfaceView implements SurfaceHolder.Callba
 
     }
 
-    public void loadRamAsync(Delegate.Fn<Boolean> callback) {
+    public void loadRamAsync(RRFuncs.Fn<Boolean> callback) {
         gameThreadExecutor.execute(() -> {
             int ret = NativeRunner.loadRam();
             mainHandler.post(() -> {

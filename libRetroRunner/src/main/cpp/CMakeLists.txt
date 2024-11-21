@@ -2,14 +2,14 @@ cmake_minimum_required(VERSION 3.4.1)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
 
-add_definitions("-DVFS_FRONTEND -DHAVE_STRL -DANDROID=1")
+add_definitions("-DVFS_FRONTEND -DHAVE_STRL -DANDROID")
 
 set(OBOE_DIR oboe)
 add_subdirectory(${OBOE_DIR} oboe)
 include_directories(${OBOE_DIR}/include)
 include_directories(${OBOE_DIR}/src)
 
-#include_directories("libretro-common/include")
+include_directories("libretro-common/include")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(LIBRETRO_COMMON
@@ -22,11 +22,22 @@ set(LIBRETRO_COMMON
 
 
 add_library(RetroRunner SHARED
-        retro_runner/types/semaphore.hpp
+
+        retro_runner/types/semaphore_rr.cpp
         retro_runner/types/app_command.hpp
 
+
         retro_runner/core/core.cpp
+
+        retro_runner/app/setting.cpp
+        retro_runner/app/paths.cpp
         retro_runner/app/app_context.cpp
+        retro_runner/app/environment.cpp
+
+        retro_runner/utils/jnistring.cpp
+        retro_runner/utils/utils.cpp
+
+        retro_runner/android_jni.cpp
 
         ${LIBRETRO_COMMON}
 

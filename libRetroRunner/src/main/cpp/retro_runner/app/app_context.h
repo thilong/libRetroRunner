@@ -6,11 +6,12 @@
 #define _APP_H
 
 #include <string>
+#include "../types/app_command.hpp"
+
 
 namespace libRetroRunner {
 
     class AppContext {
-
 
     public:
         AppContext();
@@ -18,16 +19,57 @@ namespace libRetroRunner {
         ~AppContext();
 
     public:
-        static AppContext *CreateInstance();
+        static std::shared_ptr<AppContext> &CreateInstance();
 
-        static AppContext *Current() {
-            return instance.get();
-        }
+        static std::shared_ptr<AppContext> &Current();
+
+        void ThreadLoop();
+
+        const std::shared_ptr<class Environment> &GetEnvironment() const;
+
+        const std::shared_ptr<class Paths> &GetPaths() const;
+
+    public:
+
+        /**
+         * Set the appropriate paths for retro runner
+         * @param rom       game file
+         * @param core      core file
+         * @param system    system folder for core
+         * @param save      folder to save game states, ram, screenshots
+         */
+        void SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save);
+
+        void Start();
+
+        void Pause();
+
+        void Resume();
+
+        void Stop();
+
+        void AddCommand(int command);
+        void AddCommand(std::shared_ptr<Command> &command);
 
     private:
 
+        void processCommand();
+
+    private:
+        /* current app state */
+        unsigned long state = 0;
+
+        /* Component: Paths */
+        std::shared_ptr<class Paths> paths_ = nullptr;
+
+        /* Component: libretro core */
+        std::shared_ptr<class Core> core_ = nullptr;
+
+        /* Component: Command Queue */
+        std::unique_ptr<CommandQueue> command_queue_;
+        std::shared_ptr<class Environment> environment_;
     };
-    
+
 }
 
 

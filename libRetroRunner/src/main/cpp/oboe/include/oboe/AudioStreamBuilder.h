@@ -330,7 +330,7 @@ public:
      *
      * The ID could be obtained from the Java AudioManager.
      * AudioManager.getDevices() returns an array of AudioDeviceInfo,
-     * which contains a getId() method. That ID can be passed to this function.
+     * which contains a GetId() method. That ID can be passed to this function.
      *
      * It is possible that you may not get the device that you requested.
      * So if it is important to you, you should call

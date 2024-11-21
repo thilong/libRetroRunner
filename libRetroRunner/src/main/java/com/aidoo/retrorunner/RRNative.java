@@ -2,16 +2,16 @@ package com.aidoo.retrorunner;
 
 import android.view.Surface;
 
-public class NativeRunner {
+public class RRNative {
     static {
         System.loadLibrary("retro_runner");
     }
 
-    private static NativeRunner instance;
+    private static RRNative instance;
 
-    public static NativeRunner getInstance() {
+    public static RRNative getInstance() {
         if (instance == null)
-            instance = new NativeRunner();
+            instance = new RRNative();
         return instance;
     }
 
@@ -19,29 +19,37 @@ public class NativeRunner {
 
     }
 
-    /*jni methods*/
-    /*设置全局的环境变量*/
+
+    /*jni methods--------------------------*/
+
+    /*init global env*/
     public static native void initEnv();
 
-    /*创建一个新的模拟实例，如果已经有在模拟的，则停止*/
+    /*create a new emulate instance, if one is exists, stop it.*/
     public static native void create(String romPath, String corePath, String systemPath, String savePath);
 
-    /*添加核心变量*/
-    public static native void addVariable(String key, String value);
+    /**
+     * add variable to core
+     *
+     * @param key       variable key
+     * @param value     variable value
+     * @param notifyCore    if true, notify core to update the variable
+     */
+    public static native void addVariable(String key, String value, boolean notifyCore);
 
-    /*开始模拟*/
+    /* start emulate*/
     public static native void start();
 
-    /*暂停*/
+    /*pause*/
     public static native void pause();
 
-    /*恢复*/
+    /*resume*/
     public static native void resume();
 
-    /*重置*/
+    /*reset*/
     public static native void reset();
 
-    /*停止，停止后不可恢复*/
+    /*stop emu, can't resume anymore*/
     public static native void stop();
 
     /*设置快进或者慢进， 0.1 - 3.0*/
@@ -71,7 +79,9 @@ public class NativeRunner {
 
 
     public static native long addCheat(String code, String desc, boolean enable);
+
     public static native void removeCheat(long id);
+
     public static native void clearCheat();
 
     /**

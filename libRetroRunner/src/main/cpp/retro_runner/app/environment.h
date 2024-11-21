@@ -5,23 +5,15 @@
 #ifndef _ENVIRONMENT_H
 #define _ENVIRONMENT_H
 
-#include "rr_types.h"
 #include <map>
 #include <unordered_map>
 
-#include "libretro-common/include/libretro.h"
-#include "video_context.h"
+#include <libretro-common/include/libretro.h>
+#include "../types/variable.h"
 
 namespace libRetroRunner {
 
     class Environment {
-        friend class AppContext;
-
-        friend class VideoContext;
-
-        friend class GLVideoContext;
-
-        friend class SoftwareInput;
 
     public:
         Environment();
@@ -31,10 +23,6 @@ namespace libRetroRunner {
         bool HandleCoreCallback(unsigned int cmd, void *data);
 
         void UpdateVariable(const std::string &key, const std::string &value, bool notifyCore = false);
-
-        void SetSystemPath(const std::string &path);
-
-        void SetSavePath(const std::string &path);
 
 
         static uintptr_t CoreCallbackGetCurrentFrameBuffer();
@@ -86,11 +74,10 @@ namespace libRetroRunner {
 
     private:
         std::unordered_map<std::string, struct Variable> variables;
-        std::map<int, std::string> supportControllers;                  //核心支持的手柄，由核心返回给前端的,使用retro_set_controller_port_device进行设置
 
+        //核心支持的手柄，由核心返回给前端的,使用retro_set_controller_port_device进行设置
+        std::map<int, std::string> supportControllers;
         bool variablesChanged = false;
-        std::string systemPath = "";
-        std::string savePath = "";
 
         unsigned int language = RETRO_LANGUAGE_ENGLISH;
         bool audioEnabled = true;

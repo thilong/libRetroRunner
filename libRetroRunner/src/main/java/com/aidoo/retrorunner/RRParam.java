@@ -2,7 +2,7 @@ package com.aidoo.retrorunner;
 
 import java.util.HashMap;
 
-public class RunnerArgument {
+public class RRParam {
     private String romPath;
     private String corePath;
 

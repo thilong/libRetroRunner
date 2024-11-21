@@ -1,6 +1,6 @@
 package com.aidoo.retrorunner;
 
-public class Delegate {
+public class RRFuncs {
 
     public interface Fr<R> {
         public R invoke();

@@ -6,6 +6,15 @@
 #include <unistd.h>
 #include <libretro-common/include/libretro.h>
 
+#include "../types/log.h"
+#include "../types/app_state.h"
+#include "../types/macros.h"
+
+#include "../core/core.h"
+#include "environment.h"
+#include "app_context.h"
+#include "paths.h"
+
 #ifdef ANDROID
 
 #include <jni.h>
@@ -20,54 +29,28 @@
 /*-----RETRO CALLBACKS--------------------------------------------------------------*/
 namespace libRetroRunner {
     void libretro_callback_hw_video_refresh(const void *data, unsigned int width, unsigned int height, size_t pitch) {
-        AppContext *appContext = AppContext::Current();
-        if (appContext) {
-            VideoContext *video = appContext->GetVideo();
-            if (video) video->OnNewFrame(data, width, height, pitch);
-        }
+
     }
 
     bool libretro_callback_set_environment(unsigned int cmd, void *data) {
-        AppContext *appContext = AppContext::Current();
-        if (appContext) {
-            return appContext->GetEnvironment()->HandleCoreCallback(cmd, data);
-        }
+
         return false;
     }
 
     void libretro_callback_audio_sample(int16_t left, int16_t right) {
-        AppContext *appContext = AppContext::Current();
-        if (appContext) {
-            auto audio = appContext->GetAudio();
-            if (audio != nullptr) audio->OnAudioSample(left, right);
-        }
+
     }
 
     size_t libretro_callback_audio_sample_batch(const int16_t *data, size_t frames) {
-        AppContext *appContext = AppContext::Current();
-        if (appContext) {
-            auto audio = appContext->GetAudio();
-            if (audio != nullptr) audio->OnAudioSampleBatch(data, frames);
-        }
         return frames;
     }
 
     void libretro_callback_input_poll(void) {
-        auto appContext = AppContext::Current();
-        if (appContext) {
-            auto input = appContext->GetInput();
-            if (input != nullptr) input->Poll();
-        }
+
     }
 
     int16_t libretro_callback_input_state(unsigned int port, unsigned int device, unsigned int index, unsigned int id) {
         int16_t ret = 0;
-        auto appContext = AppContext::Current();
-        if (appContext) {
-            auto input = appContext->GetInput();
-            if (input != nullptr)
-                ret = input->State(port, device, index, id);
-        }
         return ret;
     }
 }
@@ -83,71 +66,63 @@ namespace libRetroRunner {
         return nullptr;
     }
 
-    std::unique_ptr<AppContext> AppContext::instance = nullptr;
+    static std::shared_ptr<AppContext> appInstance(nullptr);
 
-    AppContext *AppContext::CreateInstance() {
-        instance = std::make_unique<AppContext>();
-        return instance.get();
+    std::shared_ptr<AppContext> &AppContext::CreateInstance() {
+        if (appInstance != nullptr) {
+            appInstance->Stop();
+        }
+
+        appInstance = std::make_shared<AppContext>();
+        return appInstance;
     }
 
 }
 
-/*-----生命周期相关--------------------------------------------------------------*/
+/*-----Lifecycle--------------------------------------------------------------*/
 namespace libRetroRunner {
 
     AppContext::AppContext() {
+        command_queue_ = std::make_unique<CommandQueue>();
     }
 
     AppContext::~AppContext() {
-        if (instance != nullptr && instance.get() == this) {
-            instance = nullptr;
+        if (appInstance != nullptr && appInstance.get() == this) {
+            appInstance = nullptr;
         }
-        BIT_DELETE(state, AppState::kRunning);
+    }
 
-        core_path = "";
-        system_path = "";
-        rom_path = "";
-
-        input = nullptr;
-        core = nullptr;
-        video = nullptr;
-        audio == nullptr;
-        cheatManager = nullptr;
-        environment = nullptr;
+    std::shared_ptr<AppContext> &AppContext::Current() {
+        return appInstance;
     }
 
     void AppContext::ThreadLoop() {
         BIT_SET(state, AppState::kRunning);
-        JNIEnv *env;
-        PrefCounter counter;
+        //PrefCounter counter;
         try {
             while (BIT_TEST(state, AppState::kRunning)) {
-                //先处理命令
                 processCommand();
                 if (!BIT_TEST(state, AppState::kRunning)) break;
 
                 //时间计算, 保持帧率
-                timeThrone.checkFpsAndWait(environment->GetFastForwardFps());
-
+                // timeThrone.checkFpsAndWait(environment->GetFastForwardFps());
                 if (!BIT_TEST(state, AppState::kRunning)) break;
-                //如果模拟处于暂停状态，则等待16ms, 60fps对应1帧16ms
+
+                //if emulate is paused, sleep for 16ms, for 60fps
                 if (BIT_TEST(state, AppState::kPaused)) {
-                    //sleep for 16ms, for 60fps
                     usleep(16000);
                     continue;
                 }
-                //只有视频和内容都准备好了才能运行
+
+                //run core step when video and content are ready
                 if (BIT_TEST(state, AppState::kVideoReady) &&
                     BIT_TEST(state, AppState::kContentReady)) {
-                    gVm->AttachCurrentThread(&env, nullptr);
                     //TODO: 这里需要做模拟一帧前的准备
                     //video->Prepare();
-                    counter.Reset();
-                    core->retro_run();
-                    //LOGW("core run: %lld", counter.ElapsedNano());
-                    gVm->DetachCurrentThread();
+                    //counter.Reset();
+
+                    core_->retro_run();
                 } else {
-                    //如果视频输出环境没有OK，或者内容没有加载，则等待1帧
                     usleep(16000);
                 }
             }
@@ -155,17 +130,81 @@ namespace libRetroRunner {
             LOGE_APP("emu end with error: %s", exception.what());
         }
         if (BIT_TEST(state, AppState::kContentReady)) {
-            core->retro_unload_game();
+            core_->retro_unload_game();
             BIT_DELETE(state, AppState::kContentReady);
         }
         if (BIT_TEST(state, AppState::kCoreReady)) {
-            core->retro_deinit();
+            core_->retro_deinit();
             BIT_DELETE(state, AppState::kCoreReady);
         }
         BIT_DELETE(state, AppState::kRunning);
         LOGW_APP("emu stopped");
     }
 
+    const std::shared_ptr<class Environment> &AppContext::GetEnvironment() const {
+        return environment_;
+    }
+
+    const std::shared_ptr<class Paths> &AppContext::GetPaths() const {
+        return paths_;
+    }
+
 }
 
+/*-----Emulator control--------------------------------------------------------------*/
+namespace libRetroRunner {
+
+    void AppContext::Start() {
+        if (!BIT_TEST(state, AppState::kPathsReady)) {
+            LOGE_APP("Paths are not set yet , can't start emulator.");
+            return;
+        }
+        AddCommand(AppCommands::kLoadCore);
+        AddCommand(AppCommands::kLoadContent);
+        pthread_t thread;
+        int loopRet = pthread_create(&thread, nullptr, libRetroRunner::appThread, this);
+        LOGD_APP("emu started, app: %p, thread result: %d", this, loopRet);
+    }
+
+    void AppContext::Pause() {
+
+    }
+
+    void AppContext::Resume() {
+
+    }
+
+    void AppContext::Stop() {
+
+    }
+
+    void AppContext::SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
+        paths_ = std::make_shared<Paths>();
+        paths_->SetPaths(rom, core, system, save);
+
+        environment_ = std::make_shared<Environment>();
+
+        BIT_SET(state, AppState::kPathsReady);
+    }
+
+
+}
+
+/*-----App commands--------------------------------------------------------------*/
+namespace libRetroRunner {
+    void AppContext::processCommand() {
+
+    }
+
+    void AppContext::AddCommand(std::shared_ptr<Command> &command) {
+        command_queue_->Push(command);
+    }
+
+    void AppContext::AddCommand(int command) {
+        std::shared_ptr<Command> cmd = std::make_shared<Command>(command);
+        command_queue_->Push(cmd);
+    }
+
+
+}
 

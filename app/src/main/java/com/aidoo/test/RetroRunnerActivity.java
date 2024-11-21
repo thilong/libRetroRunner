@@ -8,7 +8,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -16,11 +15,11 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.aidoo.retrorunner.AspectRatio;
-import com.aidoo.retrorunner.RetroRunnerView;
-import com.aidoo.retrorunner.RunnerArgument;
+import com.aidoo.retrorunner.RRView;
+import com.aidoo.retrorunner.RRParam;
 
 public class RetroRunnerActivity extends AppCompatActivity {
-    private RetroRunnerView retroRunnerView;
+    private RRView retroRunnerView;
     private ViewGroup gameContainer;
     private String testRom;
 
@@ -47,14 +46,14 @@ public class RetroRunnerActivity extends AppCompatActivity {
             testCore = "libppsspp.so";
         }
 
-        RunnerArgument runnerArgument = new RunnerArgument();
+        RRParam runnerArgument = new RRParam();
         runnerArgument.setRomPath(testRom);
         runnerArgument.setCorePath(testCore);
         runnerArgument.setSystemPath(getFilesDir().getAbsolutePath());
         runnerArgument.setSavePath(getExternalFilesDir(null).getAbsolutePath());
 
         gameContainer = (ViewGroup) findViewById(R.id.game_container);
-        retroRunnerView = new RetroRunnerView(this, runnerArgument);
+        retroRunnerView = new RRView(this, runnerArgument);
         retroRunnerView.setLayoutParams(new ViewGroup.LayoutParams(-1, -1));
         gameContainer.addView(retroRunnerView);
 

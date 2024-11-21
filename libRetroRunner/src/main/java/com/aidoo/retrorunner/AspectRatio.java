@@ -17,7 +17,7 @@ public enum AspectRatio {
         return rawValue;
     }
 
-    private int rawValue;
+    private final int rawValue;
 
     public static AspectRatio valueOf(int value) {
         switch (value) {

@@ -150,7 +150,7 @@ typedef gz_header FAR *gz_headerp;
    opaque value.
 
      zalloc must return Z_NULL if there is not enough memory for the object.
-   If zlib is used in a multi-threaded application, zalloc and zfree must be
+   If zlib is used in a multi-threaded_ application, zalloc and zfree must be
    thread safe.
 
      On 16-bit systems, the functions zalloc and zfree must be able to allocate

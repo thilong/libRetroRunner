@@ -7,7 +7,7 @@
 
 enum AppState {
     kNone = 0,
-    kPathSet = 1 << 0,    //1
+    kPathsReady = 1 << 0,    //1
     kCoreReady = 1 << 1,  //2
     kContentReady = 1 << 2,  //4
     kVideoReady = 1 << 3, //8

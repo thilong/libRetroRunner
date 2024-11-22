@@ -14,7 +14,7 @@
 #include "audio_context.h"
 #include "setting.h"
 #include "command.hpp"
-#include "time_throne.hpp"
+#include "fps_time_throne.hpp"
 #include "cheats/cheat_manager.h"
 
 namespace libRetroRunner {

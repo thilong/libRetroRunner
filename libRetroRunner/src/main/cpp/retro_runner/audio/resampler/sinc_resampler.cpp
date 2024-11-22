@@ -3,7 +3,7 @@
 //
 
 #include <algorithm>
-#include "sincresampler.h"
+#include "sinc_resampler.h"
 
 namespace libRetroRunner {
 

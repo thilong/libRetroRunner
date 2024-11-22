@@ -3,7 +3,10 @@
 //
 
 #include "audio_context.h"
-#include "audio/oboe_audio_context.h"
+#include "empty_audio_context.h"
+#include "../types/log.h"
+
+#include "oboe/oboe_audio_context.h"
 
 namespace libRetroRunner {
     AudioContext::AudioContext() {
@@ -14,8 +17,13 @@ namespace libRetroRunner {
 
     }
 
-    std::unique_ptr<AudioContext> AudioContext::NewInstance() {
-        return std::make_unique<OboeAudioContext>();
+    std::shared_ptr<AudioContext> AudioContext::Create(std::string &driver) {
+        if (driver == "android") {
+            LOGD("[AUDIO] Create audio context for driver 'android'.");
+            return std::make_shared<OboeAudioContext>();
+        }
+        LOGW("[INPUT] Unsupported audio driver '%s', empty audio context will be used.", driver.c_str());
+        return std::make_shared<EmptyAudioContext>();
     }
 
 

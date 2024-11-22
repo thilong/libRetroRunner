@@ -232,7 +232,7 @@ namespace libRetroRunner {
             return;
         }
         if (frameBuffer != nullptr && width == frameBuffer->GetWidth() && height == frameBuffer->GetHeight()) {
-            LOGW_SP("frame buffer not change, reuse it.");
+            LOGW_SP("frame buffer size not change, reuse it.");
             return;
         }
         frameBuffer = std::make_unique<GLFrameBufferObject>();

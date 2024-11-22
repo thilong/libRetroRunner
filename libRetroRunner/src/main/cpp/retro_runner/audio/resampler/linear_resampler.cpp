@@ -4,7 +4,7 @@
 
 #include <cmath>
 #include <algorithm>
-#include "linearresampler.h"
+#include "linear_resampler.h"
 
 namespace libRetroRunner {
 

@@ -5,10 +5,11 @@
 #ifndef _OBOE_AUDIO_CONTEXT_H
 #define _OBOE_AUDIO_CONTEXT_H
 
-#include "../audio_context.h"
 #include <oboe/Oboe.h>
 #include <oboe/FifoBuffer.h>
-#include "linearresampler.h"
+
+#include "../audio_context.h"
+#include "../resampler/linear_resampler.h"
 
 namespace libRetroRunner {
     class OboeAudioContext : public AudioContext, oboe::AudioStreamDataCallback, oboe::AudioStreamErrorCallback {
@@ -49,7 +50,6 @@ namespace libRetroRunner {
         double errorIntegral = 0.0;
         double playbackSpeed = 1.0;
 
-        bool isReady = false;
         oboe::ManagedStream audioStream;
         std::unique_ptr<oboe::FifoBuffer> audioFifoBuffer;
         std::unique_ptr<uint16_t[]> audioStreamBuffer;
@@ -57,8 +57,6 @@ namespace libRetroRunner {
 
 
         int bufferSizeInVideoFrame;
-        bool useLowLatency;
-
         LinearResampler resampler;
     };
 }

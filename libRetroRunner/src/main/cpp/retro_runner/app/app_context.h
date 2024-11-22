@@ -7,7 +7,7 @@
 
 #include <string>
 #include "../types/app_command.hpp"
-
+#include "fps_time_throne.hpp"
 
 namespace libRetroRunner {
 
@@ -32,6 +32,8 @@ namespace libRetroRunner {
         const std::shared_ptr<class VideoContext> &GetVideo() const;
 
         const std::shared_ptr<class InputContext> &GetInput() const;
+
+        const std::shared_ptr<class AudioContext> &GetAudio() const;
     public:
 
         /**
@@ -48,6 +50,8 @@ namespace libRetroRunner {
         void Pause();
 
         void Resume();
+
+        void Reset();
 
         void Stop();
 
@@ -75,14 +79,16 @@ namespace libRetroRunner {
         /* Component: Paths */
         std::shared_ptr<class Paths> paths_ = nullptr;
 
-        /* Component: libretro core */
-        std::shared_ptr<class Core> core_ = nullptr;
-
         /* Component: Command Queue */
         std::unique_ptr<CommandQueue> command_queue_;
+
+        std::shared_ptr<class Core> core_ = nullptr;
         std::shared_ptr<class Environment> environment_;
         std::shared_ptr<class VideoContext> video_;
         std::shared_ptr<class InputContext> input_;
+        std::shared_ptr<class AudioContext> audio_;
+
+        FpsTimeThrone fps_time_throne_;
     };
 
 }

@@ -8,10 +8,14 @@ namespace libRetroRunner {
     static Setting setting;
 
     Setting::Setting() {
+
 #ifdef ANDROID
         video_driver_ = "gl";
-#endif
+        audio_driver_ = "android";
         input_driver_ = "software";
+#endif
+
+
     }
 
     Setting::~Setting() {

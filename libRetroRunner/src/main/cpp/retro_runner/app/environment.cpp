@@ -525,6 +525,7 @@ namespace libRetroRunner {
         //音频参数
         gameSampleRate = avInfo->timing.sample_rate;
         gameFps = avInfo->timing.fps;
+        //TODO: 需要把参数同步给app, 以确认是否需要重建音频上下文和运行速度限制
         return true;
     }
 

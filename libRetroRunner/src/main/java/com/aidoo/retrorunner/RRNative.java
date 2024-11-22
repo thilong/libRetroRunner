@@ -99,6 +99,10 @@ public class RRNative {
      */
     public static native int getGameHeight();
 
+
+
+
+
     public static native void takeScreenshot(String path);
 
 

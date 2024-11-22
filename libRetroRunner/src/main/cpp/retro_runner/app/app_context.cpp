@@ -18,6 +18,7 @@
 #include "../video/video_context.h"
 #include "setting.h"
 #include "../input/input_context.h"
+#include "../audio/audio_context.h"
 
 #ifdef ANDROID
 
@@ -49,22 +50,38 @@ namespace libRetroRunner {
     }
 
     void libretro_callback_audio_sample(int16_t left, int16_t right) {
-        //TODO: 添加功能
+        auto appContext = AppContext::Current();
+        if (appContext) {
+            auto audio = appContext->GetAudio();
+            if (audio != nullptr) audio->OnAudioSample(left, right);
+        }
     }
 
     size_t libretro_callback_audio_sample_batch(const int16_t *data, size_t frames) {
-        //TODO: 添加功能
+        auto appContext = AppContext::Current();
+        if (appContext) {
+            auto audio = appContext->GetAudio();
+            if (audio != nullptr) audio->OnAudioSampleBatch(data, frames);
+        }
         return frames;
     }
 
     void libretro_callback_input_poll(void) {
-        //TODO: 添加功能
+        auto appContext = AppContext::Current();
+        if (appContext) {
+            auto input = appContext->GetInput();
+            if (input != nullptr) input->Poll();
+        }
     }
 
     int16_t libretro_callback_input_state(unsigned int port, unsigned int device, unsigned int index, unsigned int id) {
-        //TODO: 添加功能
-        int16_t ret = 0;
-        return ret;
+        auto appContext = AppContext::Current();
+        if (appContext) {
+            auto input = appContext->GetInput();
+            if (input != nullptr)
+                return input->State(port, device, index, id);
+        }
+        return 0;
     }
 }
 
@@ -104,14 +121,12 @@ namespace libRetroRunner {
         }
     }
 
-
     std::shared_ptr<AppContext> &AppContext::Current() {
         return appInstance;
     }
 
     void AppContext::ThreadLoop() {
         BIT_SET(state, AppState::kRunning);
-        //PrefCounter counter;
         try {
             while (BIT_TEST(state, AppState::kRunning)) {
                 processCommand();
@@ -127,12 +142,15 @@ namespace libRetroRunner {
                     continue;
                 }
 
+
                 //run core step when video and content are ready
                 if (BIT_TEST(state, AppState::kVideoReady) &&
                     BIT_TEST(state, AppState::kContentReady)) {
-                    //TODO: 这里需要做模拟一帧前的准备
-                    //video->Prepare();
-                    //counter.Reset();
+
+                    //avoid emulator run too fast
+                    fps_time_throne_.checkFpsAndWait(environment_->GetFastForwardFps());
+
+                    video_->Prepare();
                     core_->retro_run();
                 } else {
                     usleep(16000);
@@ -169,6 +187,9 @@ namespace libRetroRunner {
         return input_;
     }
 
+    const std::shared_ptr<class AudioContext> &AppContext::GetAudio() const {
+        return audio_;
+    }
 }
 
 /*-----Emulator control--------------------------------------------------------------*/
@@ -187,15 +208,24 @@ namespace libRetroRunner {
     }
 
     void AppContext::Pause() {
-
+        AddCommand(AppCommands::kPauseGame);
+        AddCommand(AppCommands::kDisableAudio);
     }
 
     void AppContext::Resume() {
+        BIT_DELETE(state, AppState::kPaused);
+        AddCommand(AppCommands::kEnableAudio);
+    }
 
+    void AppContext::Reset() {
+        if (BIT_TEST(state, kContentReady)) {
+            AddCommand(AppCommands::kResetGame);
+        }
     }
 
     void AppContext::Stop() {
-
+        AddCommand(AppCommands::kSaveSRAM);
+        AddCommand(AppCommands::kStopGame);
     }
 
     void AppContext::SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
@@ -269,6 +299,42 @@ namespace libRetroRunner {
                     input_->Init();
                     return;
                 }
+                case AppCommands::kResetGame: {
+                    if (BIT_TEST(state, AppState::kContentReady)) {
+                        core_->retro_reset();
+                    }
+                    return;
+                }
+                case AppCommands::kPauseGame: {
+                    BIT_SET(state, AppState::kPaused);
+                    return;
+                }
+                case AppCommands::kStopGame: {
+                    BIT_DELETE(state, AppState::kRunning);
+                    return;
+                }
+                case AppCommands::kInitAudio: {
+                    if (!audio_) {
+                        std::string audio_driver = Setting::Current()->GetAudioDriver();
+                        audio_ = AudioContext::Create(audio_driver);
+                        audio_->Init();
+                        AddCommand(AppCommands::kEnableAudio);
+                    }
+                    return;
+                }
+                case AppCommands::kEnableAudio: {
+                    if (audio_) {
+                        audio_->Start();
+                    }
+                    return;
+                }
+                case AppCommands::kDisableAudio: {
+                    if (audio_) {
+                        audio_->Stop();
+                    }
+                    return;
+                }
+                case AppCommands::kNone:
                 default:
                     break;
             }
@@ -350,12 +416,13 @@ namespace libRetroRunner {
         environment_->gameSampleRate = avInfo.timing.sample_rate;                //如果声音采样率变化了，则Audio组件可能需要重新初始化
         environment_->gameFps = avInfo.timing.fps;
 
+        fps_time_throne_.SetFps(environment_->gameFps);
+
         BIT_SET(state, AppState::kContentReady);
         LOGD_APP("content loaded");
         AddCommand(AppCommands::kInitAudio);
         AddCommand(AppCommands::kInitInput);
     }
-
 
 
 }

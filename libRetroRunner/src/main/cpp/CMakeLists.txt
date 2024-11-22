@@ -33,7 +33,7 @@ add_library(RetroRunner SHARED
         retro_runner/app/paths.cpp
         retro_runner/app/app_context.cpp
         retro_runner/app/environment.cpp
-
+        retro_runner/app/fps_time_throne.hpp
 
         retro_runner/video/video_context.cpp
         retro_runner/video/opengles/video_context_gles.cpp
@@ -44,6 +44,12 @@ add_library(RetroRunner SHARED
         retro_runner/input/input_context.cpp
         retro_runner/input/empty_input.cpp
         retro_runner/input/software_input.cpp
+
+        retro_runner/audio/audio_context.cpp
+        retro_runner/audio/empty_audio_context.cpp
+        retro_runner/audio/resampler/linear_resampler.cpp
+        retro_runner/audio/resampler/sinc_resampler.cpp
+        retro_runner/audio/oboe/oboe_audio_context.cpp
 
 
         retro_runner/utils/jnistring.cpp

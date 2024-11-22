@@ -2,8 +2,8 @@
 // Created by aidoo on 2024/11/14.
 //
 
-#ifndef _TIME_THRONE_HPP
-#define _TIME_THRONE_HPP
+#ifndef _FPS_TIME_THRONE_HPP
+#define _FPS_TIME_THRONE_HPP
 
 #include <chrono>
 #include <unistd.h>

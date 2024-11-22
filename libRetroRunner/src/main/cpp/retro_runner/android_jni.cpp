@@ -56,22 +56,26 @@ Java_com_aidoo_retrorunner_RRNative_start(JNIEnv *env, jclass clazz) {
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_pause(JNIEnv *env, jclass clazz) {
-    // TODO: implement pause()
+    const std::shared_ptr<AppContext> &app = AppContext::Current();
+    if (app.get() != nullptr) app->Pause();
 }
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_resume(JNIEnv *env, jclass clazz) {
-    // TODO: implement resume()
+    const std::shared_ptr<AppContext> &app = AppContext::Current();
+    if (app.get() != nullptr) app->Resume();
 }
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_reset(JNIEnv *env, jclass clazz) {
-    // TODO: implement reset()
+    const std::shared_ptr<AppContext> &app = AppContext::Current();
+    if (app.get() != nullptr) app->Reset();
 }
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_stop(JNIEnv *env, jclass clazz) {
-    // TODO: implement stop()
+    const std::shared_ptr<AppContext> &app = AppContext::Current();
+    if (app.get() != nullptr) app->Stop();
 }
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_setVideoSurface(JNIEnv *env, jclass clazz, jobject surface) {
@@ -95,6 +99,7 @@ Java_com_aidoo_retrorunner_RRNative_setVideoSurfaceSize(JNIEnv *env, jclass claz
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_setFastForward(JNIEnv *env, jclass clazz, jdouble multiplier) {
     DeclareEnvironment();
+    LOGD_JNI("set fast forward speed to x%f", multiplier);
     environment->SetFastForwardSpeed(multiplier);
 }
 extern "C" JNIEXPORT jboolean JNICALL

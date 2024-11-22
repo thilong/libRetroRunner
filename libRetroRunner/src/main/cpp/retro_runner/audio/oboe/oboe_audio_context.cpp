@@ -2,9 +2,10 @@
 // Created by aidoo on 2024/11/12.
 //
 #include "oboe_audio_context.h"
-#include "../rr_log.h"
-#include "../app.h"
-#include "../environment.h"
+#include "../../types/log.h"
+#include "../../app/app_context.h"
+#include "../../app/environment.h"
+#include "../../app/setting.h"
 
 #define LOGD_OBOE(...) LOGD("[OboeAudio] " __VA_ARGS__)
 #define LOGW_OBOE(...) LOGW("[OboeAudio] " __VA_ARGS__)
@@ -18,7 +19,7 @@ namespace libRetroRunner {
     }
 
     OboeAudioContext::~OboeAudioContext() {
-
+        audioStream->requestStop();
     }
 
     void OboeAudioContext::Start() {
@@ -39,10 +40,13 @@ namespace libRetroRunner {
     }
 
     void OboeAudioContext::Init() {
-        Environment *environment = AppContext::Current()->GetEnvironment();
-        std::string audioLatencySetting = environment->GetVariable("audio_latency", "low");
-        bool preferLowLatency = audioLatencySetting == "low";
-        LOGD("prefer low latency: %d", preferLowLatency);
+        auto setting = Setting::Current();
+        auto environment = AppContext::Current()->GetEnvironment();
+
+
+        bool preferLowLatency = setting->UseLowLatency();
+        bool useLowLatency = false;
+        LOGD_OBOE("prefer low latency: %d", preferLowLatency);
         if (oboe::AudioStreamBuilder::isAAudioRecommended() && preferLowLatency) {
             bufferSizeInVideoFrame = 4;
             useLowLatency = true;
@@ -77,7 +81,6 @@ namespace libRetroRunner {
         audioFifoBuffer = std::make_unique<oboe::FifoBuffer>(2, audioBufferSize);
         audioStreamBuffer = std::unique_ptr<uint16_t[]>(new uint16_t[audioBufferSize]);
         latencyTuner = std::make_unique<oboe::LatencyTuner>(*audioStream);
-        isReady = true;
 
     }
 

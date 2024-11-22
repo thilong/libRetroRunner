@@ -324,4 +324,12 @@ namespace libRetroRunner {
         }
     }
 
+    bool GLESVideoContext::TakeScreenshot(const std::string &path) {
+        if (passes.empty()) {
+            return false;
+        }
+        passes.rbegin()->get()->DrawToFile(path);
+        return true;
+    }
+
 }

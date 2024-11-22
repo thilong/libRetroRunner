@@ -334,6 +334,21 @@ namespace libRetroRunner {
                     }
                     return;
                 }
+                case AppCommands::kTakeScreenshot: {
+                    std::shared_ptr<ThreadCommand<bool, std::string>> paramCommand = std::static_pointer_cast<ThreadCommand<bool, std::string>>(command);
+                    std::string savePath = paramCommand->GetArg();
+                    if (video_) {
+                        if (paramCommand->ShouldWaitComplete()) {
+                            paramCommand->SetResult(video_->TakeScreenshot(savePath));
+                        } else {
+                            video_->SetNextScreenshotStorePath(savePath);
+                        }
+                    } else {
+                        paramCommand->SetResult(false);
+                    }
+                    paramCommand->Signal();
+                    return;
+                }
                 case AppCommands::kNone:
                 default:
                     break;

@@ -31,7 +31,9 @@ namespace libRetroRunner {
         kEnableAudio,
         kDisableAudio,
 
+        kTakeScreenshot,
 
+        //---here
         kSaveSRAM,
         kLoadSRAM,
 
@@ -40,7 +42,6 @@ namespace libRetroRunner {
         kLoadState,
         kLoadStateAsync,
 
-        kTakeScreenshot,
 
         kLoadCheats,
         kSaveCheats,
@@ -57,81 +58,57 @@ namespace libRetroRunner {
         virtual ~Command() {}
 
         /**
-        * 发送信号，表示命令已经执行完毕，只在多线程中使用
+        * signal command finish, only in multi-threaded and threaded = true
         */
         virtual void Signal() {}
 
         /**
-        * 等待命令执行完毕，只在多线程中使用
+        * wait for command finish, only in multi-threaded and threaded = true
         */
         virtual void Wait() {}
 
-        inline bool IsThreaded() { return threaded_; }
+        inline bool ShouldWaitComplete() { return wait_complete_; }
+
+        inline void SetWaitComplete(bool flag) { wait_complete_ = flag; }
 
         inline int GetCommand() { return command_; }
 
         inline long GetId() { return id_; }
 
     protected:
-        bool threaded_ = false;
+        bool wait_complete_ = false;
         int command_;
         long id_;
     };
 
-    /**
-     * 带有1个参数的命令
-     * @tparam T
-     */
-    template<typename T>
-    class ParamCommand : public Command {
+    template<typename R, typename T>
+    class ThreadCommand : public Command {
     public:
-        ParamCommand(int cmd, T arg1) : Command(cmd) {
+        ThreadCommand(int cmd, T arg1) : Command(cmd) {
+            wait_complete_ = true;
             arg_ = arg1;
         }
 
         T GetArg() { return arg_; }
-
-    private:
-        T arg_;
-    };
-
-    /**
-     * 多线程所使用的命令，用于线程间任务执行
-     * 不能在同一线程中使用这个类型，否则无法正确运行
-     * @tparam R 返回值类型， 一般int, 0表示成功，其他值表示错误
-     */
-    template<typename R>
-    class ThreadCommand : public Command {
-    public:
-        ThreadCommand(int cmd) : Command(cmd) {
-            threaded_ = true;
-        }
-
-        void Signal() { semaphore_.Signal(); }
-
-        void Wait() { semaphore_.Wait(); }
 
         R GetResult() { return result_; }
 
-        void SetResult(R r) { result_ = r; }
+        void SetResult(R value) { result_ = value; }
 
-    private:
-
-        RRSemaphore semaphore_;
-        R result_;
-    };
-
-    template<typename R, typename T>
-    class ThreadParamCommand : public ThreadCommand<R> {
-    public:
-        ThreadParamCommand(int cmd, T arg1) : ThreadCommand<R>(cmd) {
-            arg_ = arg1;
+        void Signal() override {
+            if (wait_complete_)
+                sem_.Signal();
         }
 
-        T GetArg() { return arg_; }
+        void Wait() override {
+            if (wait_complete_)
+                sem_.Wait();
+        }
 
     private:
+        RRSemaphore sem_;
         T arg_;
+        R result_;
     };
 
     class CommandQueue {
@@ -163,7 +140,6 @@ namespace libRetroRunner {
         mutable std::mutex mutex_;
         std::queue<std::shared_ptr<Command>> queue_;
     };
-
 
 }
 

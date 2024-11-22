@@ -42,6 +42,9 @@ namespace libRetroRunner {
 
         virtual void SetCoreOutputPixelFormat(int format) = 0;
 
+        /* dump video frame into a file, may fail, this should run on emu thread. */
+        virtual bool TakeScreenshot(const std::string &path) = 0;
+
         /* set the path to store the next screenshot, when finish dumping, path will be set to empty. */
         void SetNextScreenshotStorePath(std::string &path);
 
@@ -55,7 +58,7 @@ namespace libRetroRunner {
     protected:
 
         std::string next_screenshot_store_path_;
-        bool game_geometry_changed_ ;
+        bool game_geometry_changed_;
     };
 }
 #endif

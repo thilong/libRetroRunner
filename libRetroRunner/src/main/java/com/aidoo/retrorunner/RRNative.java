@@ -83,27 +83,24 @@ public class RRNative {
 
     /**
      * get the aspect ratio of the game
+     *
      * @return aspect ratio
      */
     public static native double getAspectRatio();
 
     /**
      * get the game width
+     *
      * @return game width
      */
     public static native int getGameWidth();
 
     /**
      * get the game height
+     *
      * @return game height
      */
     public static native int getGameHeight();
-
-
-
-
-
-    public static native void takeScreenshot(String path);
 
 
     public static native long addCheat(String code, String desc, boolean enable);
@@ -111,6 +108,21 @@ public class RRNative {
     public static native void removeCheat(long id);
 
     public static native void clearCheat();
+
+    //-----------------------------------------------------------------------------------------------------------//
+    // The following functions are running in the emu thread, so we should call them in background               //
+    //-----------------------------------------------------------------------------------------------------------//
+
+    /**
+     * take a screenshot, screenshot is taken in the emu thread. so we should call this method at background.
+     * if waitForResult is true, this method will block until the screen shot is saved
+     *
+     * @param path          the path to save the screen shot
+     * @param waitForResult if true, wait for the screen shot to be saved
+     * @return if 'waitForResult' is ture, return value means screenshot is is taken or not, otherwise it means command is added or not.
+     */
+    public static native boolean takeScreenshot(String path, boolean waitForResult);
+
 
     /**
      * 保存游戏存档

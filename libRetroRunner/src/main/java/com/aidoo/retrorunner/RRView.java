@@ -193,8 +193,8 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
         RRNative.setFastForward(multiplier);
     }
 
-    public void takeScreenshot(String path) {
-        RRNative.takeScreenshot(path);
+    public void takeScreenshot(String path, boolean waitForResult) {
+        RRNative.takeScreenshot(path, waitForResult);
     }
 
     public AspectRatio getAspectRatio() {

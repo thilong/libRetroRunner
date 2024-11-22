@@ -4,6 +4,7 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -138,11 +139,11 @@ public class RetroRunnerActivity extends AppCompatActivity {
     }
 
     void onTestScreenshot(View view) {
-        retroRunnerView.takeScreenshot(testRom + ".png");
+        retroRunnerView.takeScreenshot(testRom + "." + SystemClock.uptimeMillis() + ".png", true);
     }
 
     void onTestCheat(View view) {
-        retroRunnerView.addCheat("AIOGZPEY","inf hp", true);
+        retroRunnerView.addCheat("AIOGZPEY", "inf hp", true);
     }
 
     @Override

@@ -45,6 +45,8 @@ namespace libRetroRunner {
             core_pixel_format_ = format;
         }
 
+        bool TakeScreenshot(const std::string &path) override;
+
     private:
 
         void createPassChain();

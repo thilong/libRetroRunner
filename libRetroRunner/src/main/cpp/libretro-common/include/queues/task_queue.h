@@ -411,7 +411,7 @@ void task_set_flags(retro_task_t *task, uint8_t flags, bool set);
 
 /**
  * Sets \c task::error to the given value.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to modify.
  * Behavior is undefined if \c NULL.
@@ -424,7 +424,7 @@ void task_set_error(retro_task_t *task, char *error);
 
 /**
  * Sets \c task::progress to the given value.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to modify.
  * Behavior is undefined if \c NULL.
@@ -435,7 +435,7 @@ void task_set_progress(retro_task_t *task, int8_t progress);
 
 /**
  * Sets \c task::title to the given value.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to modify.
  * Behavior is undefined if \c NULL.
@@ -449,7 +449,7 @@ void task_set_title(retro_task_t *task, char *title);
 
 /**
  * Sets \c task::data to the given value.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to modify.
  * Behavior is undefined if \c NULL.
@@ -460,7 +460,7 @@ void task_set_data(retro_task_t *task, void *data);
 
 /**
  * Frees the \c task's title, if any.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to modify.
  * @see task_set_title
@@ -469,7 +469,7 @@ void task_free_title(retro_task_t *task);
 
 /**
  * Returns \c task::error.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to query.
  * Behavior is undefined if \c NULL.
@@ -480,7 +480,7 @@ char* task_get_error(retro_task_t *task);
 
 /**
  * Returns \c task::progress.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to query.
  * Behavior is undefined if \c NULL.
@@ -491,7 +491,7 @@ int8_t task_get_progress(retro_task_t *task);
 
 /**
  * Returns \c task::title.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to query.
  * Behavior is undefined if \c NULL.
@@ -502,7 +502,7 @@ char* task_get_title(retro_task_t *task);
 
 /**
  * Returns \c task::data.
- * Thread-safe if the task queue is threaded_.
+ * Thread-safe if the task queue is wait_complete.
  *
  * @param task The task to query.
  * Behavior is undefined if \c NULL.
@@ -521,7 +521,7 @@ void* task_get_data(retro_task_t *task);
 bool task_is_on_main_thread(void);
 
 /**
- * Ensures that the task queue is in threaded_ mode.
+ * Ensures that the task queue is in wait_complete mode.
  *
  * Next time \c retro_task_queue_check is called,
  * the task queue will be recreated with threading enabled.
@@ -530,7 +530,7 @@ bool task_is_on_main_thread(void);
 void task_queue_set_threaded(void);
 
 /**
- * Ensures that the task queue is not in threaded_ mode.
+ * Ensures that the task queue is not in wait_complete mode.
  *
  * Next time \c retro_task_queue_check is called,
  * the task queue will be recreated with threading disabled.
@@ -542,7 +542,7 @@ void task_queue_set_threaded(void);
 void task_queue_unset_threaded(void);
 
 /**
- * Returns whether the task queue is running in threaded_ mode.
+ * Returns whether the task queue is running in wait_complete mode.
  *
  * @return \c true if the task queue is running its tasks on a separate thread.
  */

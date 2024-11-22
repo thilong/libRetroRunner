@@ -85,6 +85,7 @@ Java_com_aidoo_retrorunner_RRNative_setVideoSurface(JNIEnv *env, jclass clazz, j
         app->SetVideoSurface(2, argv);
     }
 }
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_setVideoSurfaceSize(JNIEnv *env, jclass clazz, jint width, jint height) {
     auto app = AppContext::Current();
@@ -102,6 +103,7 @@ Java_com_aidoo_retrorunner_RRNative_setFastForward(JNIEnv *env, jclass clazz, jd
     LOGD_JNI("set fast forward speed to x%f", multiplier);
     environment->SetFastForwardSpeed(multiplier);
 }
+
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_aidoo_retrorunner_RRNative_updateButtonState(JNIEnv *env, jclass clazz, jint player, jint key, jboolean down) {
     auto app = AppContext::Current();
@@ -141,4 +143,19 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_getGameHeight(JNIEnv *env, jclass clazz) {
     DeclareEnvironment(0);
     return environment->GetGameHeight();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_aidoo_retrorunner_RRNative_takeScreenshot(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
+    auto app = AppContext::Current();
+    if (!app) return false;
+    JString pathVal(env, path);
+    std::shared_ptr<ThreadCommand<bool, std::string>> cmd = std::make_shared<ThreadCommand<bool, std::string>>(AppCommands::kTakeScreenshot, pathVal.stdString());
+    cmd->SetWaitComplete(wait_for_result);
+    std::shared_ptr<Command> baseCmd = cmd;
+    app->AddCommand(baseCmd);
+    cmd->Wait();
+    bool ret = wait_for_result ? cmd->GetResult() : true;
+    LOGD_JNI("take screenshot [wait: %d] to %s %s", wait_for_result, pathVal.cString(), ret ? "success" : "failed");
+    return ret;
 }

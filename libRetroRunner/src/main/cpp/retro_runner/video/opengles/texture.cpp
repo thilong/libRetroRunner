@@ -4,8 +4,8 @@
 #include "texture.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#include "../libretro-common/include/libretro.h"
-#include "../rr_log.h"
+#include <libretro-common/include/libretro.h>
+#include "../../types/log.h"
 
 #define LOGD_TB(...) LOGD("[VIDEO] " __VA_ARGS__)
 #define LOGW_TB(...) LOGW("[VIDEO] " __VA_ARGS__)

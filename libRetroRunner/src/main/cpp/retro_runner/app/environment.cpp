@@ -9,11 +9,12 @@
 #include "../types/retro_types.h"
 
 #include "setting.h"
-
+#include "../video/video_context.h"
 #include "app_context.h"
 #include "paths.h"
 
 #define POINTER_VAL(_TYPE_) (*((_TYPE_*)data))
+
 #define LOGD_Env(...) LOGD("[Environment] "  __VA_ARGS__)
 #define LOGW_Env(...) LOGW("[Environment] "  __VA_ARGS__)
 
@@ -25,7 +26,7 @@ namespace libRetroRunner {
     }
 
     Environment::Environment() {
-        pixelFormat = RETRO_PIXEL_FORMAT_UNKNOWN;
+        core_pixel_format_ = RETRO_PIXEL_FORMAT_UNKNOWN;
         renderUseHWAcceleration = false;
     }
 
@@ -175,6 +176,7 @@ namespace libRetroRunner {
             case RETRO_ENVIRONMENT_SET_MEMORY_MAPS: {
                 //TODO:通知前端核心所使用的内存空间
                 LOGD_Env("call RETRO_ENVIRONMENT_SET_MEMORY_MAPS -> [NO IMPL]");
+                const struct retro_memory_map *map = static_cast<const struct retro_memory_map *>(data);
                 return false;
             }
             case RETRO_ENVIRONMENT_SET_GEOMETRY: {
@@ -326,7 +328,7 @@ namespace libRetroRunner {
             case RETRO_ENVIRONMENT_GET_INPUT_MAX_USERS: {
                 //返回前端所支持的最大用户数
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_INPUT_MAX_USERS");
-                POINTER_VAL(unsigned) = Setting::Current()->MaxPlayerCount();
+                POINTER_VAL(unsigned) = Setting::Current()->GetMaxPlayerCount();
                 return true;
             }
             case RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK: {
@@ -438,8 +440,8 @@ namespace libRetroRunner {
 
     bool Environment::cmdSetPixelFormat(void *data) {
         auto format = static_cast<enum retro_pixel_format *>(data);
-        this->pixelFormat = *format;
-        LOGD_Env("call RETRO_ENVIRONMENT_SET_PIXEL_FORMAT -> game pixel format : %d", this->pixelFormat);
+        this->core_pixel_format_ = *format;
+        LOGD_Env("call RETRO_ENVIRONMENT_SET_PIXEL_FORMAT -> game pixel format : %d", this->core_pixel_format_);
         return true;
     }
 
@@ -534,6 +536,12 @@ namespace libRetroRunner {
         gameGeometryHeight = geometry->base_height;
         gameGeometryAspectRatio = geometry->aspect_ratio;
 
+        auto app = AppContext::Current();
+        if (app) {
+            auto video = app->GetVideo();
+            if (video)
+                video->SetGameGeometryChanged(true);
+        }
         return true;
     }
 
@@ -542,7 +550,7 @@ namespace libRetroRunner {
         //TODO: 用于返回当前的软件渲染帧缓冲区, 当使用软件渲染时，可用于性能调优
         auto callback = static_cast<struct retro_framebuffer *>(data);
         //callback->data = 0;  //frame buffer ptr
-        callback->format = (enum retro_pixel_format) pixelFormat;
+        callback->format = (enum retro_pixel_format) core_pixel_format_;
         return false;
     }
 
@@ -587,7 +595,7 @@ namespace libRetroRunner {
         va_start(argv, fmt);
 
         switch (level) {
-#if CORE_DEUBG_LOG
+#if CORE_LOG_DEBUG
             case RETRO_LOG_DEBUG:
                 __android_log_vprint(ANDROID_LOG_DEBUG, LOG_TAG, fmt, argv);
                 break;
@@ -621,6 +629,16 @@ namespace libRetroRunner {
             return foundVariable->second.value;
         }
         return defaultValue;
+    }
+
+    void Environment::InvokeRenderContextDestroy() {
+        if (renderContextDestroy)
+            renderContextDestroy();
+    }
+
+    void Environment::InvokeRenderContextReset() {
+        if (renderContextReset)
+            renderContextReset();
     }
 
 }

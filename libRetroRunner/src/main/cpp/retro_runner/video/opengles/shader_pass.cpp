@@ -3,10 +3,11 @@
 //
 
 #include <android/bitmap.h>
+#include <libretro-common/include/libretro.h>
 #include "shader_pass.h"
 #include "shaders.h"
-#include "../rr_log.h"
-#include "../libretro-common/include/libretro.h"
+#include "../../types/log.h"
+
 
 #define LOGD_SP(...) LOGD("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
 #define LOGW_SP(...) LOGW("[VIDEO]:[SHADERPASS] " __VA_ARGS__)

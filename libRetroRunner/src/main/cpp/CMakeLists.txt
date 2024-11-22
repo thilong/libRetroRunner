@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.4.1)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
 
-add_definitions("-DVFS_FRONTEND -DHAVE_STRL -DANDROID")
+add_definitions("-DVFS_FRONTEND -DHAVE_STRL")
 
 set(OBOE_DIR oboe)
 add_subdirectory(${OBOE_DIR} oboe)
@@ -33,6 +33,14 @@ add_library(RetroRunner SHARED
         retro_runner/app/paths.cpp
         retro_runner/app/app_context.cpp
         retro_runner/app/environment.cpp
+
+
+        retro_runner/video/video_context.cpp
+        retro_runner/video/opengles/video_context_gles.cpp
+        retro_runner/video/opengles/texture.cpp
+        retro_runner/video/opengles/shader_pass.cpp
+        retro_runner/video/opengles/frame_buffer_object.cpp
+
 
         retro_runner/utils/jnistring.cpp
         retro_runner/utils/utils.cpp

@@ -14,6 +14,7 @@
 namespace libRetroRunner {
 
     class Environment {
+        friend class AppContext;
 
     public:
         Environment();
@@ -72,6 +73,18 @@ namespace libRetroRunner {
 
         inline unsigned int GetGameHeight() { return gameGeometryHeight; }
 
+        inline bool GetRenderUseHWAcceleration() { return renderUseHWAcceleration; }
+
+        inline bool GetRenderUseDepth() { return renderUseDepth; }
+
+        inline bool GetRenderUseStencil() { return renderUseStencil; }
+
+        inline int GetCorePixelFormat() { return core_pixel_format_; }
+
+        void InvokeRenderContextDestroy();
+
+        void InvokeRenderContextReset();
+
     private:
         std::unordered_map<std::string, struct Variable> variables;
 
@@ -87,7 +100,7 @@ namespace libRetroRunner {
 
         bool coreSupportNoGame = true;
 
-        int pixelFormat = RETRO_PIXEL_FORMAT_XRGB8888;
+        int core_pixel_format_ = RETRO_PIXEL_FORMAT_XRGB8888;
 
         int renderContextType = -1;
         unsigned int renderMajorVersion = 0;
@@ -96,7 +109,6 @@ namespace libRetroRunner {
         bool renderUseHWAcceleration = false;
         bool renderUseDepth = false;
         bool renderUseStencil = false;
-        bool renderUseLinear = false;
 
         retro_hw_context_reset_t renderContextReset = nullptr;
         retro_hw_context_reset_t renderContextDestroy = nullptr;

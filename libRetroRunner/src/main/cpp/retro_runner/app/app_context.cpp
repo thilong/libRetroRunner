@@ -14,6 +14,9 @@
 #include "environment.h"
 #include "app_context.h"
 #include "paths.h"
+#include "../utils/utils.h"
+#include "../video/video_context.h"
+#include "setting.h"
 
 #ifdef ANDROID
 
@@ -29,32 +32,40 @@
 /*-----RETRO CALLBACKS--------------------------------------------------------------*/
 namespace libRetroRunner {
     void libretro_callback_hw_video_refresh(const void *data, unsigned int width, unsigned int height, size_t pitch) {
-
+        auto appContext = AppContext::Current();
+        if (appContext) {
+            auto video = appContext->GetVideo();
+            if (video) video->OnNewFrame(data, width, height, pitch);
+        }
     }
 
     bool libretro_callback_set_environment(unsigned int cmd, void *data) {
-
+        auto appContext = AppContext::Current();
+        if (appContext) {
+            return appContext->GetEnvironment()->HandleCoreCallback(cmd, data);
+        }
         return false;
     }
 
     void libretro_callback_audio_sample(int16_t left, int16_t right) {
-
+        //TODO: 添加功能
     }
 
     size_t libretro_callback_audio_sample_batch(const int16_t *data, size_t frames) {
+        //TODO: 添加功能
         return frames;
     }
 
     void libretro_callback_input_poll(void) {
-
+        //TODO: 添加功能
     }
 
     int16_t libretro_callback_input_state(unsigned int port, unsigned int device, unsigned int index, unsigned int id) {
+        //TODO: 添加功能
         int16_t ret = 0;
         return ret;
     }
 }
-
 
 namespace libRetroRunner {
 
@@ -92,6 +103,7 @@ namespace libRetroRunner {
         }
     }
 
+
     std::shared_ptr<AppContext> &AppContext::Current() {
         return appInstance;
     }
@@ -120,7 +132,6 @@ namespace libRetroRunner {
                     //TODO: 这里需要做模拟一帧前的准备
                     //video->Prepare();
                     //counter.Reset();
-
                     core_->retro_run();
                 } else {
                     usleep(16000);
@@ -147,6 +158,10 @@ namespace libRetroRunner {
 
     const std::shared_ptr<class Paths> &AppContext::GetPaths() const {
         return paths_;
+    }
+
+    const std::shared_ptr<class VideoContext> &AppContext::GetVideo() const {
+        return video_;
     }
 
 }
@@ -187,13 +202,60 @@ namespace libRetroRunner {
         BIT_SET(state, AppState::kPathsReady);
     }
 
-
+    void AppContext::SetVideoSurface(int argc, void **argv) {
+        if (argc < 1) {
+            LOGE_APP("SetVideoSurface: invalid arguments");
+            return;
+        }
+        if (argv[1] == 0) {
+            BIT_DELETE(state, AppState::kVideoReady);
+            AddCommand(AppCommands::kUnloadVideo);
+            return;
+        }
+        std::string driver = Setting::Current()->GetVideoDriver();
+        video_ = VideoContext::Create(driver);
+        if (video_) {
+            video_->SetSurface(argc, argv);
+            AddCommand(AppCommands::kInitVideo);
+        }
+    }
 }
 
 /*-----App commands--------------------------------------------------------------*/
 namespace libRetroRunner {
     void AppContext::processCommand() {
-
+        std::shared_ptr<Command> command;
+        while (command = command_queue_->Pop(), command.get() != nullptr) {
+            int cmd = command->GetCommand();
+            LOGD_APP("process command: %d", cmd);
+            switch (cmd) {
+                case AppCommands::kLoadCore: {
+                    commandLoadCore();
+                    return;
+                }
+                case AppCommands::kLoadContent: {
+                    commandLoadContent();
+                    return;
+                }
+                case AppCommands::kInitVideo: {
+                    if (video_ && video_->Init()) {
+                        BIT_SET(state, AppState::kVideoReady);
+                    }
+                    return;
+                }
+                case AppCommands::kUnloadVideo: {
+                    if (video_) {
+                        video_->Destroy();
+                        video_ = nullptr;
+                    }
+                    LOGD_APP("video unloaded");
+                    BIT_DELETE(state, AppState::kVideoReady);
+                    return;
+                }
+                default:
+                    break;
+            }
+        }
     }
 
     void AppContext::AddCommand(std::shared_ptr<Command> &command) {
@@ -203,6 +265,78 @@ namespace libRetroRunner {
     void AppContext::AddCommand(int command) {
         std::shared_ptr<Command> cmd = std::make_shared<Command>(command);
         command_queue_->Push(cmd);
+    }
+
+    void AppContext::commandLoadCore() {
+        try {
+            std::string core_path = paths_->GetCorePath();
+            core_ = std::make_shared<Core>(core_path);
+
+            core_->retro_set_video_refresh(&libretro_callback_hw_video_refresh);
+            core_->retro_set_environment(&libretro_callback_set_environment);
+            core_->retro_set_audio_sample(&libretro_callback_audio_sample);
+            core_->retro_set_audio_sample_batch(&libretro_callback_audio_sample_batch);
+            core_->retro_set_input_poll(&libretro_callback_input_poll);
+            core_->retro_set_input_state(&libretro_callback_input_state);
+            core_->retro_init();
+            BIT_SET(state, AppState::kCoreReady);
+            LOGD_APP("core loaded");
+        } catch (std::exception &exception) {
+            core_ = nullptr;
+            LOGE_APP("load core failed");
+        }
+    }
+
+    void AppContext::commandLoadContent() {
+        if (BIT_TEST(state, AppState::kContentReady)) {
+            LOGW_APP("content already loaded, ignore.");
+            return;
+        }
+        if (!BIT_TEST(state, AppState::kCoreReady)) {
+            LOGE_APP("try to load content, but core is not ready yet!!!");
+            return;
+        }
+
+        std::string rom_path = paths_->GetRomPath();
+        struct retro_system_info system_info{};
+        core_->retro_get_system_info(&system_info);
+
+
+        struct retro_game_info game_info{};
+        game_info.path = rom_path.c_str();
+        game_info.meta = nullptr;
+
+        //TODO:这里需要加入zip解压支持的实现
+        if (system_info.need_fullpath) {
+            game_info.data = nullptr;
+            game_info.size = 0;
+        } else {
+            struct Utils::ReadResult file = Utils::readFileAsBytes(rom_path.c_str());
+            game_info.data = file.data;
+            game_info.size = file.size;
+        }
+
+        bool result = core_->retro_load_game(&game_info);
+        if (!result) {
+            LOGE_APP("Cannot load game. Leaving.");
+            throw std::runtime_error("Cannot load game");
+        }
+
+        //获取核心默认的尺寸
+        struct retro_system_av_info avInfo;
+        core_->retro_get_system_av_info(&avInfo);
+        environment_->gameGeometryWidth = avInfo.geometry.base_width;
+        environment_->gameGeometryHeight = avInfo.geometry.base_height;
+        environment_->gameGeometryMaxWidth = avInfo.geometry.max_width;
+        environment_->gameGeometryMaxHeight = avInfo.geometry.max_height;
+        environment_->gameGeometryAspectRatio = avInfo.geometry.aspect_ratio;
+        environment_->gameSampleRate = avInfo.timing.sample_rate;                //如果声音采样率变化了，则Audio组件可能需要重新初始化
+        environment_->gameFps = avInfo.timing.fps;
+
+        BIT_SET(state, AppState::kContentReady);
+        LOGD_APP("content loaded");
+        AddCommand(AppCommands::kInitAudio);
+        AddCommand(AppCommands::kInitInput);
     }
 
 

@@ -29,6 +29,8 @@ namespace libRetroRunner {
 
         const std::shared_ptr<class Paths> &GetPaths() const;
 
+        const std::shared_ptr<class VideoContext> &GetVideo() const;
+
     public:
 
         /**
@@ -48,12 +50,19 @@ namespace libRetroRunner {
 
         void Stop();
 
+        void SetVideoSurface(int argc, void **argv);
+
         void AddCommand(int command);
+
         void AddCommand(std::shared_ptr<Command> &command);
 
     private:
 
         void processCommand();
+
+        void commandLoadCore();
+
+        void commandLoadContent();
 
     private:
         /* current app state */
@@ -68,6 +77,7 @@ namespace libRetroRunner {
         /* Component: Command Queue */
         std::unique_ptr<CommandQueue> command_queue_;
         std::shared_ptr<class Environment> environment_;
+        std::shared_ptr<class VideoContext> video_;
     };
 
 }

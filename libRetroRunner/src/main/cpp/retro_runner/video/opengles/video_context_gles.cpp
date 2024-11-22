@@ -12,11 +12,11 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
-#include "video_gl.h"
-#include "../rr_log.h"
-#include "../app.h"
-#include "../environment.h"
-
+#include "video_context_gles.h"
+#include "../../types/log.h"
+#include "../../app/app_context.h"
+#include "../../app/environment.h"
+#include "../../app/setting.h"
 
 #define LOGD_GLVIDEO(...) LOGD("[VIDEO] " __VA_ARGS__)
 #define LOGW_GLVIDEO(...) LOGW("[VIDEO] " __VA_ARGS__)
@@ -68,25 +68,32 @@ namespace libRetroRunner {
 
 namespace libRetroRunner {
 
-    GLVideoContext::GLVideoContext() : VideoContext() {
-
+    GLESVideoContext::GLESVideoContext() : VideoContext() {
+        game_geometry_changed_ = true;
         is_ready = false;
         eglContext = nullptr;
         eglDisplay = nullptr;
         eglSurface = nullptr;
-        frame_count = 0;
+        is_hardware_accelerated = false;
         screen_height = 0;
         screen_height = 0;
+        eglDisplay = EGL_NO_DISPLAY;
+        eglSurface = EGL_NO_SURFACE;
+        eglContext = EGL_NO_CONTEXT;
     }
 
-    GLVideoContext::~GLVideoContext() {
+    GLESVideoContext::~GLESVideoContext() {
         Destroy();
     }
 
-    void GLVideoContext::Init() {
+    bool GLESVideoContext::Init() {
+        if (eglDisplay == EGL_NO_DISPLAY || eglSurface == EGL_NO_SURFACE || eglContext == EGL_NO_CONTEXT) {
+            LOGE("eglDisplay is not initialized.");
+            return false;
+        }
         if (eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext) != EGL_TRUE) {
             LOGE("eglMakeCurrent failed.");
-            return;
+            return false;
         }
 
 #if defined(HAVE_GLES3) && (ENABLE_GL_DEBUG)
@@ -95,16 +102,23 @@ namespace libRetroRunner {
         createPassChain();
         auto appContext = AppContext::Current();
         auto env = appContext->GetEnvironment();
-        if (env->renderUseHWAcceleration) {
-            env->renderContextReset();  //这里，DC游戏调用后导致无法显示。APP暂时没有调用core->run, 正在调试中
+        core_pixel_format_ = env->GetCorePixelFormat();
+        is_hardware_accelerated = env->GetRenderUseHWAcceleration();
+
+        if (env->GetRenderUseHWAcceleration()) {
+            env->InvokeRenderContextReset();
         }
         is_ready = true;
+        LOGD_GLVIDEO("GLESVideoContext initialized.");
+        return true;
     }
 
-    void GLVideoContext::Destroy() {
-        if (gameTexture) {
-            gameTexture->Destroy();
-            gameTexture = nullptr;
+    void GLESVideoContext::Destroy() {
+        is_ready = false;
+
+        if (software_render_tex_) {
+            software_render_tex_->Destroy();
+            software_render_tex_ = nullptr;
         }
         //循环调用passes的Destroy
         for (auto &pass: passes) {
@@ -129,9 +143,9 @@ namespace libRetroRunner {
         }
     }
 
-    void GLVideoContext::SetHolder(void *envObj, void *surfaceObj) {
-        JNIEnv *env = (JNIEnv *) envObj;
-        jobject surface = (jobject) surfaceObj;
+    void GLESVideoContext::SetSurface(int argc, void **argv) {
+        JNIEnv *env = (JNIEnv *) argv[0];
+        jobject surface = (jobject) argv[1];
 
         ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
         EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -191,54 +205,64 @@ namespace libRetroRunner {
 
     }
 
-    void GLVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {
-        if (is_ready && data != nullptr) {
+    void GLESVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {
+        if (!is_ready) {
+            return;
+        }
+        /**
+         * when core use software renderer, data won't be null if the video data filled.
+         * when core use hardware renderer, data will be null for frame may not render complete.
+         *      or RETRO_HW_FRAME_BUFFER_VALID for frame render complete.
+         */
+        if (data != nullptr) {
             if (data != RETRO_HW_FRAME_BUFFER_VALID) {
                 auto appContext = AppContext::Current();
-                //如果没有使用硬件加速，则需要创建一个软件纹理
-                if (gameTexture == nullptr || gameTexture->GetWidth() != width || gameTexture->GetHeight() != height) {
-                    gameTexture = std::make_unique<GLTextureObject>();
-                    gameTexture->Create(width, height);
-                    GL_CHECK2("gameTexture->Create", "frame: %llu", frame_count);
+                /* we check the game texture size, create a texture buffer at  right size*/
+                if (software_render_tex_ == nullptr || software_render_tex_->GetWidth() != width || software_render_tex_->GetHeight() != height) {
+                    software_render_tex_ = std::make_unique<GLTextureObject>();
+                    software_render_tex_->Create(width, height);
                 }
-                //把核心渲染的数据写入到gameTexture上
-                gameTexture->WriteTextureData(data, width, height, appContext->GetEnvironment()->pixelFormat);
-
-                passes[0]->FillTexture(gameTexture->GetTexture());
+                //render the data to our game texture, then use it as a texture for the first pass.
+                software_render_tex_->WriteTextureData(data, width, height, core_pixel_format_);
+                passes[0]->FillTexture(software_render_tex_->GetTexture());
             }
             DrawFrame();
         }
-        frame_count++;
     }
 
-    void GLVideoContext::DrawFrame() {
+    void GLESVideoContext::DrawFrame() {
 
         if (screen_width == 0 || screen_height == 0) {
             LOGW_GLVIDEO("draw frame failed: screen_width or screen_height is 0.");
             return;
         }
         do {
-            //循环调用passes的DrawToScreen
+            /* we draw the passes in order, and fill the texture of the next pass with the texture of the previous pass.
+             * this is prepared for shader processing.
+             */
             std::vector<std::unique_ptr<GLShaderPass> >::iterator pass;
             GLShaderPass *prePass = nullptr;
-
             for (pass = passes.begin(); pass != passes.end(); pass++) {
                 if (prePass != nullptr) {
                     (*pass)->FillTexture(prePass->GetTexture());
                 }
                 prePass = pass->get();
             }
-            if (!dumpPath.empty()) {
-                passes.rbegin()->get()->DrawToFile(dumpPath);
-                dumpPath.clear();
+
+            //check if we need to dump the frame to file
+            if (!next_screenshot_store_path_.empty()) {
+                passes.rbegin()->get()->DrawToFile(next_screenshot_store_path_);
+                next_screenshot_store_path_.clear();
             }
 
+            //draw the last pass to screen
             if (!passes.empty())
                 passes.rbegin()->get()->DrawOnScreen(screen_width, screen_height);
 
             eglSwapBuffers(eglDisplay, eglSurface);
 
-            if (true) {  //只在硬件渲染下使用，用于每一帧的清理
+            //reset opengl es context for hardware acceleration
+            if (is_hardware_accelerated) {
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 glDisable(GL_DEPTH_TEST);
@@ -256,44 +280,48 @@ namespace libRetroRunner {
 
     }
 
-    void GLVideoContext::SetSurfaceSize(unsigned int width, unsigned int height) {
+    void GLESVideoContext::SetSurfaceSize(unsigned int width, unsigned int height) {
         screen_width = width;
         screen_height = height;
     }
 
-    unsigned int GLVideoContext::GetCurrentFramebuffer() {
+    unsigned int GLESVideoContext::GetCurrentFramebuffer() {
         if (passes.empty()) {
             return 0;
         }
         return passes[0]->GetFrameBuffer();
     }
 
-    void GLVideoContext::OnGameGeometryChanged() {
+    void GLESVideoContext::OnGameGeometryChanged() {
 
     }
 
-    void GLVideoContext::Prepare() {
-        auto env = AppContext::Current()->GetEnvironment();
-        if (env->gameGeometryChanged) {
-            createPassChain();
-            std::unique_ptr<GLShaderPass> *pass = &passes[0];
-            (*pass)->CreateFrameBuffer(env->gameGeometryWidth, env->gameGeometryHeight, env->renderUseLinear, env->renderUseDepth, env->renderUseStencil);
-            env->gameGeometryChanged = false;
+    void GLESVideoContext::Prepare() {
+
+        if (game_geometry_changed_) {
+            if (passes.empty()) {
+                createPassChain();
+            } else {
+                auto env = AppContext::Current()->GetEnvironment();
+                auto setting = Setting::Current();
+                std::unique_ptr<GLShaderPass> *pass = &passes[0];
+                (*pass)->CreateFrameBuffer(env->GetGameWidth(), env->GetGameHeight(), setting->GetVideoUseLinear(), env->GetRenderUseDepth(), env->GetRenderUseDepth());
+            }
+            game_geometry_changed_ = false;
         }
     }
 
-    void GLVideoContext::createPassChain() {
-        auto env = AppContext::Current()->GetEnvironment();
+    void GLESVideoContext::createPassChain() {
         if (passes.empty()) {
+            auto env = AppContext::Current()->GetEnvironment();
+            auto setting = Setting::Current();
+
             std::unique_ptr<GLShaderPass> pass = std::make_unique<GLShaderPass>(nullptr, nullptr);
-            pass->SetPixelFormat(env->pixelFormat);
-            pass->SetHardwareAccelerated(env->renderUseHWAcceleration);
-            pass->CreateFrameBuffer(env->gameGeometryWidth, env->gameGeometryHeight, env->renderUseLinear, env->renderUseDepth, env->renderUseStencil);
+            pass->SetPixelFormat(core_pixel_format_);
+            pass->SetHardwareAccelerated(is_hardware_accelerated);
+            pass->CreateFrameBuffer(env->GetGameWidth(), env->GetGameHeight(), setting->GetVideoUseLinear(), env->GetRenderUseDepth(), env->GetRenderUseDepth());
             passes.push_back(std::move(pass));
         }
     }
 
-    void GLVideoContext::Reinit() {
-
-    }
 }

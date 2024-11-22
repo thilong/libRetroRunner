@@ -21,7 +21,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
         RRNative.initEnv();
     }
 
-    private static final String TAG = "RRView";
+    private static final String TAG = "RetroRunner";
     private final RRParam params;
     private boolean runnerStarted = false;
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
@@ -65,32 +65,35 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     public void onDestroy() {
-        Log.w(TAG, "onDestroy");
+        Log.w(TAG, "[VIEW] onDestroy");
         RRNative.stop();
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        Log.d(TAG, "surfaceCreated");
-        RRNative.setVideoTarget(holder.getSurface());
+        Log.d(TAG, "[VIEW] surfaceCreated");
+        RRNative.setVideoSurface(holder.getSurface());
     }
 
     @Override
     public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
-        Log.d(TAG, "surfaceChanged " + width + "x" + height);
-        RRNative.setVideoTargetSize(width, height);
+        Log.d(TAG, "[VIEW] surfaceChanged " + width + "x" + height);
+        RRNative.setVideoSurfaceSize(width, height);
     }
 
     @Override
     public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
-        Log.w("retro_runner", "surfaceDestroyed");
-        RRNative.setVideoTarget(null);
+        Log.w(TAG, "[VIEW] surfaceDestroyed");
+        RRNative.setVideoSurface(null);
     }
 
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    }
 
+    protected void onMeasureRR(int widthMeasureSpec, int heightMeasureSpec) {
         int finalWidth = getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec);
         int finalHeight = getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec);
         //Log.w("RetroRunner", "onMeasure " + finalWidth + "x" + finalHeight);

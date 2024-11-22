@@ -3,6 +3,7 @@
 #include "types/log.h"
 #include "app/app_context.h"
 #include "app/environment.h"
+#include "video/video_context.h"
 
 #define LOGD_JNI(...) LOGD("[JNI] " __VA_ARGS__)
 #define LOGW_JNI(...) LOGW("[JNI] " __VA_ARGS__)
@@ -36,7 +37,7 @@ Java_com_aidoo_retrorunner_RRNative_create(JNIEnv *env, jclass clazz, jstring ro
     JString system(env, system_path);
     JString save(env, save_path);
     app->SetPaths(rom.stdString(), core.stdString(), system.stdString(), save.stdString());
-    LOGD_JNI("new app context created.");
+    LOGD_JNI("new app context created: \n\trom:\t%s \n\tcore:\t%s \n\tsystem:\t%s \n\tsave:\t%s", rom.cString(), core.cString(), system.cString(), save.cString());
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -46,8 +47,7 @@ Java_com_aidoo_retrorunner_RRNative_addVariable(JNIEnv *env, jclass clazz, jstri
     JString valueVal(env, key);
     environment->UpdateVariable(keyVal.stdString(), valueVal.stdString(), notify_core);
 }
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_start(JNIEnv *env, jclass clazz) {
     const std::shared_ptr<AppContext> &app = AppContext::Current();
     if (app.get() != nullptr) app->Start();
@@ -71,4 +71,22 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_stop(JNIEnv *env, jclass clazz) {
     // TODO: implement stop()
+}
+extern "C" JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_setVideoSurface(JNIEnv *env, jclass clazz, jobject surface) {
+    auto app = AppContext::Current();
+    if (app) {
+        void *argv[] = {env, surface};
+        app->SetVideoSurface(2, argv);
+    }
+}
+extern "C" JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_setVideoSurfaceSize(JNIEnv *env, jclass clazz, jint width, jint height) {
+    auto app = AppContext::Current();
+    if (app) {
+        auto video = app->GetVideo();
+        if (video) {
+            video->SetSurfaceSize(width, height);
+        }
+    }
 }

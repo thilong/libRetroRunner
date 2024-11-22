@@ -4,7 +4,7 @@ import android.view.Surface;
 
 public class RRNative {
     static {
-        System.loadLibrary("retro_runner");
+        System.loadLibrary("RetroRunner");
     }
 
     private static RRNative instance;
@@ -52,16 +52,16 @@ public class RRNative {
     /*stop emu, can't resume anymore*/
     public static native void stop();
 
+    /*set the video surface for drawing*/
+    public static native void setVideoSurface(Surface surface);
+
+    /*update the video surface size*/
+    public static native void setVideoSurfaceSize(int width, int height);
+
+
+
     /*设置快进或者慢进， 0.1 - 3.0*/
     public static native void setFastForward(double multiplier);
-
-
-    /*设置模拟的输出显示目标*/
-    public static native void setVideoTarget(Surface surface);
-
-    /*更新显示输出的尺寸*/
-    public static native void setVideoTargetSize(int width, int height);
-
 
     /*玩家按钮输入*/
     public static native boolean updateButtonState(int player, int key, boolean down);

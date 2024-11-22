@@ -3,21 +3,26 @@
 //
 #include "video_context.h"
 #include <memory>
+#include "opengles/video_context_gles.h"
+#include "../types/log.h"
 
-#include "video/video_gl.h"
-#include "rr_log.h"
 namespace libRetroRunner {
 
-    VideoContext::VideoContext() {};
+    VideoContext::VideoContext() {}
 
-    VideoContext::~VideoContext() {};
+    VideoContext::~VideoContext() {}
 
-    std::unique_ptr<VideoContext> VideoContext::NewInstance() {
-        return std::make_unique<GLVideoContext>();
+
+    void VideoContext::SetNextScreenshotStorePath(std::string &path) {
+        next_screenshot_store_path_ = path;
     }
 
-    void VideoContext::SetTakeScreenshot(std::string &path) {
-        dumpPath = path;
-        LOGW("set take screenshot path: %s", path.c_str());
+    std::shared_ptr<VideoContext> VideoContext::Create(std::string &driver) {
+        if (driver == "gl") {
+            LOGD("[VIDEO] Create OpenGL ES video context for driver 'gl'.");
+            return std::make_shared<GLESVideoContext>();
+        }
+        LOGW("[VIDEO] Unsupported video driver '%s'.", driver.c_str());
+        return nullptr;
     }
 }

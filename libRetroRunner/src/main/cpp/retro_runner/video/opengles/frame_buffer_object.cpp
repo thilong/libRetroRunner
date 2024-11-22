@@ -3,8 +3,8 @@
 //
 #include "frame_buffer_object.h"
 #include <GLES2/gl2.h>
-#include "../rr_log.h"
 #include <stdexcept>
+#include "../../types/log.h"
 
 #define LOGD_FBO(...) LOGD("[VIDEO] " __VA_ARGS__)
 #define LOGW_FBO(...) LOGW("[VIDEO] " __VA_ARGS__)

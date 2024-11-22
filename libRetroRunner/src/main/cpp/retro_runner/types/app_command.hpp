@@ -54,7 +54,7 @@ namespace libRetroRunner {
             id_ = time(nullptr) + random();
         }
 
-        ~Command() {}
+        virtual ~Command() {}
 
         /**
         * 发送信号，表示命令已经执行完毕，只在多线程中使用

@@ -17,6 +17,7 @@
 #include "../utils/utils.h"
 #include "../video/video_context.h"
 #include "setting.h"
+#include "../input/input_context.h"
 
 #ifdef ANDROID
 
@@ -164,6 +165,10 @@ namespace libRetroRunner {
         return video_;
     }
 
+    const std::shared_ptr<class InputContext> &AppContext::GetInput() const {
+        return input_;
+    }
+
 }
 
 /*-----Emulator control--------------------------------------------------------------*/
@@ -219,6 +224,11 @@ namespace libRetroRunner {
             AddCommand(AppCommands::kInitVideo);
         }
     }
+
+    void AppContext::SetController(unsigned int port, int retro_device) {
+        core_->retro_set_controller_port_device(port, retro_device);
+    }
+
 }
 
 /*-----App commands--------------------------------------------------------------*/
@@ -244,12 +254,19 @@ namespace libRetroRunner {
                     return;
                 }
                 case AppCommands::kUnloadVideo: {
+                    if (environment_->GetRenderUseHWAcceleration())
+                        environment_->InvokeRenderContextDestroy();
                     if (video_) {
                         video_->Destroy();
                         video_ = nullptr;
                     }
                     LOGD_APP("video unloaded");
                     BIT_DELETE(state, AppState::kVideoReady);
+                    return;
+                }
+                case AppCommands::kInitInput: {
+                    input_ = InputContext::Create(Setting::Current()->GetInputDriver());
+                    input_->Init();
                     return;
                 }
                 default:
@@ -338,6 +355,7 @@ namespace libRetroRunner {
         AddCommand(AppCommands::kInitAudio);
         AddCommand(AppCommands::kInitInput);
     }
+
 
 
 }

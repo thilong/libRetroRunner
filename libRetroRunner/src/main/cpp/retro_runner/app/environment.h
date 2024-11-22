@@ -81,6 +81,8 @@ namespace libRetroRunner {
 
         inline int GetCorePixelFormat() { return core_pixel_format_; }
 
+        inline std::map<int, std::string> &GetSupportControllers() { return supportControllers; }
+
         void InvokeRenderContextDestroy();
 
         void InvokeRenderContextReset();
@@ -118,7 +120,6 @@ namespace libRetroRunner {
         unsigned int gameGeometryHeight = 0;
         unsigned int gameGeometryWidth = 0;
         float gameGeometryAspectRatio;
-        bool gameGeometryChanged = false;
 
         double gameFps;
         double gameSampleRate;

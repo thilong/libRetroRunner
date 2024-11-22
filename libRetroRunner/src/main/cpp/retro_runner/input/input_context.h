@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <memory>
+#include <string>
 
 #define MAX_PLAYER 4
 
@@ -19,7 +20,7 @@ namespace libRetroRunner {
 
         virtual void Init() = 0;
 
-        virtual void UpdateAxis(unsigned int port, unsigned int id, float value) = 0;
+        virtual void UpdateAxis(unsigned int port, unsigned int analog, unsigned int key, float value) = 0;
 
         virtual bool UpdateButton(unsigned int port, unsigned int button, bool pressed) = 0;
 
@@ -29,8 +30,7 @@ namespace libRetroRunner {
 
         virtual void Destroy() = 0;
 
-    public:
-        static std::unique_ptr<InputContext> NewInstance();
+        static std::shared_ptr<InputContext> Create(std::string &driver);
     };
 }
 #endif

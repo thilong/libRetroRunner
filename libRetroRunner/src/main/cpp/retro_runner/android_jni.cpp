@@ -4,6 +4,7 @@
 #include "app/app_context.h"
 #include "app/environment.h"
 #include "video/video_context.h"
+#include "input/input_context.h"
 
 #define LOGD_JNI(...) LOGD("[JNI] " __VA_ARGS__)
 #define LOGW_JNI(...) LOGW("[JNI] " __VA_ARGS__)
@@ -89,4 +90,50 @@ Java_com_aidoo_retrorunner_RRNative_setVideoSurfaceSize(JNIEnv *env, jclass claz
             video->SetSurfaceSize(width, height);
         }
     }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_setFastForward(JNIEnv *env, jclass clazz, jdouble multiplier) {
+    DeclareEnvironment();
+    environment->SetFastForwardSpeed(multiplier);
+}
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_aidoo_retrorunner_RRNative_updateButtonState(JNIEnv *env, jclass clazz, jint player, jint key, jboolean down) {
+    auto app = AppContext::Current();
+    if (app) {
+        auto input = app->GetInput();
+        if (input) {
+            return input->UpdateButton(player, key, down);
+        }
+    }
+    return false;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_updateAxisState(JNIEnv *env, jclass clazz, jint player, jint analog, jint axis_button, jfloat value) {
+    auto app = AppContext::Current();
+    if (app) {
+        auto input = app->GetInput();
+        if (input) {
+            input->UpdateAxis(player, analog, axis_button, value);
+        }
+    }
+}
+
+extern "C" JNIEXPORT jdouble JNICALL
+Java_com_aidoo_retrorunner_RRNative_getAspectRatio(JNIEnv *env, jclass clazz) {
+    DeclareEnvironment(0);
+    return environment->GetAspectRatio();
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_getGameWidth(JNIEnv *env, jclass clazz) {
+    DeclareEnvironment(0);
+    return environment->GetGameWidth();
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_getGameHeight(JNIEnv *env, jclass clazz) {
+    DeclareEnvironment(0);
+    return environment->GetGameHeight();
 }

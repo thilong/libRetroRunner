@@ -446,7 +446,7 @@ namespace libRetroRunner {
     }
 
     bool Environment::cmdSetHardwareRender(void *data) {
-        //TODO: 这里需要实现硬件渲染回调
+
         if (data == nullptr) return false;
         auto hwRender = static_cast<struct retro_hw_render_callback *>(data);
         renderMajorVersion = hwRender->version_major;
@@ -530,17 +530,19 @@ namespace libRetroRunner {
 
     bool Environment::cmdSetGeometry(void *data) {
         auto geometry = static_cast<struct retro_game_geometry *>(data);
-        gameGeometryChanged = (geometry->base_height != gameGeometryHeight || geometry->base_width != gameGeometryWidth);
+        bool gameGeometryChanged = (geometry->base_height != gameGeometryHeight || geometry->base_width != gameGeometryWidth);
 
         gameGeometryWidth = geometry->base_width;
         gameGeometryHeight = geometry->base_height;
         gameGeometryAspectRatio = geometry->aspect_ratio;
 
-        auto app = AppContext::Current();
-        if (app) {
-            auto video = app->GetVideo();
-            if (video)
-                video->SetGameGeometryChanged(true);
+        if (gameGeometryChanged) {
+            auto app = AppContext::Current();
+            if (app) {
+                auto video = app->GetVideo();
+                if (video)
+                    video->SetGameGeometryChanged(true);
+            }
         }
         return true;
     }
@@ -568,21 +570,20 @@ namespace libRetroRunner {
         }
     }
 
-
 }
 
 //核心回调函数
 namespace libRetroRunner {
     uintptr_t Environment::CoreCallbackGetCurrentFrameBuffer() {
         uintptr_t ret = 0;
-        /*
+
         auto appContext = AppContext::Current();
         if (appContext) {
             auto video = appContext->GetVideo();
             if (video) {
                 ret = (uintptr_t) video->GetCurrentFramebuffer();
             }
-        }*/
+        }
         return ret;
     }
 

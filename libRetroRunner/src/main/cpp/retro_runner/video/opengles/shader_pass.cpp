@@ -14,9 +14,13 @@
 #define LOGE_SP(...) LOGE("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
 #define LOGI_SP(...) LOGI("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
 namespace libRetroRunner {
+#ifdef ANDROID
     extern "C" JavaVM *gVm;
 
-    void android_createBitmap(JNIEnv *env, GLubyte *flippedPixels, int width, int height, const std::string &path) {
+    void savePixelsToFile(GLubyte *flippedPixels, int width, int height, const std::string &path) {
+        JNIEnv *env = nullptr;
+        gVm->AttachCurrentThread(&env, nullptr);
+
         // 3. 创建 Bitmap 对象
         jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
 
@@ -78,7 +82,13 @@ namespace libRetroRunner {
         env->DeleteLocalRef(fileObj);
         env->DeleteLocalRef(compressFormatClass);
         env->DeleteLocalRef(bitmapClass2);
+        gVm->DetachCurrentThread();
     }
+
+#else
+    void savePixelsToFile(GLubyte *flippedPixels, int width, int height, const std::string &path){
+    }
+#endif
 }
 
 //静态变量与公共方法
@@ -269,7 +279,8 @@ namespace libRetroRunner {
 
         glUseProgram(programId);
 
-
+        // toScreenVertexBuffer 翻转了的
+        // toFramebufferVertexBuffer 没有翻转
         glBindBuffer(GL_ARRAY_BUFFER, (renderToScreen && !hardwareAccelerated) ? toScreenVertexBuffer : toFramebufferVertexBuffer);
 
         //set position
@@ -336,9 +347,8 @@ namespace libRetroRunner {
                 }
             }
         }
-        JNIEnv *env = nullptr;
-        gVm->AttachCurrentThread(&env, nullptr);
-        android_createBitmap(env, flippedPixels, width, height, path);
+
+        savePixelsToFile(flippedPixels, width, height, path);
         free(pixels);
         free(flippedPixels);
         glBindBuffer(GL_ARRAY_BUFFER, 0);

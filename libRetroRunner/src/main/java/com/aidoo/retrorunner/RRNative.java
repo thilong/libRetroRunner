@@ -31,9 +31,9 @@ public class RRNative {
     /**
      * add variable to core
      *
-     * @param key       variable key
-     * @param value     variable value
-     * @param notifyCore    if true, notify core to update the variable
+     * @param key        variable key
+     * @param value      variable value
+     * @param notifyCore if true, notify core to update the variable
      */
     public static native void addVariable(String key, String value, boolean notifyCore);
 
@@ -58,21 +58,45 @@ public class RRNative {
     /*update the video surface size*/
     public static native void setVideoSurfaceSize(int width, int height);
 
-
-
-    /*设置快进或者慢进， 0.1 - 3.0*/
+    /*set emu speed multiplier， > 0.1, 1.0 = 60fps */
     public static native void setFastForward(double multiplier);
 
-    /*玩家按钮输入*/
+    /**
+     * update button state
+     *
+     * @param player player port
+     * @param key    button key
+     * @param down   true: down, false: up
+     * @return
+     */
     public static native boolean updateButtonState(int player, int key, boolean down);
 
-    /*玩家摇杆输入*/
-    public static native void updateAxisState(int player, int axis, float value);
+    /**
+     * update axis state
+     *
+     * @param player     player port
+     * @param analog     analog index [0-3]
+     * @param axisButton axis button[ x: 0, y: 1]
+     * @param value      axis value, [-1, 1]
+     */
+    public static native void updateAxisState(int player, int analog, int axisButton, float value);
 
+    /**
+     * get the aspect ratio of the game
+     * @return aspect ratio
+     */
     public static native double getAspectRatio();
 
+    /**
+     * get the game width
+     * @return game width
+     */
     public static native int getGameWidth();
 
+    /**
+     * get the game height
+     * @return game height
+     */
     public static native int getGameHeight();
 
     public static native void takeScreenshot(String path);

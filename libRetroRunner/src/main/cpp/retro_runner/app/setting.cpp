@@ -11,6 +11,7 @@ namespace libRetroRunner {
 #ifdef ANDROID
         video_driver_ = "gl";
 #endif
+        input_driver_ = "software";
     }
 
     Setting::~Setting() {

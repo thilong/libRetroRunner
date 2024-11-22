@@ -2,7 +2,10 @@
 // Created by aidoo on 2024/11/6.
 //
 #include "input_context.h"
-#include "input/software_input.h"
+#include "software_input.h"
+#include "empty_input.h"
+
+#include "../types/log.h"
 
 namespace libRetroRunner {
 
@@ -14,8 +17,14 @@ namespace libRetroRunner {
 
     }
 
-    std::unique_ptr<InputContext> InputContext::NewInstance() {
-        return std::make_unique<SoftwareInput>();
+    std::shared_ptr<InputContext> InputContext::Create(std::string &driver) {
+        if (driver == "software") {
+            LOGD("[INPUT] Create input context for driver 'software'.");
+            return std::make_shared<SoftwareInput>();
+        }
+        LOGW("[INPUT] Unsupported input driver '%s', empty input context will be used.", driver.c_str());
+        return std::make_shared<EmptyInput>();
     }
+
 
 }

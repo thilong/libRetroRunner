@@ -99,17 +99,18 @@ namespace libRetroRunner {
 #if defined(HAVE_GLES3) && (ENABLE_GL_DEBUG)
         initializeGLESLogCallbackIfNeeded();
 #endif
-        createPassChain();
+
         auto appContext = AppContext::Current();
         auto env = appContext->GetEnvironment();
         core_pixel_format_ = env->GetCorePixelFormat();
         is_hardware_accelerated = env->GetRenderUseHWAcceleration();
 
+        createPassChain();
         if (env->GetRenderUseHWAcceleration()) {
             env->InvokeRenderContextReset();
         }
         is_ready = true;
-        LOGD_GLVIDEO("GLESVideoContext initialized.");
+        LOGD_GLVIDEO("GLESVideoContext initialized, hardware accelerated: %d.", is_hardware_accelerated);
         return true;
     }
 
@@ -297,7 +298,6 @@ namespace libRetroRunner {
     }
 
     void GLESVideoContext::Prepare() {
-
         if (game_geometry_changed_) {
             if (passes.empty()) {
                 createPassChain();

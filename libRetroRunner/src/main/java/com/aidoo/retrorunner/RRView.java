@@ -90,10 +90,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-    }
 
-    protected void onMeasureRR(int widthMeasureSpec, int heightMeasureSpec) {
         int finalWidth = getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec);
         int finalHeight = getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec);
         //Log.w("RetroRunner", "onMeasure " + finalWidth + "x" + finalHeight);

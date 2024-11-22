@@ -31,6 +31,7 @@ namespace libRetroRunner {
 
         const std::shared_ptr<class VideoContext> &GetVideo() const;
 
+        const std::shared_ptr<class InputContext> &GetInput() const;
     public:
 
         /**
@@ -56,6 +57,9 @@ namespace libRetroRunner {
 
         void AddCommand(std::shared_ptr<Command> &command);
 
+    public:
+        void SetController(unsigned port, int retro_device);
+
     private:
 
         void processCommand();
@@ -78,6 +82,7 @@ namespace libRetroRunner {
         std::unique_ptr<CommandQueue> command_queue_;
         std::shared_ptr<class Environment> environment_;
         std::shared_ptr<class VideoContext> video_;
+        std::shared_ptr<class InputContext> input_;
     };
 
 }

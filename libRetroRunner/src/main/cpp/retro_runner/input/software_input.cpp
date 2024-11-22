@@ -3,10 +3,13 @@
 //
 #include "software_input.h"
 #include <android/input.h>
-#include "../libretro-common/include/libretro.h"
-#include "../rr_log.h"
-#include "../environment.h"
-#include "../app.h"
+#include <libretro-common/include/libretro.h>
+#include "../types/log.h"
+
+#include "../app/environment.h"
+#include "../app/app_context.h"
+
+#define LOGD_SInput(...) LOGD("[INPUT] "  __VA_ARGS__)
 
 namespace libRetroRunner {
 
@@ -91,23 +94,28 @@ namespace libRetroRunner {
 
         _initDefaultButtonMap((int16_t *) button_map, (bool *) have_button_map);
 
-        AppContext *app = AppContext::Current();
-        Environment *environment = app->GetEnvironment();
+        auto app = AppContext::Current();
+        auto environment = app->GetEnvironment();
         int device = RETRO_DEVICE_JOYPAD;
-        if (environment->supportControllers.find(RETRO_DEVICE_ANALOG) != environment->supportControllers.end()) {
+        std::map<int, std::string> supportControllers = environment->GetSupportControllers();
+
+        if (supportControllers.find(RETRO_DEVICE_ANALOG) != supportControllers.end()) {
             device = RETRO_DEVICE_ANALOG;
         }
         for (int i = 0; i < MAX_PLAYER; ++i) {
             app->SetController(i, device);
+            LOGD_SInput("SetController: [%d -> %d]", i, device);
         }
+        LOGD_SInput("SoftwareInput initialized");
     }
 
     int16_t SoftwareInput::State(unsigned int port, unsigned int device, unsigned int index, unsigned int id) {
         /**
-         * port: 玩家index
+         * port: player port
          * device: 设备类型
          * index: 设备索引, 比如多个摇杆0-3
          * id: 按键索引, eg:RETRO_DEVICE_ID_JOYPAD_A
+         * @see libretro.h:381
          */
         switch (device) {
             case RETRO_DEVICE_JOYPAD:
@@ -126,17 +134,14 @@ namespace libRetroRunner {
                 return buttons[port][id];
                 break;
             case RETRO_DEVICE_ANALOG: {
-                unsigned id_minus = 0;
-                unsigned id_plus = 0;
-                unsigned buttonMinusIdx = (index * 4) + id * 2;
-                unsigned buttonPlusIdx = (index * 4) + id * 2 + 1;
                 int16_t ret = 0;
-                if (axis[port][buttonPlusIdx] != 0) {
-                    ret = 0x7fff;
-                }
-                if (axis[port][buttonMinusIdx] != 0) {
-                    ret += (-0x7fff);
-                }
+                if (index > 3 || id > 1) return ret;
+                /* index: 0-3 analog
+                 * id: analog key id: RETRO_DEVICE_ID_ANALOG_X 0, RETRO_DEVICE_ID_ANALOG_Y 1
+                 */
+                int retro_device_id = (index * 2) + id;
+                float value = axis[port][retro_device_id];
+                ret = 0x7fff * value;
                 return ret;
             }
             case RETRO_DEVICE_MOUSE:
@@ -158,8 +163,11 @@ namespace libRetroRunner {
         memset(axis, 0, sizeof(axis));
     }
 
-    void SoftwareInput::UpdateAxis(unsigned int port, unsigned int id, float value) {
-
+    void SoftwareInput::UpdateAxis(unsigned int port, unsigned int analog, unsigned int key, float value) {
+        if (analog > 3 || key > 1) return;
+        if (value > 1.0 || value < -1.0) return;
+        int retro_device_id = (analog * 2) + key;
+        axis[port][retro_device_id] = value;
     }
 
     bool SoftwareInput::UpdateButton(unsigned int port, unsigned int button, bool pressed) {

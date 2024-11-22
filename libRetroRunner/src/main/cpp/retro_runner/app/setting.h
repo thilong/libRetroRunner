@@ -28,19 +28,25 @@ namespace libRetroRunner {
             return max_player_count_;
         }
 
-        inline std::string& GetVideoDriver() {
+        inline std::string &GetVideoDriver() {
             return video_driver_;
+        }
+
+        inline std::string &GetInputDriver() {
+            return input_driver_;
         }
 
         /**
          * if use linear in video output.
          * @return linear
          */
-        inline bool GetVideoUseLinear(){
+        inline bool GetVideoUseLinear() {
             return video_linear;
         }
+
     private:
         std::string video_driver_;
+        std::string input_driver_;
         bool low_latency_ = true;
         int max_player_count_ = 4;
         bool video_linear = true;

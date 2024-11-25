@@ -44,6 +44,10 @@ namespace libRetroRunner {
             return save_path_;
         }
 
+        std::string GetSaveRamPath();
+        std::string GetSaveStatePath(int idx);
+        std::string GetScreenshotPathForSaveState(int idx);
+
     private:
         /* rom name, without extension */
         std::string rom_name_;

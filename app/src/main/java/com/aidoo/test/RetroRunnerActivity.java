@@ -105,19 +105,19 @@ public class RetroRunnerActivity extends AppCompatActivity {
     }
 
     void onTestLoadState() {
-        retroRunnerView.loadStateAsync(0, arg -> Toast.makeText(RetroRunnerActivity.this, "load state [0]: " + arg, Toast.LENGTH_SHORT).show());
+        retroRunnerView.loadStateAsync(0, null);
     }
 
     void onTestSaveState() {
-        retroRunnerView.saveStateAsync(0, arg -> Toast.makeText(RetroRunnerActivity.this, "save state [0]: " + arg, Toast.LENGTH_SHORT).show());
+        retroRunnerView.saveStateAsync(0, null);
     }
 
     void onTestSaveSRAM() {
-        retroRunnerView.saveRamAsync(arg -> Toast.makeText(RetroRunnerActivity.this, "save ram: " + arg, Toast.LENGTH_SHORT).show());
+        retroRunnerView.saveRamAsync(null);
     }
 
     void onTestLoadSRAM() {
-        retroRunnerView.loadRamAsync(arg -> Toast.makeText(RetroRunnerActivity.this, "load ram: " + arg, Toast.LENGTH_SHORT).show());
+        retroRunnerView.loadRamAsync(null);
     }
 
     void onTestLayout(View layout) {

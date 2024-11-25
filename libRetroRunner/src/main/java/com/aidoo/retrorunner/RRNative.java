@@ -121,7 +121,7 @@ public class RRNative {
      * @param waitForResult if true, wait for the screen shot to be saved
      * @return if 'waitForResult' is ture, return value means screenshot is is taken or not, otherwise it means command is added or not.
      */
-    public static native boolean takeScreenshot(String path, boolean waitForResult);
+    public static native int takeScreenshot(String path, boolean waitForResult);
 
     /**
      * save the game ram to file,
@@ -129,7 +129,7 @@ public class RRNative {
      * @param path the path to save the ram, if path is empty, save to default path {game path}.ram
      * @return 0: success , other: failed error code
      */
-    public static native int saveRam(String path);
+    public static native int saveRam(String path, boolean waitForResult);
 
     /**
      * load the game ram from file
@@ -137,7 +137,7 @@ public class RRNative {
      * @param path the path to load the ram, if path is empty, load from default path {game path}.ram
      * @return 0: success , other: failed error code
      */
-    public static native int loadRam(String path);
+    public static native int loadRam(String path, boolean waitForResult);
 
     /**
      * save game state
@@ -145,7 +145,9 @@ public class RRNative {
      * @param idx slot of the state, 1-100 are user defined, 0 is auto save
      * @return 0: success , other: failed error code
      */
-    public static native int saveState(int idx);
+    public static native int saveState(int idx, boolean waitForResult);
+
+    public static native int saveStateWithPath(String path, boolean waitForResult);
 
     /**
      * load game state
@@ -153,5 +155,7 @@ public class RRNative {
      * @param idx slot of the state, 1-100 are user defined, 0 is auto save
      * @return 0: success , other: failed error code
      */
-    public static native int loadState(int idx);
+    public static native int loadState(int idx, boolean waitForResult);
+
+    public static native int loadStateWithPath(String path, boolean waitForResult);
 }

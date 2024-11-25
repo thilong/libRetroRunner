@@ -188,7 +188,6 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
         return RRNative.addCheat(code, desc, enable);
     }
 
-
     public void setFastForward(double multiplier) {
         RRNative.setFastForward(multiplier);
     }
@@ -210,7 +209,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
     /*存档相关*/
     public void saveStateAsync(int idx, RRFuncs.Fn<Boolean> callback) {
         backgroundExecutor.execute(() -> {
-            int ret = RRNative.saveState(idx);
+            int ret = RRNative.saveState(idx, true);
             mainHandler.post(() -> {
                 if (callback != null) {
                     callback.invoke(ret == 0);
@@ -222,7 +221,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     public void loadStateAsync(int idx, RRFuncs.Fn<Boolean> callback) {
         backgroundExecutor.execute(() -> {
-            int ret = RRNative.loadState(idx);
+            int ret = RRNative.loadState(idx, true);
             mainHandler.post(() -> {
                 if (callback != null) {
                     callback.invoke(ret == 0);
@@ -234,7 +233,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     public void saveRamAsync(RRFuncs.Fn<Boolean> callback) {
         backgroundExecutor.execute(() -> {
-            int ret = RRNative.saveRam("");
+            int ret = RRNative.saveRam("", true);
             mainHandler.post(() -> {
                 if (callback != null) {
                     callback.invoke(ret == 0);
@@ -246,7 +245,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     public void loadRamAsync(RRFuncs.Fn<Boolean> callback) {
         backgroundExecutor.execute(() -> {
-            int ret = RRNative.loadRam("");
+            int ret = RRNative.loadRam("", true);
             mainHandler.post(() -> {
                 if (callback != null) {
                     callback.invoke(ret == 0);

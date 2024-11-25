@@ -7,7 +7,12 @@
 
 enum RRError {
     kSuccess = 0,
-    kAppNotRunning = -1
+    kFailed = -1000,
+    kAppNotRunning,
+    kEmptyMemory,
+    kEmptyFile,
+    kCannotReadMemory,
+    kCannotWriteData,
 };
 
 

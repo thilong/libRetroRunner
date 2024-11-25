@@ -41,3 +41,15 @@ void libRetroRunner::Paths::SetPaths(const std::string &rom, const std::string &
 
 }
 
+std::string libRetroRunner::Paths::GetSaveRamPath() {
+    return rom_path_ + ".srm";
+}
+
+std::string libRetroRunner::Paths::GetSaveStatePath(int idx) {
+    return rom_path_ + ".state" + std::to_string(idx);
+}
+
+std::string libRetroRunner::Paths::GetScreenshotPathForSaveState(int idx) {
+    return rom_path_ + ".state" + std::to_string(idx) + ".png";
+}
+

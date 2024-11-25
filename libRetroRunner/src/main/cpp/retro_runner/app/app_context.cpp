@@ -4,6 +4,8 @@
 
 #include <pthread.h>
 #include <unistd.h>
+#include <assert.h>
+
 #include <libretro-common/include/libretro.h>
 
 #include "../types/log.h"
@@ -19,6 +21,7 @@
 #include "setting.h"
 #include "../input/input_context.h"
 #include "../audio/audio_context.h"
+#include "../types/error.h"
 
 #ifdef ANDROID
 
@@ -126,6 +129,7 @@ namespace libRetroRunner {
     }
 
     void AppContext::ThreadLoop() {
+        emu_thread_id_ = gettid();
         BIT_SET(state, AppState::kRunning);
         try {
             while (BIT_TEST(state, AppState::kRunning)) {
@@ -263,6 +267,26 @@ namespace libRetroRunner {
 
 /*-----App commands--------------------------------------------------------------*/
 namespace libRetroRunner {
+    int AppContext::sendCommandWithPath(std::string path, int command, bool wait_for_result) {
+        if (wait_for_result && (emu_thread_id_ == getpid())) {
+            throw std::runtime_error("Can't add a command with waiting for result in the emu thread");
+        }
+        if (wait_for_result) {
+            std::shared_ptr<ThreadCommand<int, std::string>> cmd = std::make_shared<ThreadCommand<int, std::string>>(command, path);
+            std::shared_ptr<Command> baseCmd = cmd;
+            this->AddCommand(baseCmd);
+            cmd->Wait();
+            int result = cmd->GetResult();
+            LOGD_APP("command [%d] sent and wait , path: %s , result: %s", command, path.c_str(), result == RRError::kSuccess ? "success" : "failed");
+            return result;
+        } else {
+            std::shared_ptr<Command> cmd = std::make_shared<ParamCommand<std::string>>(AppCommands::kTakeScreenshot, path);
+            this->AddCommand(cmd);
+            LOGD_APP("command [%d] added: %s", command, path.c_str());
+            return RRError::kSuccess;
+        }
+    }
+
     void AppContext::processCommand() {
         std::shared_ptr<Command> command;
         while (command = command_queue_->Pop(), command.get() != nullptr) {
@@ -336,11 +360,11 @@ namespace libRetroRunner {
                 }
                 case AppCommands::kTakeScreenshot: {
                     if (command->GetCommandType() == CommandType::kThreadCommand) {
-                        std::shared_ptr<ThreadCommand<bool, std::string>> threadCommand = std::static_pointer_cast<ThreadCommand<bool, std::string>>(command);
+                        std::shared_ptr<ThreadCommand<int, std::string>> threadCommand = std::static_pointer_cast<ThreadCommand<int, std::string>>(command);
                         if (video_) {
                             std::string savePath = threadCommand->GetArg();
                             bool result = video_->TakeScreenshot(savePath);
-                            threadCommand->SetResult(result);
+                            threadCommand->SetResult(result ? RRError::kSuccess : RRError::kFailed);
                             threadCommand->Signal();
                         }
                     } else {
@@ -350,6 +374,22 @@ namespace libRetroRunner {
                             video_->SetNextScreenshotStorePath(savePath);
                         }
                     }
+                    return;
+                }
+                case AppCommands::kSaveSRAM: {
+                    commandSaveSRAM(command);
+                    return;
+                }
+                case AppCommands::kLoadSRAM: {
+                    commandLoadSRAM(command);
+                    return;
+                }
+                case AppCommands::kSaveState: {
+                    commandSaveState(command);
+                    return;
+                }
+                case AppCommands::kLoadState: {
+                    commandLoadState(command);
                     return;
                 }
                 case AppCommands::kNone:
@@ -367,6 +407,43 @@ namespace libRetroRunner {
         std::shared_ptr<Command> cmd = std::make_shared<Command>(command);
         command_queue_->Push(cmd);
     }
+
+    int AppContext::AddTakeScreenshotCommand(std::string &path, bool wait_for_result) {
+        return sendCommandWithPath(path, AppCommands::kTakeScreenshot, wait_for_result);
+    }
+
+    int AppContext::AddSaveStateCommand(std::string &path, bool wait_for_result) {
+        std::string savePath = path;
+        if (savePath.empty()) {
+            savePath = paths_->GetSaveStatePath(0);
+        }
+        return sendCommandWithPath(savePath, AppCommands::kSaveState, wait_for_result);
+    }
+
+    int AppContext::AddLoadStateCommand(std::string &path, bool wait_for_result) {
+        std::string savePath = path;
+        if (savePath.empty()) {
+            savePath = paths_->GetSaveStatePath(0);
+        }
+        return sendCommandWithPath(savePath, AppCommands::kLoadState, wait_for_result);
+    }
+
+    int AppContext::AddSaveSRAMCommand(std::string &path, bool wait_for_result) {
+        std::string savePath = path;
+        if (savePath.empty()) {
+            savePath = paths_->GetSaveRamPath();
+        }
+        return sendCommandWithPath(savePath, AppCommands::kSaveSRAM, wait_for_result);
+    }
+
+    int AppContext::AddLoadSRAMCommand(std::string &path, bool wait_for_result) {
+        std::string savePath = path;
+        if (savePath.empty()) {
+            savePath = paths_->GetSaveRamPath();
+        }
+        return sendCommandWithPath(savePath, AppCommands::kLoadSRAM, wait_for_result);
+    }
+
 
     void AppContext::commandLoadCore() {
         try {
@@ -440,6 +517,121 @@ namespace libRetroRunner {
         LOGD_APP("content loaded");
         AddCommand(AppCommands::kInitAudio);
         AddCommand(AppCommands::kInitInput);
+    }
+
+    void AppContext::commandSaveSRAM(std::shared_ptr<Command> &command) {
+        std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
+        std::string savePath = paramCommand->GetArg();
+
+        size_t ramSize = core_->retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+        unsigned char *ramData = (unsigned char *) core_->retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+        int ret = RRError::kSuccess;
+        if (ramData == nullptr || ramSize == 0) {
+            LOGW_APP("ram data is empty, can't save ram");
+            ret = RRError::kEmptyMemory;
+        }
+        size_t wrote = Utils::writeBytesToFile(savePath, (char *) ramData, ramSize);
+        if (wrote != 0 && wrote == ramSize) {
+            LOGD_APP("save ram to %s, size: %d", savePath.c_str(), wrote);
+        } else {
+            ret = kCannotWriteData;
+        }
+
+        if (command->GetCommandType() == CommandType::kThreadCommand) {
+            std::shared_ptr<ThreadCommand<int, std::string>> threadCommand = std::static_pointer_cast<ThreadCommand<int, std::string>>(command);
+            threadCommand->SetResult(ret);
+            threadCommand->Signal();
+        }
+    }
+
+    void AppContext::commandLoadSRAM(std::shared_ptr<Command> &command) {
+        int ret = RRError::kSuccess;
+        size_t sramSize = core_->retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+        void *sramState = core_->retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+
+        if (sramState == nullptr) {
+            LOGE("Cannot load SRAM: empty in core...");
+            ret = RRError::kEmptyMemory;
+        } else {
+            std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
+            std::string savePath = paramCommand->GetArg();
+            Utils::ReadResult data = Utils::readFileAsBytes(savePath);
+            if (data.data) {
+                LOGI("SRAM loaded: %s", savePath.c_str());
+                memcpy(sramState, data.data, data.size);
+                delete[] data.data;
+            } else {
+                LOGE("Cannot load SRAM: empty file: %s", savePath.c_str());
+                ret = RRError::kEmptyFile;
+            }
+        }
+
+        if (command->GetCommandType() == CommandType::kThreadCommand) {
+            std::shared_ptr<ThreadCommand<int, std::string>> threadCommand = std::static_pointer_cast<ThreadCommand<int, std::string>>(command);
+            threadCommand->SetResult(ret);
+            threadCommand->Signal();
+        }
+
+    }
+
+    void AppContext::commandSaveState(std::shared_ptr<Command> &command) {
+        std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
+        std::string savePath = paramCommand->GetArg();
+
+        size_t stateSize = core_->retro_serialize_size();
+        int ret = RRError::kSuccess;
+        if (stateSize == 0) {
+            LOGW_APP("state data is empty, can't save state");
+            ret = RRError::kEmptyMemory;
+        } else {
+            std::unique_ptr<unsigned char> stateData(new unsigned char[stateSize]);
+            if (!core_->retro_serialize(stateData.get(), stateSize)) {
+                LOGE_APP("serialize state to %d failed", savePath.c_str());
+                ret = RRError::kCannotReadMemory;
+            } else {
+                int wroteSize = Utils::writeBytesToFile(savePath, (char *) stateData.get(), stateSize);
+                if (wroteSize != 0 && wroteSize == stateSize) {
+                    LOGI_APP("save state to %s, size: %d", savePath.c_str(), wroteSize);
+                } else {
+                    ret = kCannotWriteData;
+                }
+            }
+        }
+
+        if (command->GetCommandType() == CommandType::kThreadCommand) {
+            std::shared_ptr<ThreadCommand<int, std::string>> threadCommand = std::static_pointer_cast<ThreadCommand<int, std::string>>(command);
+            threadCommand->SetResult(ret);
+            threadCommand->Signal();
+        }
+    }
+
+    void AppContext::commandLoadState(std::shared_ptr<Command> &command) {
+        int ret = RRError::kSuccess;
+
+        std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
+        std::string savePath = paramCommand->GetArg();
+        Utils::ReadResult data = Utils::readFileAsBytes(savePath);
+
+
+        if (data.data) {
+            if (!core_->retro_unserialize(data.data, data.size)) {
+                LOGE_APP("can't unserialize state from %s ", savePath.c_str());
+                ret = RRError::kCannotWriteData;
+            } else {
+                LOGI_APP("Unserialize state from %s complete.", savePath.c_str());
+            }
+            delete[] data.data;
+        } else {
+            LOGE("Cannot load state: empty file: %s", savePath.c_str());
+            ret = RRError::kEmptyFile;
+        }
+
+
+        if (command->GetCommandType() == CommandType::kThreadCommand) {
+            std::shared_ptr<ThreadCommand<int, std::string>> threadCommand = std::static_pointer_cast<ThreadCommand<int, std::string>>(command);
+            threadCommand->SetResult(ret);
+            threadCommand->Signal();
+        }
     }
 
 

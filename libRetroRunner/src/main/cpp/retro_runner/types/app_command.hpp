@@ -38,9 +38,7 @@ namespace libRetroRunner {
         kLoadSRAM,
 
         kSaveState,
-        kSaveStateAsync,
         kLoadState,
-        kLoadStateAsync,
 
 
         kLoadCheats,

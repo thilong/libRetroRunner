@@ -6,6 +6,7 @@
 #include "video/video_context.h"
 #include "input/input_context.h"
 #include "types/error.h"
+#include "app/paths.h"
 
 #define LOGD_JNI(...) LOGD("[JNI] " __VA_ARGS__)
 #define LOGW_JNI(...) LOGW("[JNI] " __VA_ARGS__)
@@ -146,29 +147,65 @@ Java_com_aidoo_retrorunner_RRNative_getGameHeight(JNIEnv *env, jclass clazz) {
     return environment->GetGameHeight();
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
+extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_takeScreenshot(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
     auto app = AppContext::Current();
-    if (!app) return false;
+    if (app.get() == nullptr) return RRError::kAppNotRunning;
     JString pathVal(env, path);
-    if (wait_for_result) {
-        std::shared_ptr<ThreadCommand<bool, std::string>> cmd = std::make_shared<ThreadCommand<bool, std::string>>(AppCommands::kTakeScreenshot, pathVal.stdString());
-        std::shared_ptr<Command> baseCmd = cmd;
-        app->AddCommand(baseCmd);
-        cmd->Wait();
-        bool result = cmd->GetResult();
-        LOGD_JNI("take screenshot and wait , path: %s , result: %s", pathVal.cString(), result ? "success" : "failed");
-        return result;
-    } else {
-        std::shared_ptr<Command> cmd = std::make_shared<ParamCommand<std::string>>(AppCommands::kTakeScreenshot, pathVal.stdString());
-        app->AddCommand(cmd);
-        LOGD_JNI("take screenshot to %s , command added", pathVal.cString());
-        return true;
-    }
+    std::string savePath = pathVal.stdString();
+    return app->AddTakeScreenshotCommand(savePath, wait_for_result);
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_aidoo_retrorunner_RRNative_saveRam(JNIEnv *env, jclass clazz, jstring path) {
+Java_com_aidoo_retrorunner_RRNative_saveRam(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
+    auto app = AppContext::Current();
+    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    JString pathVal(env, path);
+    std::string savePath = pathVal.stdString();
+    return app->AddSaveSRAMCommand(savePath, wait_for_result);
+}
 
-    return RRError::kSuccess;
+extern "C" JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_loadRam(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
+    auto app = AppContext::Current();
+    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    JString pathVal(env, path);
+    std::string savePath = pathVal.stdString();
+    return app->AddLoadSRAMCommand(savePath, wait_for_result);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_saveState(JNIEnv *env, jclass clazz, jint idx, jboolean wait_for_result) {
+    auto app = AppContext::Current();
+    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    auto paths = app->GetPaths();
+    auto savePath = paths->GetSaveStatePath(idx);
+    return app->AddSaveStateCommand(savePath, wait_for_result);
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_loadState(JNIEnv *env, jclass clazz, jint idx, jboolean wait_for_result) {
+    auto app = AppContext::Current();
+    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    auto paths = app->GetPaths();
+    auto savePath = paths->GetSaveStatePath(idx);
+    return app->AddLoadStateCommand(savePath, wait_for_result);
+}
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_saveStateWithPath(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
+    auto app = AppContext::Current();
+    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    JString pathVal(env, path);
+    std::string savePath = pathVal.stdString();
+    return app->AddLoadStateCommand(savePath, wait_for_result);
+}
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_loadStateWithPath(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
+    auto app = AppContext::Current();
+    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    JString pathVal(env, path);
+    std::string savePath = pathVal.stdString();
+    return app->AddLoadStateCommand(savePath, wait_for_result);
 }

@@ -34,6 +34,7 @@ namespace libRetroRunner {
         const std::shared_ptr<class InputContext> &GetInput() const;
 
         const std::shared_ptr<class AudioContext> &GetAudio() const;
+
     public:
 
         /**
@@ -57,20 +58,48 @@ namespace libRetroRunner {
 
         void SetVideoSurface(int argc, void **argv);
 
+    public:
+        void SetController(unsigned port, int retro_device);
+
+    public:
         void AddCommand(int command);
 
         void AddCommand(std::shared_ptr<Command> &command);
 
-    public:
-        void SetController(unsigned port, int retro_device);
+        int AddTakeScreenshotCommand(std::string &path, bool wait_for_result = false);
+
+        int AddSaveStateCommand(std::string &path, bool wait_for_result = false);
+
+        int AddLoadStateCommand(std::string &path, bool wait_for_result = false);
+
+        int AddSaveSRAMCommand(std::string &path, bool wait_for_result = false);
+
+        int AddLoadSRAMCommand(std::string &path, bool wait_for_result = false);
 
     private:
+        /**
+         * Add a command to the command queue, if wait_for_result is true, this will block until the command is processed,
+         * otherwise it will return immediately. So, you should not add a command with wait_for_result = true in the emu thread.
+         * @param path  path param
+         * @param command command id
+         * @param wait_for_result   wait for result or not
+         * @return  error code or 0 for success
+         */
+        int sendCommandWithPath(std::string path, int command, bool wait_for_result = false);
 
         void processCommand();
 
         void commandLoadCore();
 
         void commandLoadContent();
+
+        void commandSaveSRAM(std::shared_ptr<Command> &command);
+
+        void commandLoadSRAM(std::shared_ptr<Command> &command);
+
+        void commandSaveState(std::shared_ptr<Command> &command);
+
+        void commandLoadState(std::shared_ptr<Command> &command);
 
     private:
         /* current app state */
@@ -89,6 +118,8 @@ namespace libRetroRunner {
         std::shared_ptr<class AudioContext> audio_;
 
         FpsTimeThrone fps_time_throne_;
+
+        pid_t emu_thread_id_ = 0;
     };
 
 }

@@ -227,6 +227,7 @@ namespace libRetroRunner {
             case RETRO_ENVIRONMENT_GET_VFS_INTERFACE: {
                 //TODO:获取虚拟文件系统
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_VFS_INTERFACE -> [NO IMPL]");
+                struct retro_vfs_interface_info *vfs = static_cast<struct retro_vfs_interface_info *>(data);
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_LED_INTERFACE: {

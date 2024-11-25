@@ -51,6 +51,8 @@ add_library(RetroRunner SHARED
         retro_runner/audio/resampler/sinc_resampler.cpp
         retro_runner/audio/oboe/oboe_audio_context.cpp
 
+        retro_runner/vfs/vfs_context.cpp
+
 
         retro_runner/utils/jnistring.cpp
         retro_runner/utils/utils.cpp

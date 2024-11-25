@@ -48,66 +48,76 @@ namespace libRetroRunner {
         kSaveCheatsAsync
     };
 
+    enum CommandType {
+        kNormalCommand = 1,
+        kParamCommand = 2,
+        kThreadCommand = 3
+    };
+
     class Command {
     public:
         Command(int cmd) {
+            command_type_ = CommandType::kNormalCommand;
             command_ = cmd;
             id_ = time(nullptr) + random();
         }
 
         virtual ~Command() {}
 
-        /**
-        * signal command finish, only in multi-threaded and threaded = true
-        */
-        virtual void Signal() {}
-
-        /**
-        * wait for command finish, only in multi-threaded and threaded = true
-        */
-        virtual void Wait() {}
-
-        inline bool ShouldWaitComplete() { return wait_complete_; }
-
-        inline void SetWaitComplete(bool flag) { wait_complete_ = flag; }
-
         inline int GetCommand() { return command_; }
+
+        inline int GetCommandType() { return command_type_; };
 
         inline long GetId() { return id_; }
 
     protected:
-        bool wait_complete_ = false;
+        int command_type_;
         int command_;
         long id_;
     };
 
-    template<typename R, typename T>
-    class ThreadCommand : public Command {
+    template<typename T>
+    class ParamCommand : public Command {
     public:
-        ThreadCommand(int cmd, T arg1) : Command(cmd) {
-            wait_complete_ = true;
+        ParamCommand(int cmd, T arg1) : Command(cmd) {
             arg_ = arg1;
+            command_type_ = CommandType::kParamCommand;
         }
 
         T GetArg() { return arg_; }
 
+    private:
+        T arg_;
+    };
+
+    template<typename R, typename T>
+    class ThreadCommand : public ParamCommand<T> {
+    public:
+        ThreadCommand(int cmd, T arg1) : ParamCommand<T>(cmd, arg1) {
+            Command::command_type_ = CommandType::kThreadCommand;
+            should_wait_complete_ = true;
+
+        }
+
         R GetResult() { return result_; }
+
+        void SetWaitComplete(bool flag) { should_wait_complete_ = flag; }
 
         void SetResult(R value) { result_ = value; }
 
-        void Signal() override {
-            if (wait_complete_)
+        void Signal() {
+            if (should_wait_complete_)
                 sem_.Signal();
         }
 
-        void Wait() override {
-            if (wait_complete_)
+        void Wait() {
+            if (should_wait_complete_)
                 sem_.Wait();
         }
 
     private:
         RRSemaphore sem_;
-        T arg_;
+        bool should_wait_complete_;
         R result_;
     };
 

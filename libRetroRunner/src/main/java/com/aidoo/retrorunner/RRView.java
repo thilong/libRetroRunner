@@ -234,7 +234,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     public void saveRamAsync(RRFuncs.Fn<Boolean> callback) {
         backgroundExecutor.execute(() -> {
-            int ret = RRNative.saveRam();
+            int ret = RRNative.saveRam("");
             mainHandler.post(() -> {
                 if (callback != null) {
                     callback.invoke(ret == 0);
@@ -246,7 +246,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     public void loadRamAsync(RRFuncs.Fn<Boolean> callback) {
         backgroundExecutor.execute(() -> {
-            int ret = RRNative.loadRam();
+            int ret = RRNative.loadRam("");
             mainHandler.post(() -> {
                 if (callback != null) {
                     callback.invoke(ret == 0);

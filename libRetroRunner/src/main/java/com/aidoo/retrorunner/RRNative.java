@@ -123,36 +123,35 @@ public class RRNative {
      */
     public static native boolean takeScreenshot(String path, boolean waitForResult);
 
-
     /**
-     * 保存游戏存档
-     * 这个方法会在模拟线程中调用，所以需要注意线程安全
+     * save the game ram to file,
      *
-     * @return 0:成功 其他：失败错误码
+     * @param path the path to save the ram, if path is empty, save to default path {game path}.ram
+     * @return 0: success , other: failed error code
      */
-    public static native int saveRam();
+    public static native int saveRam(String path);
 
     /**
-     * 加载游戏存档
-     * 这个方法会在模拟线程中调用，所以需要注意线程安全
+     * load the game ram from file
      *
-     * @return 0:成功 其他：失败错误码
+     * @param path the path to load the ram, if path is empty, load from default path {game path}.ram
+     * @return 0: success , other: failed error code
      */
-    public static native int loadRam();
+    public static native int loadRam(String path);
 
     /**
-     * 保存状态
+     * save game state
      *
-     * @param idx 状态编号 1-9为用户选定的，0为自动存档
-     * @return 0:成功 其他：失败错误码
+     * @param idx slot of the state, 1-100 are user defined, 0 is auto save
+     * @return 0: success , other: failed error code
      */
     public static native int saveState(int idx);
 
     /**
-     * 加载状态
+     * load game state
      *
-     * @param idx 状态编号 1-9为用户选定的，0为自动存档
-     * @return 0:成功 其他：失败错误码
+     * @param idx slot of the state, 1-100 are user defined, 0 is auto save
+     * @return 0: success , other: failed error code
      */
     public static native int loadState(int idx);
 }

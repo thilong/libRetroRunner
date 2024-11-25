@@ -5,6 +5,7 @@
 #include "app/environment.h"
 #include "video/video_context.h"
 #include "input/input_context.h"
+#include "types/error.h"
 
 #define LOGD_JNI(...) LOGD("[JNI] " __VA_ARGS__)
 #define LOGW_JNI(...) LOGW("[JNI] " __VA_ARGS__)
@@ -150,12 +151,24 @@ Java_com_aidoo_retrorunner_RRNative_takeScreenshot(JNIEnv *env, jclass clazz, js
     auto app = AppContext::Current();
     if (!app) return false;
     JString pathVal(env, path);
-    std::shared_ptr<ThreadCommand<bool, std::string>> cmd = std::make_shared<ThreadCommand<bool, std::string>>(AppCommands::kTakeScreenshot, pathVal.stdString());
-    cmd->SetWaitComplete(wait_for_result);
-    std::shared_ptr<Command> baseCmd = cmd;
-    app->AddCommand(baseCmd);
-    cmd->Wait();
-    bool ret = wait_for_result ? cmd->GetResult() : true;
-    LOGD_JNI("take screenshot [wait: %d] to %s %s", wait_for_result, pathVal.cString(), ret ? "success" : "failed");
-    return ret;
+    if (wait_for_result) {
+        std::shared_ptr<ThreadCommand<bool, std::string>> cmd = std::make_shared<ThreadCommand<bool, std::string>>(AppCommands::kTakeScreenshot, pathVal.stdString());
+        std::shared_ptr<Command> baseCmd = cmd;
+        app->AddCommand(baseCmd);
+        cmd->Wait();
+        bool result = cmd->GetResult();
+        LOGD_JNI("take screenshot and wait , path: %s , result: %s", pathVal.cString(), result ? "success" : "failed");
+        return result;
+    } else {
+        std::shared_ptr<Command> cmd = std::make_shared<ParamCommand<std::string>>(AppCommands::kTakeScreenshot, pathVal.stdString());
+        app->AddCommand(cmd);
+        LOGD_JNI("take screenshot to %s , command added", pathVal.cString());
+        return true;
+    }
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_saveRam(JNIEnv *env, jclass clazz, jstring path) {
+
+    return RRError::kSuccess;
 }

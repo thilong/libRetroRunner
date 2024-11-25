@@ -230,8 +230,7 @@ namespace libRetroRunner {
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_VFS_INTERFACE -> [Doing nothing]");
                 struct retro_vfs_interface_info *vfs = static_cast<struct retro_vfs_interface_info *>(data);
                 vfs->iface = &VirtualFileSystemContext::vfsInterface;
-
-                return false;
+                return true;
             }
             case RETRO_ENVIRONMENT_GET_LED_INTERFACE: {
                 //TODO:获取LED系统

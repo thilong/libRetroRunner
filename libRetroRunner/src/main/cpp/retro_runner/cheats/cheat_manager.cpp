@@ -3,11 +3,10 @@
 //
 
 #include "cheat_manager.h"
-#include "../app.h"
-#include "../core.h"
-#include "../rr_log.h"
-#include "../setting.h"
-#include "retro_cheat_file.h"
+#include "../app/app_context.h"
+#include "../core/core.h"
+#include "../types/log.h"
+#include "retro_cht_file.h"
 
 
 #define LOGD_CHT(...) LOGD("[CHEAT] " __VA_ARGS__)

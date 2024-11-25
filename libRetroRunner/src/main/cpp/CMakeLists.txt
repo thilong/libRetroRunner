@@ -53,6 +53,8 @@ add_library(RetroRunner SHARED
 
         retro_runner/vfs/vfs_context.cpp
 
+        retro_runner/cheats/cheat_manager.cpp
+        retro_runner/cheats/retro_cht_file.cpp
 
         retro_runner/utils/jnistring.cpp
         retro_runner/utils/utils.cpp

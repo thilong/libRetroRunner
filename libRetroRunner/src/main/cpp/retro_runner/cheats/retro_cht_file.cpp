@@ -1,7 +1,7 @@
 //
 // Created by aidoo on 2024/11/18.
 //
-#include "retro_cheat_file.h"
+#include "retro_cht_file.h"
 #include <fstream>
 
 namespace libRetroRunner {

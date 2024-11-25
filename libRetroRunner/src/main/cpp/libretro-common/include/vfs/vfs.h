@@ -25,6 +25,8 @@
 
 #include <retro_common_api.h>
 #include <boolean.h>
+#include <unistd.h>
+#include <stdio.h>
 
 #ifdef RARCH_INTERNAL
 #ifndef VFS_FRONTEND

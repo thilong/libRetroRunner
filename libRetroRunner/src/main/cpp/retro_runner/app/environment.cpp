@@ -12,6 +12,7 @@
 #include "../video/video_context.h"
 #include "app_context.h"
 #include "paths.h"
+#include "../vfs/vfs_context.h"
 
 #define POINTER_VAL(_TYPE_) (*((_TYPE_*)data))
 
@@ -226,8 +227,10 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_GET_VFS_INTERFACE: {
                 //TODO:获取虚拟文件系统
-                LOGD_Env("call RETRO_ENVIRONMENT_GET_VFS_INTERFACE -> [NO IMPL]");
+                LOGD_Env("call RETRO_ENVIRONMENT_GET_VFS_INTERFACE -> [Doing nothing]");
                 struct retro_vfs_interface_info *vfs = static_cast<struct retro_vfs_interface_info *>(data);
+                vfs->iface = &VirtualFileSystemContext::vfsInterface;
+
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_LED_INTERFACE: {

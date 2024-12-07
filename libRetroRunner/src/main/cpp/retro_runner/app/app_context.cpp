@@ -5,20 +5,21 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <assert.h>
+#include <thread>
 
 #include <libretro-common/include/libretro.h>
+
+#include "environment.h"
+#include "app_context.h"
+#include "paths.h"
+#include "setting.h"
 
 #include "../types/log.h"
 #include "../types/app_state.h"
 #include "../types/macros.h"
-
 #include "../core/core.h"
-#include "environment.h"
-#include "app_context.h"
-#include "paths.h"
 #include "../utils/utils.h"
 #include "../video/video_context.h"
-#include "setting.h"
 #include "../input/input_context.h"
 #include "../audio/audio_context.h"
 #include "../types/error.h"
@@ -100,7 +101,7 @@ namespace libRetroRunner {
 
     static std::shared_ptr<AppContext> appInstance(nullptr);
 
-    std::shared_ptr<AppContext> &AppContext::CreateInstance() {
+    std::shared_ptr<AppContext> AppContext::CreateInstance() {
         if (appInstance != nullptr) {
             appInstance->Stop();
         }
@@ -124,7 +125,7 @@ namespace libRetroRunner {
         }
     }
 
-    std::shared_ptr<AppContext> &AppContext::Current() {
+    std::shared_ptr<AppContext> AppContext::Current() {
         return appInstance;
     }
 
@@ -175,23 +176,23 @@ namespace libRetroRunner {
         LOGW_APP("emu stopped");
     }
 
-    const std::shared_ptr<class Environment> &AppContext::GetEnvironment() const {
+    const std::shared_ptr<class Environment> AppContext::GetEnvironment() const {
         return environment_;
     }
 
-    const std::shared_ptr<class Paths> &AppContext::GetPaths() const {
+    const std::shared_ptr<class Paths> AppContext::GetPaths() const {
         return paths_;
     }
 
-    const std::shared_ptr<class VideoContext> &AppContext::GetVideo() const {
+    const std::shared_ptr<class VideoContext> AppContext::GetVideo() const {
         return video_;
     }
 
-    const std::shared_ptr<class InputContext> &AppContext::GetInput() const {
+    const std::shared_ptr<class InputContext> AppContext::GetInput() const {
         return input_;
     }
 
-    const std::shared_ptr<class AudioContext> &AppContext::GetAudio() const {
+    const std::shared_ptr<class AudioContext> AppContext::GetAudio() const {
         return audio_;
     }
 }
@@ -206,9 +207,13 @@ namespace libRetroRunner {
         }
         AddCommand(AppCommands::kLoadCore);
         AddCommand(AppCommands::kLoadContent);
+        std::thread app_thread(libRetroRunner::appThread, this);
+        /*
         pthread_t thread;
         int loopRet = pthread_create(&thread, nullptr, libRetroRunner::appThread, this);
-        LOGD_APP("emu started, app: %p, thread result: %d", this, loopRet);
+         */
+        app_thread.detach();
+        LOGD_APP("emu started, app: %p, thread result: %ld", this, app_thread.native_handle());
     }
 
     void AppContext::Pause() {

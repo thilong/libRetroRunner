@@ -26,6 +26,8 @@ add_library(RetroRunner SHARED
         retro_runner/types/semaphore_rr.cpp
         retro_runner/types/app_command.hpp
 
+        retro_runner/runtime_contexts/core_runtime.cpp
+        retro_runner/runtime_contexts/game_runtime.cpp
 
         retro_runner/core/core.cpp
 

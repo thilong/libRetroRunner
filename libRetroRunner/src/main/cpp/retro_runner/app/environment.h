@@ -25,7 +25,6 @@ namespace libRetroRunner {
 
         void UpdateVariable(const std::string &key, const std::string &value, bool notifyCore = false);
 
-
         static uintptr_t CoreCallbackGetCurrentFrameBuffer();
 
         static bool CoreCallbackSetRumbleState(unsigned port, enum retro_rumble_effect effect, uint16_t strength);

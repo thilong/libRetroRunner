@@ -6,7 +6,7 @@
 #define _APP_H
 
 #include <string>
-#include "../types/app_command.hpp"
+#include <retro_runner/types/app_command.hpp>
 #include "fps_time_throne.hpp"
 
 namespace libRetroRunner {
@@ -19,21 +19,21 @@ namespace libRetroRunner {
         ~AppContext();
 
     public:
-        static std::shared_ptr<AppContext> &CreateInstance();
+        static std::shared_ptr<AppContext> CreateInstance();
 
-        static std::shared_ptr<AppContext> &Current();
+        static std::shared_ptr<AppContext> Current();
 
         void ThreadLoop();
 
-        const std::shared_ptr<class Environment> &GetEnvironment() const;
+        const std::shared_ptr<class Environment> GetEnvironment() const;
 
-        const std::shared_ptr<class Paths> &GetPaths() const;
+        const std::shared_ptr<class Paths> GetPaths() const;
 
-        const std::shared_ptr<class VideoContext> &GetVideo() const;
+        const std::shared_ptr<class VideoContext> GetVideo() const;
 
-        const std::shared_ptr<class InputContext> &GetInput() const;
+        const std::shared_ptr<class InputContext> GetInput() const;
 
-        const std::shared_ptr<class AudioContext> &GetAudio() const;
+        const std::shared_ptr<class AudioContext> GetAudio() const;
 
     public:
 

@@ -8,6 +8,8 @@
 #include <string>
 #include <retro_runner/types/app_command.hpp>
 #include "fps_time_throne.hpp"
+#include <retro_runner/runtime_contexts/core_context.h>
+#include <retro_runner/runtime_contexts/game_context.h>
 
 namespace libRetroRunner {
 
@@ -18,22 +20,28 @@ namespace libRetroRunner {
 
         ~AppContext();
 
-    public:
         static std::shared_ptr<AppContext> CreateInstance();
 
         static std::shared_ptr<AppContext> Current();
 
         void ThreadLoop();
 
-        const std::shared_ptr<class Environment> GetEnvironment() const;
+    public:
+        std::shared_ptr<class Environment> GetEnvironment() const;
 
-        const std::shared_ptr<class Paths> GetPaths() const;
+        std::shared_ptr<class Paths> GetPaths() const;
 
-        const std::shared_ptr<class VideoContext> GetVideo() const;
+        std::shared_ptr<class VideoContext> GetVideo() const;
 
-        const std::shared_ptr<class InputContext> GetInput() const;
+        std::shared_ptr<class InputContext> GetInput() const;
 
-        const std::shared_ptr<class AudioContext> GetAudio() const;
+        std::shared_ptr<class AudioContext> GetAudio() const;
+
+        std::shared_ptr<class Core> GetCore() const;
+
+        std::shared_ptr<CoreRuntimeContext> GetCoreRuntimeContext() const;
+
+        std::shared_ptr<GameRuntimeContext> GetGameRuntimeContext() const;
 
     public:
 
@@ -116,6 +124,9 @@ namespace libRetroRunner {
         std::shared_ptr<class VideoContext> video_;
         std::shared_ptr<class InputContext> input_;
         std::shared_ptr<class AudioContext> audio_;
+
+        std::shared_ptr<CoreRuntimeContext> core_runtime_context_;
+        std::shared_ptr<GameRuntimeContext> game_runtime_context_;
 
         FpsTimeThrone fps_time_throne_;
 

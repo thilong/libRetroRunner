@@ -2,11 +2,11 @@
 // Created by aidoo on 2024/11/13.
 //
 
-#include "game_runtime.h"
+#include "game_context.h"
 
 namespace libRetroRunner {
 
-    GameRuntime::GameRuntime() {
+    GameRuntimeContext::GameRuntimeContext() {
         geometry_max_height_ = 1;
         geometry_max_width_ = 1;
         geometry_height_ = 1;
@@ -17,8 +17,6 @@ namespace libRetroRunner {
         sample_rate_ = 44800;
     }
 
-    GameRuntime::~GameRuntime() {
-
-    }
+    GameRuntimeContext::~GameRuntimeContext() = default;
 }
 

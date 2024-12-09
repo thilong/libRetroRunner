@@ -13,6 +13,7 @@ enum AppState {
     kVideoReady = 1 << 3, //8
     kRunning = 1 << 4,   //16
     kPaused = 1 << 5,
+    kStopped = 1 << 6
 };
 
 #endif

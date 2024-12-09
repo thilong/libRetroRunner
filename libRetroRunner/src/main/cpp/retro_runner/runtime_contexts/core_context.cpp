@@ -2,11 +2,11 @@
 // Created by aidoo on 2024/11/13.
 //
 
-#include "core_runtime.h"
+#include "core_context.h"
 
 namespace libRetroRunner {
 
-    CoreRuntime::CoreRuntime() {
+    CoreRuntimeContext::CoreRuntimeContext() {
         audio_enabled_ = true;
         video_enabled_ = true;
         max_user_count_ = 4;
@@ -19,10 +19,9 @@ namespace libRetroRunner {
         render_stencil_ = false;
         render_hw_context_destroy_ = nullptr;
         render_hw_context_reset_ = nullptr;
+        variables_changed_ = false;
     }
 
-    CoreRuntime::~CoreRuntime() {
-
-    }
+    CoreRuntimeContext::~CoreRuntimeContext() = default;
 }
 

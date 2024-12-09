@@ -91,14 +91,6 @@ namespace libRetroRunner {
 
 namespace libRetroRunner {
 
-    extern "C" JavaVM *gVm;
-
-    static void *appThread(void *args) {
-        ((AppContext *) args)->ThreadLoop();
-        LOGW_APP("emu thread exit.");
-        return nullptr;
-    }
-
     static std::shared_ptr<AppContext> appInstance(nullptr);
 
     std::shared_ptr<AppContext> AppContext::CreateInstance() {
@@ -110,10 +102,9 @@ namespace libRetroRunner {
         return appInstance;
     }
 
-}
-
-/*-----Lifecycle--------------------------------------------------------------*/
-namespace libRetroRunner {
+    std::shared_ptr<AppContext> AppContext::Current() {
+        return appInstance;
+    }
 
     AppContext::AppContext() {
         command_queue_ = std::make_unique<CommandQueue>();
@@ -123,10 +114,6 @@ namespace libRetroRunner {
         if (appInstance != nullptr && appInstance.get() == this) {
             appInstance = nullptr;
         }
-    }
-
-    std::shared_ptr<AppContext> AppContext::Current() {
-        return appInstance;
     }
 
     void AppContext::ThreadLoop() {
@@ -175,25 +162,39 @@ namespace libRetroRunner {
         BIT_DELETE(state, AppState::kRunning);
         LOGW_APP("emu stopped");
     }
+}
 
-    const std::shared_ptr<class Environment> AppContext::GetEnvironment() const {
+namespace libRetroRunner {
+    std::shared_ptr<class Core> AppContext::GetCore() const {
+        return core_;
+    }
+
+    std::shared_ptr<class Environment> AppContext::GetEnvironment() const {
         return environment_;
     }
 
-    const std::shared_ptr<class Paths> AppContext::GetPaths() const {
+    std::shared_ptr<class Paths> AppContext::GetPaths() const {
         return paths_;
     }
 
-    const std::shared_ptr<class VideoContext> AppContext::GetVideo() const {
+    std::shared_ptr<class VideoContext> AppContext::GetVideo() const {
         return video_;
     }
 
-    const std::shared_ptr<class InputContext> AppContext::GetInput() const {
+    std::shared_ptr<class InputContext> AppContext::GetInput() const {
         return input_;
     }
 
-    const std::shared_ptr<class AudioContext> AppContext::GetAudio() const {
+    std::shared_ptr<class AudioContext> AppContext::GetAudio() const {
         return audio_;
+    }
+
+    std::shared_ptr<CoreRuntimeContext> AppContext::GetCoreRuntimeContext() const {
+        return core_runtime_context_;
+    }
+
+    std::shared_ptr<GameRuntimeContext> AppContext::GetGameRuntimeContext() const {
+        return game_runtime_context_;
     }
 }
 
@@ -201,19 +202,23 @@ namespace libRetroRunner {
 namespace libRetroRunner {
 
     void AppContext::Start() {
+        if (state >= AppState::kRunning) {
+            LOGE_APP("Emulator is already started.");
+            return;
+        }
+
         if (!BIT_TEST(state, AppState::kPathsReady)) {
             LOGE_APP("Paths are not set yet , can't start emulator.");
             return;
         }
         AddCommand(AppCommands::kLoadCore);
         AddCommand(AppCommands::kLoadContent);
-        std::thread app_thread(libRetroRunner::appThread, this);
-        /*
-        pthread_t thread;
-        int loopRet = pthread_create(&thread, nullptr, libRetroRunner::appThread, this);
-         */
-        app_thread.detach();
-        LOGD_APP("emu started, app: %p, thread result: %ld", this, app_thread.native_handle());
+        std::thread this_thread([](AppContext *app) {
+            app->ThreadLoop();
+            LOGD_APP("emu thread exit.");
+        }, this);
+        this_thread.detach();
+        LOGD_APP("emu started, app: %p, thread result: %ld", this, this_thread.native_handle());
     }
 
     void AppContext::Pause() {

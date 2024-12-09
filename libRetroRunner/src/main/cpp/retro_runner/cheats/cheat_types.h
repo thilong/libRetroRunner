@@ -16,7 +16,7 @@ namespace libRetroRunner {
         bool enabled;
         std::string code;
         std::string description;
-    private:
+
         int index;
     };
 }

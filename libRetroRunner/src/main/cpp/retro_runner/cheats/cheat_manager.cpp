@@ -20,9 +20,9 @@ namespace libRetroRunner {
 
     void __coreUpdateCheat(Cheat &cheat) {
         if (cheat.code.empty()) return;
-        AppContext *app = AppContext::Current();
+        auto app = AppContext::Current();
         if (!app) return;
-        Core *core = app->GetCore();
+        auto core = app->GetCore();
         if (!core || !core->retro_cheat_set) return;
         LOGW_CHT("try update cheat:%d, %s, %s, %d", cheat.index, cheat.code.c_str(), cheat.description.c_str(), cheat.enabled);
         core->retro_cheat_set(cheat.index, cheat.enabled, cheat.code.c_str());
@@ -30,9 +30,9 @@ namespace libRetroRunner {
     }
 
     void __coreRemoveAllCheat() {
-        AppContext *app = AppContext::Current();
+        auto app = AppContext::Current();
         if (!app) return;
-        Core *core = app->GetCore();
+        auto core = app->GetCore();
         if (!core || core->retro_cheat_reset) return;
         core->retro_cheat_reset();
     }
@@ -105,7 +105,7 @@ namespace libRetroRunner {
     }
 
     int CheatManager::LoadFromFile(const std::string &path) {
-        if(!RetroCheatFile::Load(path, cheats)){
+        if (!RetroCheatFile::Load(path, cheats)) {
             LOGE_CHT("load cheat file failed, from %s", path.c_str());
             return -1;
         }
@@ -121,6 +121,7 @@ namespace libRetroRunner {
     }
 
     int CheatManager::LoadFromSetting() {
+        /*
         auto app = AppContext::Current();
         auto setting = app->GetSetting();
         if (!setting) {
@@ -128,6 +129,9 @@ namespace libRetroRunner {
             return -1;
         }
         return LoadFromFile(setting->cheatPath);
+         */
+        //TODO: 需要实现
+        return -1;
     }
 
 

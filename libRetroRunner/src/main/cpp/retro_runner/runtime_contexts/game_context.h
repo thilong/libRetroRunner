@@ -2,18 +2,18 @@
 // Created by aidoo on 2024/11/13.
 //
 
-#ifndef _SETTING_H
-#define _SETTING_H
+#ifndef _GAME_RUNTIME_CONTEXT_H
+#define _GAME_RUNTIME_CONTEXT_H
 
 #include <string>
 
 namespace libRetroRunner {
 
-    class GameRuntime {
+    class GameRuntimeContext {
     public:
-        GameRuntime();
+        GameRuntimeContext();
 
-        ~GameRuntime();
+        ~GameRuntimeContext();
 
     public:
 

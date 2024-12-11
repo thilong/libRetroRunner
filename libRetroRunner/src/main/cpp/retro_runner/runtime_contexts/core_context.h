@@ -27,6 +27,10 @@ namespace libRetroRunner {
 
     public:
         //getter
+        inline std::string get_core_path() const { return core_path_; }
+
+        inline std::string get_system_path() const { return system_path_; }
+
         inline bool get_audio_enabled() const { return audio_enabled_; }
 
         inline bool get_video_enabled() const { return video_enabled_; }
@@ -52,6 +56,10 @@ namespace libRetroRunner {
         inline retro_hw_context_reset_t get_render_hw_context_destroy() const { return render_hw_context_destroy_; }
 
         //setter
+        inline void set_core_path(std::string core_path) { core_path_ = core_path; }
+
+        inline void set_system_path(std::string system_path) { system_path_ = system_path; }
+
         inline void set_audio_enabled(bool audio_enabled) { audio_enabled_ = audio_enabled; }
 
         inline void set_video_enabled(bool video_enabled) { video_enabled_ = video_enabled; }
@@ -77,6 +85,9 @@ namespace libRetroRunner {
         inline void set_render_hw_context_destroy(retro_hw_context_reset_t render_hw_context_destroy) { render_hw_context_destroy_ = render_hw_context_destroy; }
 
     private:
+
+        std::string core_path_;
+        std::string system_path_;
 
         std::unordered_map<std::string, Variable> variables_;
         bool variables_changed_;

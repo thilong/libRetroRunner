@@ -93,7 +93,7 @@ namespace libRetroRunner {
 
     static std::shared_ptr<AppContext> appInstance(nullptr);
 
-    std::shared_ptr<AppContext> AppContext::CreateInstance() {
+    std::shared_ptr<AppContext> AppContext::CreateNew() {
         if (appInstance != nullptr) {
             appInstance->Stop();
         }
@@ -108,6 +108,15 @@ namespace libRetroRunner {
 
     AppContext::AppContext() {
         command_queue_ = std::make_unique<CommandQueue>();
+        core_ = nullptr;
+        environment_ = nullptr;
+        video_ = nullptr;
+        input_ = nullptr;
+        audio_ = nullptr;
+
+        core_runtime_context_ = nullptr;
+        game_runtime_context_ = nullptr;
+        emu_thread_id_ = -1;
     }
 
     AppContext::~AppContext() {
@@ -124,10 +133,6 @@ namespace libRetroRunner {
                 processCommand();
                 if (!BIT_TEST(state, AppState::kRunning)) break;
 
-                //时间计算, 保持帧率
-                // timeThrone.checkFpsAndWait(environment->GetFastForwardFps());
-                if (!BIT_TEST(state, AppState::kRunning)) break;
-
                 //if emulate is paused, sleep for 16ms, for 60fps
                 if (BIT_TEST(state, AppState::kPaused)) {
                     usleep(16000);
@@ -140,7 +145,7 @@ namespace libRetroRunner {
                     BIT_TEST(state, AppState::kContentReady)) {
 
                     //avoid emulator run too fast
-                    fps_time_throne_.checkFpsAndWait(environment_->GetFastForwardFps());
+                    speed_limiter_.CheckAndWait(game_runtime_context_->get_fps());
 
                     video_->Prepare();
                     core_->retro_run();
@@ -171,10 +176,6 @@ namespace libRetroRunner {
 
     std::shared_ptr<class Environment> AppContext::GetEnvironment() const {
         return environment_;
-    }
-
-    std::shared_ptr<class Paths> AppContext::GetPaths() const {
-        return paths_;
     }
 
     std::shared_ptr<class VideoContext> AppContext::GetVideo() const {
@@ -243,8 +244,16 @@ namespace libRetroRunner {
     }
 
     void AppContext::SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
-        paths_ = std::make_shared<Paths>();
-        paths_->SetPaths(rom, core, system, save);
+        if (BIT_TEST(state, AppState::kPathsReady)) {
+            return;
+        }
+        game_runtime_context_ = std::make_shared<GameRuntimeContext>();
+        game_runtime_context_->set_game_path(rom);
+        game_runtime_context_->set_save_path(save);
+
+        core_runtime_context_ = std::make_shared<CoreRuntimeContext>();
+        core_runtime_context_->set_core_path(core);
+        core_runtime_context_->set_system_path(system);
 
         environment_ = std::make_shared<Environment>();
 
@@ -256,21 +265,23 @@ namespace libRetroRunner {
             LOGE_APP("SetVideoSurface: invalid arguments");
             return;
         }
-        if (argv[1] == 0) {
+        if (argv[1] == nullptr) {
             BIT_DELETE(state, AppState::kVideoReady);
             AddCommand(AppCommands::kUnloadVideo);
             return;
-        }
-        std::string driver = Setting::Current()->GetVideoDriver();
-        video_ = VideoContext::Create(driver);
-        if (video_) {
-            video_->SetSurface(argc, argv);
-            AddCommand(AppCommands::kInitVideo);
+        } else {
+            std::string driver = Setting::Current()->GetVideoDriver();
+            video_ = VideoContext::Create(driver);
+            if (video_) {
+                video_->SetSurface(argc, argv);
+                AddCommand(AppCommands::kInitVideo);
+            }
         }
     }
 
     void AppContext::SetController(unsigned int port, int retro_device) {
-        core_->retro_set_controller_port_device(port, retro_device);
+        if (core_)
+            core_->retro_set_controller_port_device(port, retro_device);
     }
 
 }
@@ -521,7 +532,7 @@ namespace libRetroRunner {
         environment_->gameSampleRate = avInfo.timing.sample_rate;                //如果声音采样率变化了，则Audio组件可能需要重新初始化
         environment_->gameFps = avInfo.timing.fps;
 
-        fps_time_throne_.SetFps(environment_->gameFps);
+        speed_limiter_.SetFps(environment_->gameFps);
 
         BIT_SET(state, AppState::kContentReady);
         LOGD_APP("content loaded");

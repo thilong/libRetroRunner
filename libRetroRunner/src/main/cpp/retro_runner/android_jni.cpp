@@ -34,7 +34,7 @@ Java_com_aidoo_retrorunner_RRNative_initEnv(JNIEnv *env, jclass clazz) {
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_create(JNIEnv *env, jclass clazz, jstring rom_path, jstring core_path, jstring system_path, jstring save_path) {
-    const std::shared_ptr<AppContext> &app = AppContext::CreateInstance();
+    const std::shared_ptr<AppContext> &app = AppContext::CreateNew();
     JString rom(env, rom_path);
     JString core(env, core_path);
     JString system(env, system_path);

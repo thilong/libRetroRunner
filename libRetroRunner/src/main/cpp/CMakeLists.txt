@@ -35,7 +35,7 @@ add_library(RetroRunner SHARED
         retro_runner/app/paths.cpp
         retro_runner/app/app_context.cpp
         retro_runner/app/environment.cpp
-        retro_runner/app/fps_time_throne.hpp
+        retro_runner/app/speed_limiter.hpp
 
         retro_runner/video/video_context.cpp
         retro_runner/video/opengles/video_context_gles.cpp

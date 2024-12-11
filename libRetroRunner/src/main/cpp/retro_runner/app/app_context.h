@@ -7,7 +7,7 @@
 
 #include <string>
 #include <retro_runner/types/app_command.hpp>
-#include "fps_time_throne.hpp"
+#include "speed_limiter.hpp"
 #include <retro_runner/runtime_contexts/core_context.h>
 #include <retro_runner/runtime_contexts/game_context.h>
 
@@ -20,7 +20,7 @@ namespace libRetroRunner {
 
         ~AppContext();
 
-        static std::shared_ptr<AppContext> CreateInstance();
+        static std::shared_ptr<AppContext> CreateNew();
 
         static std::shared_ptr<AppContext> Current();
 
@@ -28,9 +28,7 @@ namespace libRetroRunner {
 
     public:
         std::shared_ptr<class Environment> GetEnvironment() const;
-
-        std::shared_ptr<class Paths> GetPaths() const;
-
+        
         std::shared_ptr<class VideoContext> GetVideo() const;
 
         std::shared_ptr<class InputContext> GetInput() const;
@@ -113,13 +111,10 @@ namespace libRetroRunner {
         /* current app state */
         unsigned long state = 0;
 
-        /* Component: Paths */
-        std::shared_ptr<class Paths> paths_ = nullptr;
-
         /* Component: Command Queue */
         std::unique_ptr<CommandQueue> command_queue_;
 
-        std::shared_ptr<class Core> core_ = nullptr;
+        std::shared_ptr<class Core> core_;
         std::shared_ptr<class Environment> environment_;
         std::shared_ptr<class VideoContext> video_;
         std::shared_ptr<class InputContext> input_;
@@ -128,7 +123,7 @@ namespace libRetroRunner {
         std::shared_ptr<CoreRuntimeContext> core_runtime_context_;
         std::shared_ptr<GameRuntimeContext> game_runtime_context_;
 
-        FpsTimeThrone fps_time_throne_;
+        SpeedLimiter speed_limiter_;
 
         pid_t emu_thread_id_ = 0;
     };

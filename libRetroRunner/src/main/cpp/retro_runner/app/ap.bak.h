@@ -14,7 +14,7 @@
 #include "audio_context.h"
 #include "setting.h"
 #include "command.hpp"
-#include "fps_time_throne.hpp"
+#include "speed_limiter.hpp"
 #include "cheats/cheat_manager.h"
 
 namespace libRetroRunner {
@@ -74,7 +74,7 @@ namespace libRetroRunner {
         void SetFastForward(bool enable);
 
     public:
-        static AppContext *CreateInstance();
+        static AppContext *CreateNew();
 
         static AppContext *Current() {
             return instance.get();
@@ -138,7 +138,7 @@ namespace libRetroRunner {
 
         friend class RetroCallbacks;
 
-        FpsTimeThrone timeThrone;
+        SpeedLimiter timeThrone;
 
     };
 

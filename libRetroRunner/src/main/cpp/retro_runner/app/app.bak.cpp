@@ -158,7 +158,7 @@ namespace libRetroRunner {
                 if (!BIT_TEST(state, AppState::kRunning)) break;
 
                 //时间计算, 保持帧率
-                timeThrone.checkFpsAndWait(environment->GetFastForwardFps());
+                timeThrone.CheckAndWait(environment->GetFastForwardFps());
 
                 if (!BIT_TEST(state, AppState::kRunning)) break;
                 //如果模拟处于暂停状态，则等待16ms, 60fps对应1帧16ms

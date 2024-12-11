@@ -187,7 +187,7 @@ struct retro_hw_render_context_negotiation_interface_vulkan
     * If app is non-NULL, apiVersion controls the minimum core version required by the application.
     * Return a VkInstance or VK_NULL_HANDLE. The VkInstance is owned by the frontend.
     *
-    * Rather than call vkCreateInstance directly, a core must call the CreateInstance wrapper provided with:
+    * Rather than call vkCreateInstance directly, a core must call the CreateNew wrapper provided with:
     * VkInstance instance = create_instance_wrapper(opaque, &create_info);
     * If the core wishes to create a private instance for whatever reason (relying on shared memory for example),
     * it may call vkCreateInstance directly. */

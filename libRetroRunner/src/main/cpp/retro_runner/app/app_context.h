@@ -91,7 +91,7 @@ namespace libRetroRunner {
          * @param wait_for_result   wait for result or not
          * @return  error code or 0 for success
          */
-        int sendCommandWithPath(std::string path, int command, bool wait_for_result = false);
+        int addCommandWithPath(std::string path, int command, bool wait_for_result = false);
 
         void processCommand();
 
@@ -109,7 +109,7 @@ namespace libRetroRunner {
 
     private:
         /* current app state */
-        unsigned long state = 0;
+        unsigned long state_ = 0;
 
         /* Component: Command Queue */
         std::unique_ptr<CommandQueue> command_queue_;

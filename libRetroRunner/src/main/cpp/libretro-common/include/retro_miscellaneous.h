@@ -218,7 +218,7 @@ static INLINE bool bits_any_different(uint32_t *a, uint32_t *b, uint32_t count)
  * treated here as a bit vector.
  * @param bit Index of the bit to clear, where 0 is the least significant.
  */
-#define BIT_DELETE(a, bit) ((a)[(bit) >> 3] &= ~(1 << ((bit) & 7)))
+#define BIT_UNSET(a, bit) ((a)[(bit) >> 3] &= ~(1 << ((bit) & 7)))
 
 /**
  * Gets the value of a particular bit within a bit array.

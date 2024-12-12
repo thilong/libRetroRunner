@@ -13,6 +13,7 @@ enum RRError {
     kEmptyFile,
     kCannotReadMemory,
     kCannotWriteData,
+    kBadOperation,
 };
 
 

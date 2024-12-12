@@ -127,22 +127,22 @@ namespace libRetroRunner {
 
     void AppContext::ThreadLoop() {
         emu_thread_id_ = gettid();
-        BIT_SET(state, AppState::kRunning);
+        BIT_SET(state_, AppState::kRunning);
         try {
-            while (BIT_TEST(state, AppState::kRunning)) {
+            while (BIT_TEST(state_, AppState::kRunning)) {
                 processCommand();
-                if (!BIT_TEST(state, AppState::kRunning)) break;
+                if (!BIT_TEST(state_, AppState::kRunning)) break;
 
                 //if emulate is paused, sleep for 16ms, for 60fps
-                if (BIT_TEST(state, AppState::kPaused)) {
+                if (BIT_TEST(state_, AppState::kPaused)) {
                     usleep(16000);
                     continue;
                 }
 
 
                 //run core step when video and content are ready
-                if (BIT_TEST(state, AppState::kVideoReady) &&
-                    BIT_TEST(state, AppState::kContentReady)) {
+                if (BIT_TEST(state_, AppState::kVideoReady) &&
+                    BIT_TEST(state_, AppState::kContentReady)) {
 
                     //avoid emulator run too fast
                     speed_limiter_.CheckAndWait(game_runtime_context_->get_fps());
@@ -156,15 +156,15 @@ namespace libRetroRunner {
         } catch (std::exception &exception) {
             LOGE_APP("emu end with error: %s", exception.what());
         }
-        if (BIT_TEST(state, AppState::kContentReady)) {
+        if (BIT_TEST(state_, AppState::kContentReady)) {
             core_->retro_unload_game();
-            BIT_DELETE(state, AppState::kContentReady);
+            BIT_UNSET(state_, AppState::kContentReady);
         }
-        if (BIT_TEST(state, AppState::kCoreReady)) {
+        if (BIT_TEST(state_, AppState::kCoreReady)) {
             core_->retro_deinit();
-            BIT_DELETE(state, AppState::kCoreReady);
+            BIT_UNSET(state_, AppState::kCoreReady);
         }
-        BIT_DELETE(state, AppState::kRunning);
+        BIT_UNSET(state_, AppState::kRunning);
         LOGW_APP("emu stopped");
     }
 }
@@ -203,12 +203,12 @@ namespace libRetroRunner {
 namespace libRetroRunner {
 
     void AppContext::Start() {
-        if (state >= AppState::kRunning) {
+        if (state_ >= AppState::kRunning) {
             LOGE_APP("Emulator is already started.");
             return;
         }
 
-        if (!BIT_TEST(state, AppState::kPathsReady)) {
+        if (!BIT_TEST(state_, AppState::kPathsReady)) {
             LOGE_APP("Paths are not set yet , can't start emulator.");
             return;
         }
@@ -228,12 +228,12 @@ namespace libRetroRunner {
     }
 
     void AppContext::Resume() {
-        BIT_DELETE(state, AppState::kPaused);
+        BIT_UNSET(state_, AppState::kPaused);
         AddCommand(AppCommands::kEnableAudio);
     }
 
     void AppContext::Reset() {
-        if (BIT_TEST(state, kContentReady)) {
+        if (BIT_TEST(state_, kContentReady)) {
             AddCommand(AppCommands::kResetGame);
         }
     }
@@ -244,7 +244,7 @@ namespace libRetroRunner {
     }
 
     void AppContext::SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
-        if (BIT_TEST(state, AppState::kPathsReady)) {
+        if (BIT_TEST(state_, AppState::kPathsReady)) {
             return;
         }
         game_runtime_context_ = std::make_shared<GameRuntimeContext>();
@@ -257,7 +257,7 @@ namespace libRetroRunner {
 
         environment_ = std::make_shared<Environment>();
 
-        BIT_SET(state, AppState::kPathsReady);
+        BIT_SET(state_, AppState::kPathsReady);
     }
 
     void AppContext::SetVideoSurface(int argc, void **argv) {
@@ -266,7 +266,7 @@ namespace libRetroRunner {
             return;
         }
         if (argv[1] == nullptr) {
-            BIT_DELETE(state, AppState::kVideoReady);
+            BIT_UNSET(state_, AppState::kVideoReady);
             AddCommand(AppCommands::kUnloadVideo);
             return;
         } else {
@@ -288,20 +288,22 @@ namespace libRetroRunner {
 
 /*-----App commands--------------------------------------------------------------*/
 namespace libRetroRunner {
-    int AppContext::sendCommandWithPath(std::string path, int command, bool wait_for_result) {
-        if (wait_for_result && (emu_thread_id_ == getpid())) {
-            throw std::runtime_error("Can't add a command with waiting for result in the emu thread");
-        }
+    int AppContext::addCommandWithPath(std::string path, int command, bool wait_for_result) {
+
         if (wait_for_result) {
+            if (emu_thread_id_ == getpid()) {
+                LOGE_APP("Can't add a command with waiting for result in the emu thread");
+                return RRError::kBadOperation;
+            }
+
             std::shared_ptr<ThreadCommand<int, std::string>> cmd = std::make_shared<ThreadCommand<int, std::string>>(command, path);
             std::shared_ptr<Command> baseCmd = cmd;
             this->AddCommand(baseCmd);
             cmd->Wait();
             int result = cmd->GetResult();
-            LOGD_APP("command [%d] sent and wait , path: %s , result: %s", command, path.c_str(), result == RRError::kSuccess ? "success" : "failed");
             return result;
         } else {
-            std::shared_ptr<Command> cmd = std::make_shared<ParamCommand<std::string>>(AppCommands::kTakeScreenshot, path);
+            std::shared_ptr<Command> cmd = std::make_shared<ParamCommand<std::string>>(command, path);
             this->AddCommand(cmd);
             LOGD_APP("command [%d] added: %s", command, path.c_str());
             return RRError::kSuccess;
@@ -310,10 +312,8 @@ namespace libRetroRunner {
 
     void AppContext::processCommand() {
         std::shared_ptr<Command> command;
-        while (command = command_queue_->Pop(), command.get() != nullptr) {
-            int cmd = command->GetCommand();
-            LOGD_APP("process command: %d", cmd);
-            switch (cmd) {
+        while (command = command_queue_->Pop(), command) {
+            switch (command->GetCommand()) {
                 case AppCommands::kLoadCore: {
                     commandLoadCore();
                     return;
@@ -324,19 +324,20 @@ namespace libRetroRunner {
                 }
                 case AppCommands::kInitVideo: {
                     if (video_ && video_->Init()) {
-                        BIT_SET(state, AppState::kVideoReady);
+                        BIT_SET(state_, AppState::kVideoReady);
                     }
                     return;
                 }
                 case AppCommands::kUnloadVideo: {
-                    if (environment_->GetRenderUseHWAcceleration())
-                        environment_->InvokeRenderContextDestroy();
+                    if (core_runtime_context_->get_render_hardware_acceleration()) {
+                        retro_hw_context_reset_t destroy_func = core_runtime_context_->get_render_hw_context_destroy();
+                        if (destroy_func) destroy_func();
+                    }
                     if (video_) {
                         video_->Destroy();
                         video_ = nullptr;
                     }
-                    LOGD_APP("video unloaded");
-                    BIT_DELETE(state, AppState::kVideoReady);
+                    BIT_UNSET(state_, AppState::kVideoReady);
                     return;
                 }
                 case AppCommands::kInitInput: {
@@ -345,17 +346,17 @@ namespace libRetroRunner {
                     return;
                 }
                 case AppCommands::kResetGame: {
-                    if (BIT_TEST(state, AppState::kContentReady)) {
+                    if (BIT_TEST(state_, AppState::kContentReady)) {
                         core_->retro_reset();
                     }
                     return;
                 }
                 case AppCommands::kPauseGame: {
-                    BIT_SET(state, AppState::kPaused);
+                    BIT_SET(state_, AppState::kPaused);
                     return;
                 }
                 case AppCommands::kStopGame: {
-                    BIT_DELETE(state, AppState::kRunning);
+                    BIT_UNSET(state_, AppState::kRunning);
                     return;
                 }
                 case AppCommands::kInitAudio: {
@@ -386,8 +387,10 @@ namespace libRetroRunner {
                             std::string savePath = threadCommand->GetArg();
                             bool result = video_->TakeScreenshot(savePath);
                             threadCommand->SetResult(result ? RRError::kSuccess : RRError::kFailed);
-                            threadCommand->Signal();
+                        } else {
+                            threadCommand->SetResult(RRError::kFailed);
                         }
+                        threadCommand->Signal();
                     } else {
                         if (video_) {
                             std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
@@ -430,47 +433,34 @@ namespace libRetroRunner {
     }
 
     int AppContext::AddTakeScreenshotCommand(std::string &path, bool wait_for_result) {
-        return sendCommandWithPath(path, AppCommands::kTakeScreenshot, wait_for_result);
+        return addCommandWithPath(path, AppCommands::kTakeScreenshot, wait_for_result);
     }
 
     int AppContext::AddSaveStateCommand(std::string &path, bool wait_for_result) {
         std::string savePath = path;
-        if (savePath.empty()) {
-            savePath = paths_->GetSaveStatePath(0);
-        }
-        return sendCommandWithPath(savePath, AppCommands::kSaveState, wait_for_result);
+        return addCommandWithPath(savePath, AppCommands::kSaveState, wait_for_result);
     }
 
     int AppContext::AddLoadStateCommand(std::string &path, bool wait_for_result) {
         std::string savePath = path;
-        if (savePath.empty()) {
-            savePath = paths_->GetSaveStatePath(0);
-        }
-        return sendCommandWithPath(savePath, AppCommands::kLoadState, wait_for_result);
+        return addCommandWithPath(savePath, AppCommands::kLoadState, wait_for_result);
     }
 
     int AppContext::AddSaveSRAMCommand(std::string &path, bool wait_for_result) {
         std::string savePath = path;
-        if (savePath.empty()) {
-            savePath = paths_->GetSaveRamPath();
-        }
-        return sendCommandWithPath(savePath, AppCommands::kSaveSRAM, wait_for_result);
+        return addCommandWithPath(savePath, AppCommands::kSaveSRAM, wait_for_result);
     }
 
     int AppContext::AddLoadSRAMCommand(std::string &path, bool wait_for_result) {
         std::string savePath = path;
-        if (savePath.empty()) {
-            savePath = paths_->GetSaveRamPath();
-        }
-        return sendCommandWithPath(savePath, AppCommands::kLoadSRAM, wait_for_result);
+        return addCommandWithPath(savePath, AppCommands::kLoadSRAM, wait_for_result);
     }
 
 
     void AppContext::commandLoadCore() {
+        std::string core_path = core_runtime_context_->get_core_path();
         try {
-            std::string core_path = paths_->GetCorePath();
             core_ = std::make_shared<Core>(core_path);
-
             core_->retro_set_video_refresh(&libretro_callback_hw_video_refresh);
             core_->retro_set_environment(&libretro_callback_set_environment);
             core_->retro_set_audio_sample(&libretro_callback_audio_sample);
@@ -478,41 +468,38 @@ namespace libRetroRunner {
             core_->retro_set_input_poll(&libretro_callback_input_poll);
             core_->retro_set_input_state(&libretro_callback_input_state);
             core_->retro_init();
-            BIT_SET(state, AppState::kCoreReady);
-            LOGD_APP("core loaded");
+            BIT_SET(state_, AppState::kCoreReady);
+            LOGD_APP("core loaded: %s", core_path.c_str());
         } catch (std::exception &exception) {
             core_ = nullptr;
-            LOGE_APP("load core failed");
+            LOGE_APP("load core %s failed", core_path.c_str());
         }
     }
 
     void AppContext::commandLoadContent() {
-        if (BIT_TEST(state, AppState::kContentReady)) {
-            LOGW_APP("content already loaded, ignore.");
+        if (BIT_TEST(state_, AppState::kContentReady)) {
+            LOGW_APP("content already load, ignore.");
             return;
         }
-        if (!BIT_TEST(state, AppState::kCoreReady)) {
+        if (!BIT_TEST(state_, AppState::kCoreReady)) {
             LOGE_APP("try to load content, but core is not ready yet!!!");
             return;
         }
 
-        std::string rom_path = paths_->GetRomPath();
+        std::string rom_path = game_runtime_context_->get_game_path();
         struct retro_system_info system_info{};
         core_->retro_get_system_info(&system_info);
-
 
         struct retro_game_info game_info{};
         game_info.path = rom_path.c_str();
         game_info.meta = nullptr;
 
         //TODO:这里需要加入zip解压支持的实现
-        if (system_info.need_fullpath) {
-            game_info.data = nullptr;
-            game_info.size = 0;
-        } else {
+        if (!system_info.need_fullpath) {
             struct Utils::ReadResult file = Utils::readFileAsBytes(rom_path.c_str());
             game_info.data = file.data;
             game_info.size = file.size;
+            //TODO:这里有内存泄露
         }
 
         bool result = core_->retro_load_game(&game_info);
@@ -534,7 +521,7 @@ namespace libRetroRunner {
 
         speed_limiter_.SetFps(environment_->gameFps);
 
-        BIT_SET(state, AppState::kContentReady);
+        BIT_SET(state_, AppState::kContentReady);
         LOGD_APP("content loaded");
         AddCommand(AppCommands::kInitAudio);
         AddCommand(AppCommands::kInitInput);
@@ -579,7 +566,7 @@ namespace libRetroRunner {
             Utils::ReadResult data = Utils::readFileAsBytes(savePath);
             if (data.data) {
                 LOGI("SRAM loaded: %s", savePath.c_str());
-                memcpy(sramState, data.data, data.size);
+                memcpy(sramstate_, data.data, data.size);
                 delete[] data.data;
             } else {
                 LOGE("Cannot load SRAM: empty file: %s", savePath.c_str());

@@ -54,19 +54,19 @@ namespace libRetroRunner {
 
     class Command {
     public:
-        Command(int cmd) {
+        explicit Command(int cmd) {
             command_type_ = CommandType::kNormalCommand;
             command_ = cmd;
             id_ = time(nullptr) + random();
         }
 
-        virtual ~Command() {}
+        virtual ~Command() = default;
 
-        inline int GetCommand() { return command_; }
+        inline int GetCommand() const { return command_; }
 
-        inline int GetCommandType() { return command_type_; };
+        inline int GetCommandType() const { return command_type_; };
 
-        inline long GetId() { return id_; }
+        inline long GetId() const { return id_; }
 
     protected:
         int command_type_;
@@ -132,16 +132,6 @@ namespace libRetroRunner {
             std::shared_ptr<Command> ret = queue_.front();
             queue_.pop();
             return ret;
-        }
-
-        bool Empty() {
-            std::lock_guard<std::mutex> lm(mutex_);
-            return queue_.empty();
-        }
-
-        int Size() {
-            std::lock_guard<std::mutex> lm(mutex_);
-            return queue_.size();
         }
 
     private:

@@ -7,7 +7,7 @@
 
 
 #define BIT_SET(_VAR_, _VALUE_) ((_VAR_) |= (_VALUE_))
-#define BIT_DELETE(_VAR_, _VALUE_) ((_VAR_) &= (~(_VALUE_)))
+#define BIT_UNSET(_VAR_, _VALUE_) ((_VAR_) &= (~(_VALUE_)))
 #define BIT_TEST(_VAR_, _VALUE_) (((_VAR_) & (_VALUE_)) != 0)
 
 

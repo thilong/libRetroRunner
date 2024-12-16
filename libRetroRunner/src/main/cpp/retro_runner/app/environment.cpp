@@ -23,7 +23,8 @@
 //变量控制相关
 namespace libRetroRunner {
 
-    void Environment::UpdateVariable(const std::string &key, const std::string &value, bool notifyCore) {
+    void
+    Environment::UpdateVariable(const std::string &key, const std::string &value, bool notifyCore) {
 
     }
 
@@ -58,10 +59,12 @@ namespace libRetroRunner {
                     std::string systemPath = core_runtime->get_system_path();
                     if (!systemPath.empty()) {
                         POINTER_VAL(const char*) = systemPath.c_str();
-                        LOGD_Env("call RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY -> %s", systemPath.c_str());
+                        LOGD_Env("call RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY -> %s",
+                                 systemPath.c_str());
                         return true;
                     }
                 }
+                LOGD_Env("call RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY -> [empty]");
                 return false;
             }
             case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT: {
@@ -154,11 +157,17 @@ namespace libRetroRunner {
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: {
-                const std::shared_ptr<Paths> &paths = AppContext::Current()->GetPaths();
-                std::string savePath = paths->GetSavePath();
-                POINTER_VAL(const char*) = savePath.c_str();
-                LOGD_Env("call RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY -> %s", savePath.c_str());
-                return !savePath.empty();
+                auto game_runtime = game_runtime_context_.lock();
+                if (game_runtime) {
+                    std::string path = game_runtime->get_save_path();
+                    if (!path.empty()) {
+                        POINTER_VAL(const char*) = path.c_str();
+                        LOGD_Env("call RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY -> %s", path.c_str());
+                        return true;
+                    }
+                }
+                LOGD_Env("call RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY -> [empty]");
+                return false;
             }
             case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO: {
                 //用于通知前端视频与音频参数发生变化，在可能的情况下，前端可以重新初始化视频与音频上下文 ，
@@ -194,7 +203,7 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_GET_LANGUAGE: {
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_LANGUAGE -> en");
-                POINTER_VAL(unsigned) = language;
+                POINTER_VAL(unsigned) = core_runtime_context_.lock()->get_language();
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_CURRENT_SOFTWARE_FRAMEBUFFER: {
@@ -258,7 +267,8 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_GET_FASTFORWARDING: {
                 //LOGD_Env("call RETRO_ENVIRONMENT_GET_FASTFORWARDING");
-                POINTER_VAL(bool) = fastForwarding;
+                auto game_ctx = game_runtime_context_.lock();
+                POINTER_VAL(bool) = game_ctx->get_is_fast_forwarding();
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_TARGET_REFRESH_RATE: {
@@ -445,9 +455,10 @@ namespace libRetroRunner {
     }
 
     bool Environment::cmdSetPixelFormat(void *data) {
-        auto format = static_cast<enum retro_pixel_format *>(data);
-        this->core_pixel_format_ = *format;
-        LOGD_Env("call RETRO_ENVIRONMENT_SET_PIXEL_FORMAT -> game pixel format : %d", this->core_pixel_format_);
+        auto core_ctx = core_runtime_context_.lock();
+        core_ctx->set_pixel_format(POINTER_VAL(enum retro_pixel_format));
+        LOGD_Env("call RETRO_ENVIRONMENT_SET_PIXEL_FORMAT -> game pixel format : %d",
+                 core_ctx->get_pixel_format());
         return true;
     }
 
@@ -455,16 +466,18 @@ namespace libRetroRunner {
 
         if (data == nullptr) return false;
         auto hwRender = static_cast<struct retro_hw_render_callback *>(data);
-        renderMajorVersion = hwRender->version_major;
-        renderMinorVersion = hwRender->version_minor;
-        renderContextType = hwRender->context_type;
+        auto core_ctx = core_runtime_context_.lock();
 
-        renderUseHWAcceleration = true;
-        renderUseDepth = hwRender->depth;
-        renderUseStencil = hwRender->stencil;
+        core_ctx->set_render_major_version((int) hwRender->version_major);
+        core_ctx->set_render_minor_version((int) hwRender->version_minor);
+        core_ctx->set_render_context_type(hwRender->context_type);
 
-        renderContextReset = hwRender->context_reset;
-        renderContextDestroy = hwRender->context_destroy;
+        core_ctx->set_render_hardware_acceleration(true);
+        core_ctx->set_render_depth(hwRender->depth);
+        core_ctx->set_render_stencil(hwRender->stencil);
+
+        core_ctx->set_render_hw_context_reset(hwRender->context_reset);
+        core_ctx->set_render_hw_context_destroy(hwRender->context_destroy);
         hwRender->get_proc_address = &Environment::CoreCallbackGetProcAddress;
         hwRender->get_current_framebuffer = &Environment::CoreCallbackGetCurrentFrameBuffer;
         return true;
@@ -528,49 +541,54 @@ namespace libRetroRunner {
 
         cmdSetGeometry((void *) &(avInfo->geometry));
 
-        //音频参数
-        gameSampleRate = avInfo->timing.sample_rate;
-        gameFps = avInfo->timing.fps;
+        auto game_ctx = game_runtime_context_.lock();
+        if (game_ctx) {
+            game_ctx->set_sample_rate(avInfo->timing.sample_rate);
+            game_ctx->set_fps(avInfo->timing.fps);
+        }
+
         //TODO: 需要把参数同步给app, 以确认是否需要重建音频上下文和运行速度限制
         return true;
     }
 
     bool Environment::cmdSetGeometry(void *data) {
         auto geometry = static_cast<struct retro_game_geometry *>(data);
-        bool gameGeometryChanged = (geometry->base_height != gameGeometryHeight || geometry->base_width != gameGeometryWidth);
 
-        gameGeometryWidth = geometry->base_width;
-        gameGeometryHeight = geometry->base_height;
-        gameGeometryAspectRatio = geometry->aspect_ratio;
+        auto game_ctx = game_runtime_context_.lock();
 
-        if (gameGeometryChanged) {
-            auto app = AppContext::Current();
-            if (app) {
-                auto video = app->GetVideo();
-                if (video)
-                    video->SetGameGeometryChanged(true);
-            }
+        bool geometry_changed = (geometry->base_height != game_ctx->get_geometry_height() ||
+                                 geometry->base_width != game_ctx->get_geometry_width());
+
+        game_ctx->set_geometry_width(geometry->base_width);
+        game_ctx->set_geometry_height(geometry->base_height);
+        game_ctx->set_geometry_max_width(geometry->max_width);
+        game_ctx->set_geometry_max_height(geometry->max_height);
+        game_ctx->set_geometry_aspect_ratio(geometry->aspect_ratio);
+
+        if (geometry_changed) {
+            game_ctx->set_geometry_changed(true);
         }
         return true;
     }
 
     bool Environment::cmdGetCurrentFrameBuffer(void *data) {
         LOGW_Env("call cmdGetCurrentFrameBuffer -> not impl yet");
-        //TODO: 用于返回当前的软件渲染帧缓冲区, 当使用软件渲染时，可用于性能调优
+        /* TODO: 用于返回当前的软件渲染帧缓冲区, 当使用软件渲染时，可用于性能调优
         auto callback = static_cast<struct retro_framebuffer *>(data);
-        //callback->data = 0;  //frame buffer ptr
         callback->format = (enum retro_pixel_format) core_pixel_format_;
+        */
         return false;
     }
 
     void Environment::cmdSetControllers(void *data) {
         //通知前端支持的控制器信息，以方便用户选择不同的控制器,然后使用retro_set_controller_port_device进行设置
         LOGD_Env("call RETRO_ENVIRONMENT_SET_CONTROLLER_INFO -> save supported controller infos.");
+        auto core_ctx = core_runtime_context_.lock();
         struct retro_controller_info *controller = static_cast<struct retro_controller_info *>(data);
         while (controller != nullptr && controller->types != nullptr) {
             for (int i = 0; i < controller->num_types; ++i) {
                 const retro_controller_description controllerDesc = controller->types[i];
-                supportControllers[controllerDesc.id] = controllerDesc.desc;
+                core_ctx->set_support_controller(controllerDesc.id, controllerDesc.desc);
                 //LOGD_Env("controller %d: %s, id: %d", i, controllerDesc.desc, controllerDesc.id);
             }
             controller++;
@@ -639,15 +657,6 @@ namespace libRetroRunner {
         return defaultValue;
     }
 
-    void Environment::InvokeRenderContextDestroy() {
-        if (renderContextDestroy)
-            renderContextDestroy();
-    }
-
-    void Environment::InvokeRenderContextReset() {
-        if (renderContextReset)
-            renderContextReset();
-    }
 
 }
 

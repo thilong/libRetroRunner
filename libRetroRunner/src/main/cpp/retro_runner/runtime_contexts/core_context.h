@@ -21,23 +21,20 @@ namespace libRetroRunner {
         ~CoreRuntimeContext();
 
     public:
-        inline void set_variables_changed(bool flag) { variables_changed_ = flag; }
-
-        inline bool get_variables_changed() const { return variables_changed_; }
-
-    public:
         //getter
         inline std::string get_core_path() const { return core_path_; }
 
         inline std::string get_system_path() const { return system_path_; }
 
-        inline bool get_audio_enabled() const { return audio_enabled_; }
+        inline const std::map<unsigned int, std::string> &get_support_controllers() { return support_controllers_; }
 
-        inline bool get_video_enabled() const { return video_enabled_; }
+        inline unsigned int get_language() const { return language_; }
 
         inline unsigned int get_max_user_count() const { return max_user_count_; }
 
         inline bool get_support_no_game() const { return support_no_game_; }
+
+        inline int get_pixel_format() const { return pixel_format_; }
 
         inline int get_render_context_type() const { return render_context_type_; }
 
@@ -60,13 +57,14 @@ namespace libRetroRunner {
 
         inline void set_system_path(std::string system_path) { system_path_ = system_path; }
 
-        inline void set_audio_enabled(bool audio_enabled) { audio_enabled_ = audio_enabled; }
+        inline void set_support_controller(int key, std::string value) { support_controllers_[key] = value; }
 
-        inline void set_video_enabled(bool video_enabled) { video_enabled_ = video_enabled; }
 
         inline void set_max_user_count(unsigned int max_user_count) { max_user_count_ = max_user_count; }
 
         inline void set_support_no_game(bool support_no_game) { support_no_game_ = support_no_game; }
+
+        inline void set_pixel_format(int pixel_format) { pixel_format_ = pixel_format; }
 
         inline void set_render_context_type(int render_context_type) { render_context_type_ = render_context_type; }
 
@@ -89,16 +87,16 @@ namespace libRetroRunner {
         std::string core_path_;
         std::string system_path_;
 
-        std::unordered_map<std::string, Variable> variables_;
-        bool variables_changed_;
-        std::map<int, std::string> support_controllers_;
+        std::map<unsigned int, std::string> support_controllers_;
 
-        bool audio_enabled_;
-        bool video_enabled_;
-        unsigned int max_user_count_;
+        unsigned int language_ = RETRO_LANGUAGE_ENGLISH;
+        unsigned int max_user_count_ = 4;
 
 
         bool support_no_game_;
+
+
+        int pixel_format_;
 
         int render_context_type_;
         int render_major_version_;

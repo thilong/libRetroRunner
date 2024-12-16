@@ -344,7 +344,7 @@ namespace libRetroRunner {
                 }
                 case AppCommands::kInitInput: {
                     input_ = InputContext::Create(Setting::Current()->GetInputDriver());
-                    input_->Init();
+                    input_->Init(core_runtime_context_->get_max_user_count());
                     return;
                 }
                 case AppCommands::kResetGame: {

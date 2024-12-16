@@ -13,7 +13,7 @@ namespace libRetroRunner {
 
     }
 
-    void EmptyInput::Init() {
+    void EmptyInput::Init(int max_user) {
 
     }
 

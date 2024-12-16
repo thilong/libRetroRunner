@@ -14,7 +14,7 @@ namespace libRetroRunner {
 
         ~EmptyInput() override;
 
-        void Init() override;
+        void Init(int max_user) override;
 
         void UpdateAxis(unsigned int port, unsigned int analog, unsigned int key, float value) override;
 

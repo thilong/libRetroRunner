@@ -3,9 +3,8 @@
 //
 
 #include "audio_context.h"
+#include <retro_runner/types/log.h>
 #include "empty_audio_context.h"
-#include "../types/log.h"
-
 #include "oboe/oboe_audio_context.h"
 
 namespace libRetroRunner {

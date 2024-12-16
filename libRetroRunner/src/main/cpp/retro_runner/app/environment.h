@@ -64,56 +64,18 @@ namespace libRetroRunner {
             core_runtime_context_ = core_runtime_context;
         }
 
-
-
-
         const std::string GetVariable(const std::string &key, const std::string &defaultValue = "");
 
-        inline void SetFastForwardSpeed(double speed) { fastForwardSpeed = speed; }
-
-        inline int GetFastForwardFps() { return (int) (gameFps * fastForwardSpeed); }
-
-        inline double GetFps() { return gameFps; }
-
-        inline double GetSampleRate() { return gameSampleRate; }
-
-        inline double GetAspectRatio() { return gameGeometryAspectRatio; }
-
-        inline unsigned int GetGameWidth() { return gameGeometryWidth; }
-
-        inline unsigned int GetGameHeight() { return gameGeometryHeight; }
-
-        inline bool GetRenderUseHWAcceleration() { return renderUseHWAcceleration; }
-
-        inline bool GetRenderUseDepth() { return renderUseDepth; }
-
-        inline bool GetRenderUseStencil() { return renderUseStencil; }
-
-        inline int GetCorePixelFormat() { return core_pixel_format_; }
-
-        inline std::map<int, std::string> &GetSupportControllers() { return supportControllers; }
-
-        void InvokeRenderContextDestroy();
-
-        void InvokeRenderContextReset();
-
     private:
+        bool variablesChanged = false;
         std::unordered_map<std::string, struct Variable> variables;
+
         std::weak_ptr<class GameRuntimeContext> game_runtime_context_;
         std::weak_ptr<class CoreRuntimeContext> core_runtime_context_;
 
-        //核心支持的手柄，由核心返回给前端的,使用retro_set_controller_port_device进行设置
-        std::map<int, std::string> supportControllers;
-        bool variablesChanged = false;
-
-        unsigned int language = RETRO_LANGUAGE_ENGLISH;
         bool audioEnabled = true;
         bool videoEnabled = true;
-        bool fastForwarding = false;
-        unsigned int maxUserCount = 4;
 
-
-        double fastForwardSpeed = 1.0;    //快进速度  1。0为正常速度
         retro_disk_control_callback *diskControllerCallback;
     };
 

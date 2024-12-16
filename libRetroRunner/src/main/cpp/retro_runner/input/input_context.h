@@ -9,8 +9,6 @@
 #include <memory>
 #include <string>
 
-#define MAX_PLAYER 4
-
 namespace libRetroRunner {
     class InputContext {
     public:
@@ -18,7 +16,7 @@ namespace libRetroRunner {
 
         virtual ~InputContext();
 
-        virtual void Init() = 0;
+        virtual void Init(int max_user) = 0;
 
         virtual void UpdateAxis(unsigned int port, unsigned int analog, unsigned int key, float value) = 0;
 

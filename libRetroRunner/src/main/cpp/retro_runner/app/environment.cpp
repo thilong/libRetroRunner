@@ -2,7 +2,8 @@
 // Created by aidoo on 2024/11/1.
 //
 #include "environment.h"
-
+#include <retro_runner/runtime_contexts/game_context.h>
+#include <retro_runner/runtime_contexts/core_context.h>
 
 #include <EGL/egl.h>
 #include "../types/log.h"
@@ -27,13 +28,10 @@ namespace libRetroRunner {
     }
 
     Environment::Environment() {
-        core_pixel_format_ = RETRO_PIXEL_FORMAT_UNKNOWN;
-        renderUseHWAcceleration = false;
+        diskControllerCallback = nullptr;
     }
 
-    Environment::~Environment() {
-
-    }
+    Environment::~Environment() = default;
 }
 
 namespace libRetroRunner {
@@ -55,11 +53,16 @@ namespace libRetroRunner {
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
-                const std::shared_ptr<Paths> &paths = AppContext::Current()->GetPaths();
-                std::string systemPath = paths->GetSystemPath();
-                POINTER_VAL(const char*) = systemPath.c_str();
-                LOGD_Env("call RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY -> %s", systemPath.c_str());
-                return !systemPath.empty();
+                auto core_runtime = core_runtime_context_.lock();
+                if (core_runtime) {
+                    std::string systemPath = core_runtime->get_system_path();
+                    if (!systemPath.empty()) {
+                        POINTER_VAL(const char*) = systemPath.c_str();
+                        LOGD_Env("call RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY -> %s", systemPath.c_str());
+                        return true;
+                    }
+                }
+                return false;
             }
             case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT: {
                 return cmdSetPixelFormat(data);
@@ -97,7 +100,7 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME: {
                 LOGD_Env("call RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME -> record");
-                coreSupportNoGame = POINTER_VAL(bool);
+                core_runtime_context_.lock()->set_support_no_game(POINTER_VAL(bool));
                 return true;
             }
             case RETRO_ENVIRONMENT_SET_FRAME_TIME_CALLBACK: {

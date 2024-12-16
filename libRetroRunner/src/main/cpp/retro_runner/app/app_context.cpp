@@ -256,6 +256,8 @@ namespace libRetroRunner {
         core_runtime_context_->set_system_path(system);
 
         environment_ = std::make_shared<Environment>();
+        environment_->SetGameRuntimeContext(game_runtime_context_);
+        environment_->SetCoreRuntimeContext(core_runtime_context_);
 
         BIT_SET(state_, AppState::kPathsReady);
     }
@@ -490,16 +492,16 @@ namespace libRetroRunner {
         struct retro_system_info system_info{};
         core_->retro_get_system_info(&system_info);
 
+        std::vector<unsigned char> content_data;
         struct retro_game_info game_info{};
         game_info.path = rom_path.c_str();
         game_info.meta = nullptr;
 
         //TODO:这里需要加入zip解压支持的实现
         if (!system_info.need_fullpath) {
-            struct Utils::ReadResult file = Utils::readFileAsBytes(rom_path.c_str());
-            game_info.data = file.data;
-            game_info.size = file.size;
-            //TODO:这里有内存泄露
+            content_data = Utils::readFileAsBytes(rom_path);
+            game_info.data = &(content_data[0]);
+            game_info.size = content_data.size();
         }
 
         bool result = core_->retro_load_game(&game_info);
@@ -511,15 +513,13 @@ namespace libRetroRunner {
         //获取核心默认的尺寸
         struct retro_system_av_info avInfo;
         core_->retro_get_system_av_info(&avInfo);
-        environment_->gameGeometryWidth = avInfo.geometry.base_width;
-        environment_->gameGeometryHeight = avInfo.geometry.base_height;
-        environment_->gameGeometryMaxWidth = avInfo.geometry.max_width;
-        environment_->gameGeometryMaxHeight = avInfo.geometry.max_height;
-        environment_->gameGeometryAspectRatio = avInfo.geometry.aspect_ratio;
-        environment_->gameSampleRate = avInfo.timing.sample_rate;                //如果声音采样率变化了，则Audio组件可能需要重新初始化
-        environment_->gameFps = avInfo.timing.fps;
-
-        speed_limiter_.SetFps(environment_->gameFps);
+        game_runtime_context_->set_geometry_width(avInfo.geometry.base_width);
+        game_runtime_context_->set_geometry_height(avInfo.geometry.base_height);
+        game_runtime_context_->set_geometry_max_width(avInfo.geometry.max_width);
+        game_runtime_context_->set_geometry_max_height(avInfo.geometry.max_height);
+        game_runtime_context_->set_geometry_aspect_ratio(avInfo.geometry.aspect_ratio);
+        game_runtime_context_->set_sample_rate(avInfo.timing.sample_rate);
+        game_runtime_context_->set_fps(avInfo.timing.fps);
 
         BIT_SET(state_, AppState::kContentReady);
         LOGD_APP("content loaded");
@@ -563,11 +563,10 @@ namespace libRetroRunner {
         } else {
             std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
             std::string savePath = paramCommand->GetArg();
-            Utils::ReadResult data = Utils::readFileAsBytes(savePath);
-            if (data.data) {
+            auto data = Utils::readFileAsBytes(savePath);
+            if (!data.empty()) {
                 LOGI("SRAM loaded: %s", savePath.c_str());
-                memcpy(sramstate_, data.data, data.size);
-                delete[] data.data;
+                memcpy(sramState, &(data[0]), data.size());
             } else {
                 LOGE("Cannot load SRAM: empty file: %s", savePath.c_str());
                 ret = RRError::kEmptyFile;
@@ -594,7 +593,7 @@ namespace libRetroRunner {
         } else {
             std::unique_ptr<unsigned char> stateData(new unsigned char[stateSize]);
             if (!core_->retro_serialize(stateData.get(), stateSize)) {
-                LOGE_APP("serialize state to %d failed", savePath.c_str());
+                LOGE_APP("serialize state to %s failed", savePath.c_str());
                 ret = RRError::kCannotReadMemory;
             } else {
                 int wroteSize = Utils::writeBytesToFile(savePath, (char *) stateData.get(), stateSize);
@@ -618,17 +617,16 @@ namespace libRetroRunner {
 
         std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
         std::string savePath = paramCommand->GetArg();
-        Utils::ReadResult data = Utils::readFileAsBytes(savePath);
+        auto data = Utils::readFileAsBytes(savePath);
 
 
-        if (data.data) {
-            if (!core_->retro_unserialize(data.data, data.size)) {
+        if (!data.empty()) {
+            if (!core_->retro_unserialize(&(data[0]), data.size())) {
                 LOGE_APP("can't unserialize state from %s ", savePath.c_str());
                 ret = RRError::kCannotWriteData;
             } else {
                 LOGI_APP("Unserialize state from %s complete.", savePath.c_str());
             }
-            delete[] data.data;
         } else {
             LOGE("Cannot load state: empty file: %s", savePath.c_str());
             ret = RRError::kEmptyFile;

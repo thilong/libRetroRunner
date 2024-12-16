@@ -6,27 +6,27 @@
 
 namespace libRetroRunner {
 
-    Utils::ReadResult Utils::readFileAsBytes(const std::string &filePath) {
+    std::vector<unsigned char> Utils::readFileAsBytes(const std::string &filePath) {
         FILE *file = fopen(filePath.c_str(), "rb");
         if (file == nullptr) {
-            return ReadResult{0, nullptr};
+            return {};
         }
         size_t size = getFileSize(file);
 
-        char *bytes = new char[size];
-        fread(bytes, sizeof(char), size, file);
+        std::vector<unsigned char> ret(size);
+        fread(&(ret[0]), sizeof(unsigned char), size, file);
         fclose(file);
-        return ReadResult{size, bytes};
+        return ret;
     }
 
-    Utils::ReadResult Utils::readFileAsBytes(const int fileDescriptor) {
+    std::vector<unsigned char> Utils::readFileAsBytes(const int fileDescriptor) {
         FILE *file = fdopen(fileDescriptor, "r");
         size_t size = getFileSize(file);
 
-        char *bytes = new char[size];
-        fread(bytes, sizeof(char), size, file);
-        close(fileDescriptor);
-        return ReadResult{size, bytes};
+        std::vector<unsigned char> ret(size);
+        fread(&(ret[0]), sizeof(unsigned char), size, file);
+        fclose(file);
+        return ret;
     }
 
     size_t Utils::getFileSize(FILE *file) {
@@ -37,20 +37,14 @@ namespace libRetroRunner {
         return size;
     }
 
-    const char *Utils::cloneToCString(const std::string &input) {
-        char *result = new char[input.length() + 1];
-        std::strcpy(result, input.c_str());
-        return result;
-    }
-
     int Utils::writeBytesToFile(const std::string &filePath, const char *data, size_t size) {
         FILE *file = fopen(filePath.c_str(), "wb");
         if (file == nullptr) {
             return -1;
         }
-        size_t wrote = fwrite(data, sizeof(char), size, file);
+        size_t wrote = fwrite(data, sizeof(unsigned char), size, file);
         fclose(file);
-        return wrote;
+        return (int) wrote;
     }
 
     std::string Utils::getFilePathWithoutExtension(const std::string &filePath) {
@@ -58,7 +52,7 @@ namespace libRetroRunner {
         if (pos != std::string::npos) {
             return filePath.substr(0, pos);
         }
-        return std::string(filePath);
+        return filePath;
     }
 
 }

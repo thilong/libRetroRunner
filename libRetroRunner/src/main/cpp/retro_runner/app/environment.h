@@ -56,6 +56,17 @@ namespace libRetroRunner {
 
     public:
 
+        inline void SetGameRuntimeContext(const std::shared_ptr<class GameRuntimeContext>& game_runtime_context) {
+            game_runtime_context_ = game_runtime_context;
+        }
+
+        inline void SetCoreRuntimeContext(const std::shared_ptr<class CoreRuntimeContext>& core_runtime_context) {
+            core_runtime_context_ = core_runtime_context;
+        }
+
+
+
+
         const std::string GetVariable(const std::string &key, const std::string &defaultValue = "");
 
         inline void SetFastForwardSpeed(double speed) { fastForwardSpeed = speed; }
@@ -88,6 +99,8 @@ namespace libRetroRunner {
 
     private:
         std::unordered_map<std::string, struct Variable> variables;
+        std::weak_ptr<class GameRuntimeContext> game_runtime_context_;
+        std::weak_ptr<class CoreRuntimeContext> core_runtime_context_;
 
         //核心支持的手柄，由核心返回给前端的,使用retro_set_controller_port_device进行设置
         std::map<int, std::string> supportControllers;
@@ -99,29 +112,6 @@ namespace libRetroRunner {
         bool fastForwarding = false;
         unsigned int maxUserCount = 4;
 
-        bool coreSupportNoGame = true;
-
-        int core_pixel_format_ = RETRO_PIXEL_FORMAT_XRGB8888;
-
-        int renderContextType = -1;
-        unsigned int renderMajorVersion = 0;
-        unsigned int renderMinorVersion = 0;
-
-        bool renderUseHWAcceleration = false;
-        bool renderUseDepth = false;
-        bool renderUseStencil = false;
-
-        retro_hw_context_reset_t renderContextReset = nullptr;
-        retro_hw_context_reset_t renderContextDestroy = nullptr;
-
-        unsigned int gameGeometryMaxHeight = 0;
-        unsigned int gameGeometryMaxWidth = 0;
-        unsigned int gameGeometryHeight = 0;
-        unsigned int gameGeometryWidth = 0;
-        float gameGeometryAspectRatio;
-
-        double gameFps;
-        double gameSampleRate;
 
         double fastForwardSpeed = 1.0;    //快进速度  1。0为正常速度
         retro_disk_control_callback *diskControllerCallback;

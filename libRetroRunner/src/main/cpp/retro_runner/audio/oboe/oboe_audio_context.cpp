@@ -41,7 +41,7 @@ namespace libRetroRunner {
 
     void OboeAudioContext::Init() {
         auto setting = Setting::Current();
-        auto environment = AppContext::Current()->GetEnvironment();
+        auto gameCtx = AppContext::Current()->GetGameRuntimeContext();
 
 
         bool preferLowLatency = setting->UseLowLatency();
@@ -54,10 +54,10 @@ namespace libRetroRunner {
             bufferSizeInVideoFrame = 8;
             useLowLatency = false;
         }
-
+        float sampleRate = gameCtx->GetSampleRate();
         double maxLatency = std::max(bufferSizeInVideoFrame / 60.0 * 1000, 32.0);
         double sampleRateDivisor = 500.0 / maxLatency;
-        int audioBufferSize = ((int) (environment->GetSampleRate() / sampleRateDivisor)) / 2 * 2;
+        int audioBufferSize = ((int) (sampleRate / sampleRateDivisor)) / 2 * 2;
 
         oboe::AudioStreamBuilder streamBuilder;
         streamBuilder.setFormat(oboe::AudioFormat::I16);
@@ -66,7 +66,7 @@ namespace libRetroRunner {
         streamBuilder.setDataCallback(this);
         streamBuilder.setErrorCallback(this);
 
-        streamBuilder.setSampleRate(environment->GetSampleRate());
+        streamBuilder.setSampleRate(sampleRate);
         streamBuilder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
 
         oboe::Result result = streamBuilder.openManagedStream(audioStream);
@@ -77,7 +77,7 @@ namespace libRetroRunner {
             return;
         }
 
-        double latency = environment->GetSampleRate() / (double) environment->GetSampleRate();  //延迟计算
+        //double latency = sampleRate / (double) sampleRate;  //延迟计算
         audioFifoBuffer = std::make_unique<oboe::FifoBuffer>(2, audioBufferSize);
         audioStreamBuffer = std::unique_ptr<uint16_t[]>(new uint16_t[audioBufferSize]);
         latencyTuner = std::make_unique<oboe::LatencyTuner>(*audioStream);

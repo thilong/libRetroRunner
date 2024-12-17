@@ -101,13 +101,15 @@ namespace libRetroRunner {
 #endif
 
         auto appContext = AppContext::Current();
-        auto env = appContext->GetEnvironment();
-        core_pixel_format_ = env->GetCorePixelFormat();
-        is_hardware_accelerated = env->GetRenderUseHWAcceleration();
+        auto coreCtx = appContext->GetCoreRuntimeContext();
+        auto gameCtx = appContext->GetGameRuntimeContext();
+        core_pixel_format_ = coreCtx->GetPixelFormat();
+        is_hardware_accelerated = coreCtx->GetRenderUseHardwareAcceleration();
 
         createPassChain();
-        if (env->GetRenderUseHWAcceleration()) {
-            env->InvokeRenderContextReset();
+        if (is_hardware_accelerated) {
+            retro_hw_context_reset_t reset_func = coreCtx->GetRenderHWContextResetCallback();
+            if (reset_func) reset_func();
         }
         is_ready = true;
         LOGD_GLVIDEO("GLESVideoContext initialized, hardware accelerated: %d.", is_hardware_accelerated);
@@ -302,10 +304,11 @@ namespace libRetroRunner {
             if (passes.empty()) {
                 createPassChain();
             } else {
-                auto env = AppContext::Current()->GetEnvironment();
+                auto gameCtx = AppContext::Current()->GetGameRuntimeContext();
+                auto coreCtx = AppContext::Current()->GetCoreRuntimeContext();
                 auto setting = Setting::Current();
                 std::unique_ptr<GLShaderPass> *pass = &passes[0];
-                (*pass)->CreateFrameBuffer(env->GetGameWidth(), env->GetGameHeight(), setting->GetVideoUseLinear(), env->GetRenderUseDepth(), env->GetRenderUseDepth());
+                (*pass)->CreateFrameBuffer(gameCtx->GetGeometryWidth(), gameCtx->GetGeometryHeight(), setting->GetVideoUseLinear(), coreCtx->GetRenderUseDepth(), coreCtx->GetRenderUseStencil());
             }
             game_geometry_changed_ = false;
         }
@@ -313,13 +316,14 @@ namespace libRetroRunner {
 
     void GLESVideoContext::createPassChain() {
         if (passes.empty()) {
-            auto env = AppContext::Current()->GetEnvironment();
+            auto gameCtx = AppContext::Current()->GetGameRuntimeContext();
+            auto coreCtx = AppContext::Current()->GetCoreRuntimeContext();
             auto setting = Setting::Current();
 
             std::unique_ptr<GLShaderPass> pass = std::make_unique<GLShaderPass>(nullptr, nullptr);
             pass->SetPixelFormat(core_pixel_format_);
             pass->SetHardwareAccelerated(is_hardware_accelerated);
-            pass->CreateFrameBuffer(env->GetGameWidth(), env->GetGameHeight(), setting->GetVideoUseLinear(), env->GetRenderUseDepth(), env->GetRenderUseDepth());
+            pass->CreateFrameBuffer(gameCtx->GetGeometryWidth(), gameCtx->GetGeometryHeight(), setting->GetVideoUseLinear(), coreCtx->GetRenderUseDepth(), coreCtx->GetRenderUseStencil());
             passes.push_back(std::move(pass));
         }
     }

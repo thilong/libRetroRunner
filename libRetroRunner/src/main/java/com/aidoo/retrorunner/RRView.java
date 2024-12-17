@@ -188,7 +188,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
         return RRNative.addCheat(code, desc, enable);
     }
 
-    public void setFastForward(double multiplier) {
+    public void setFastForward(float multiplier) {
         RRNative.setFastForward(multiplier);
     }
 

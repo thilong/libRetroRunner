@@ -7,11 +7,13 @@
 
 #include <string>
 #include <retro_runner/types/app_command.hpp>
-#include "speed_limiter.hpp"
 #include <retro_runner/runtime_contexts/core_context.h>
 #include <retro_runner/runtime_contexts/game_context.h>
+#include <retro_runner/types/frontend_notify.hpp>
+#include <retro_runner/app/speed_limiter.hpp>
 
 namespace libRetroRunner {
+
 
     class AppContext {
 
@@ -27,8 +29,12 @@ namespace libRetroRunner {
         void ThreadLoop();
 
     public:
+        inline void SetFrontendNotify(FrontendNotifyCallback notify) {
+            frontend_notify_ = notify;
+        }
+
         std::shared_ptr<class Environment> GetEnvironment() const;
-        
+
         std::shared_ptr<class VideoContext> GetVideo() const;
 
         std::shared_ptr<class InputContext> GetInput() const;
@@ -64,8 +70,8 @@ namespace libRetroRunner {
 
         void SetVideoSurface(int argc, void **argv);
 
-    public:
         void SetController(unsigned port, int retro_device);
+
 
     public:
         void AddCommand(int command);
@@ -107,6 +113,12 @@ namespace libRetroRunner {
 
         void commandLoadState(std::shared_ptr<Command> &command);
 
+    public:
+        template<class T>
+        void NotifyFrontend(FrontendNotify<T> *notify);
+
+        void NotifyFrontend(int notifyType);
+
     private:
         /* current app state */
         unsigned long state_ = 0;
@@ -126,6 +138,7 @@ namespace libRetroRunner {
         SpeedLimiter speed_limiter_;
 
         pid_t emu_thread_id_ = 0;
+        FrontendNotifyCallback frontend_notify_ = nullptr;
     };
 
 }

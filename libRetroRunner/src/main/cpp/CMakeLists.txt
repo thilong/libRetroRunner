@@ -23,8 +23,10 @@ set(LIBRETRO_COMMON
 
 add_library(RetroRunner SHARED
 
+        retro_runner/types/object_ref.hpp
         retro_runner/types/semaphore_rr.cpp
         retro_runner/types/app_command.hpp
+        retro_runner/types/frontend_notify.hpp
 
         retro_runner/runtime_contexts/core_context.cpp
         retro_runner/runtime_contexts/game_context.cpp

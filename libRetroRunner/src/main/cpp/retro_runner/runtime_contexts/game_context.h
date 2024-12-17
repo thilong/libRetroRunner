@@ -19,58 +19,60 @@ namespace libRetroRunner {
 
     public:
         // Getters
-        inline std::string get_game_path() const { return game_path_; }
+        inline std::string GetGamePath() const { return game_path_; }
 
-        inline std::string get_save_path() const { return save_path_; }
+        inline std::string GetSavePath() const { return save_path_; }
 
-        inline bool get_geometry_changed() const { return geometry_changed_; }
+        inline bool GetIsGeometryChanged() const { return geometry_changed_; }
 
-        inline unsigned int get_geometry_max_height() const { return geometry_max_height_; }
+        inline unsigned int GetGeometryMaxHeight() const { return geometry_max_height_; }
 
-        inline unsigned int get_geometry_max_width() const { return geometry_max_width_; }
+        inline unsigned int GetGeometryMaxWidth() const { return geometry_max_width_; }
 
-        inline unsigned int get_geometry_height() const { return geometry_height_; }
+        inline unsigned int GetGeometryHeight() const { return geometry_height_; }
 
-        inline unsigned int get_geometry_width() const { return geometry_width_; }
+        inline unsigned int GetGeometryWidth() const { return geometry_width_; }
 
-        inline unsigned int get_geometry_rotation() const { return geometry_rotation_; }
+        inline unsigned int GetGeometryRotation() const { return geometry_rotation_; }
 
-        inline float get_geometry_aspect_ratio() const { return geometry_aspect_ratio_; }
+        inline float GetGeometryAspectRatio() const { return geometry_aspect_ratio_; }
 
-        inline float get_fps() const { return fps_; }
+        inline float GetFps() const { return fps_; }
 
-        inline float get_forwarding_fps() const { return fps_ * game_speed_; }
+        inline float GetFastForwardingFps() const { return fps_ * game_speed_; }
 
-        inline float get_sample_rate() const { return sample_rate_; }
+        inline float GetSampleRate() const { return sample_rate_; }
 
-        inline float get_game_speed() const { return game_speed_; }
+        inline float GetGameSpeed() const { return game_speed_; }
 
-        inline bool get_is_fast_forwarding() const { return game_speed_ > 1.0; }
+        inline bool GetIsFastForwarding() const { return game_speed_ > 1.0; }
+
+        std::string GetSaveStateFilePath(int slot);
 
         // Setters
-        inline void set_game_path(std::string game_path) { game_path_ = game_path; }
+        inline void SetGamePath(std::string game_path) { game_path_ = game_path; }
 
-        inline void set_save_path(std::string save_path) { save_path_ = save_path; }
+        inline void SetSavePath(std::string save_path) { save_path_ = save_path; }
 
-        inline void set_geometry_changed(bool geometry_changed) { geometry_changed_ = geometry_changed; }
+        inline void SetGeometryChanged(bool geometry_changed) { geometry_changed_ = geometry_changed; }
 
-        inline void set_geometry_max_height(unsigned int geometry_max_height) { geometry_max_height_ = geometry_max_height; }
+        inline void SetGeometryMaxHeight(unsigned int geometry_max_height) { geometry_max_height_ = geometry_max_height; }
 
-        inline void set_geometry_max_width(unsigned int geometry_max_width) { geometry_max_width_ = geometry_max_width; }
+        inline void SetGeometryMaxWidth(unsigned int geometry_max_width) { geometry_max_width_ = geometry_max_width; }
 
-        inline void set_geometry_height(unsigned int geometry_height) { geometry_height_ = geometry_height; }
+        inline void SetGeometryHeight(unsigned int geometry_height) { geometry_height_ = geometry_height; }
 
-        inline void set_geometry_width(unsigned int geometry_width) { geometry_width_ = geometry_width; }
+        inline void SetGeometryWidth(unsigned int geometry_width) { geometry_width_ = geometry_width; }
 
-        inline void set_geometry_rotation(unsigned int geometry_rotation) { geometry_rotation_ = geometry_rotation; }
+        inline void SetGeometryRotation(unsigned int geometry_rotation) { geometry_rotation_ = geometry_rotation; }
 
-        inline void set_geometry_aspect_ratio(float geometry_aspect_ratio) { geometry_aspect_ratio_ = geometry_aspect_ratio; }
+        inline void SetGeometryAspectRatio(float geometry_aspect_ratio) { geometry_aspect_ratio_ = geometry_aspect_ratio; }
 
-        inline void set_fps(float fps) { fps_ = fps; }
+        inline void SetFps(float fps) { fps_ = fps; }
 
-        inline void set_sample_rate(float sample_rate) { sample_rate_ = sample_rate; }
+        inline void SetSampleRate(float sample_rate) { sample_rate_ = sample_rate; }
 
-        inline void set_game_speed(float game_speed) { game_speed_ = game_speed; }
+        inline void SetGameSpeed(float game_speed) { game_speed_ = game_speed; }
 
     private:
         std::string game_path_;

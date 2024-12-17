@@ -63,7 +63,7 @@ namespace libRetroRunner {
         auto app = AppContext::Current();
         auto coreCtx = app->GetCoreRuntimeContext();
         int device = RETRO_DEVICE_JOYPAD;
-        auto supportControllers = coreCtx->get_support_controllers();
+        auto supportControllers = coreCtx->GetSupportControllers();
 
         if (supportControllers.find(RETRO_DEVICE_ANALOG) != supportControllers.end()) {
             device = RETRO_DEVICE_ANALOG;

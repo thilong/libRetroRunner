@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <thread>
+#include <future>
 
 #include <libretro-common/include/libretro.h>
 
@@ -14,15 +15,15 @@
 #include "paths.h"
 #include "setting.h"
 
-#include "../types/log.h"
-#include "../types/app_state.h"
-#include "../types/macros.h"
-#include "../core/core.h"
-#include "../utils/utils.h"
-#include "../video/video_context.h"
-#include "../input/input_context.h"
-#include "../audio/audio_context.h"
-#include "../types/error.h"
+#include <retro_runner/types/log.h>
+#include <retro_runner/types/app_state.h>
+#include <retro_runner/types/macros.h>
+#include <retro_runner/core/core.h>
+#include <retro_runner/utils/utils.h>
+#include <retro_runner/video/video_context.h>
+#include <retro_runner/input/input_context.h>
+#include <retro_runner/audio/audio_context.h>
+#include <retro_runner/types/error.h>
 
 #ifdef ANDROID
 
@@ -37,7 +38,7 @@
 
 /*-----RETRO CALLBACKS--------------------------------------------------------------*/
 namespace libRetroRunner {
-    void libretro_callback_hw_video_refresh(const void *data, unsigned int width, unsigned int height, size_t pitch) {
+    void retroCallbackHwVideoRefresh(const void *data, unsigned int width, unsigned int height, size_t pitch) {
         auto appContext = AppContext::Current();
         if (appContext) {
             auto video = appContext->GetVideo();
@@ -45,7 +46,7 @@ namespace libRetroRunner {
         }
     }
 
-    bool libretro_callback_set_environment(unsigned int cmd, void *data) {
+    bool retroCallbackSetEnvironment(unsigned int cmd, void *data) {
         auto appContext = AppContext::Current();
         if (appContext) {
             return appContext->GetEnvironment()->HandleCoreCallback(cmd, data);
@@ -53,7 +54,7 @@ namespace libRetroRunner {
         return false;
     }
 
-    void libretro_callback_audio_sample(int16_t left, int16_t right) {
+    void retroCallbackAudioSample(int16_t left, int16_t right) {
         auto appContext = AppContext::Current();
         if (appContext) {
             auto audio = appContext->GetAudio();
@@ -61,7 +62,7 @@ namespace libRetroRunner {
         }
     }
 
-    size_t libretro_callback_audio_sample_batch(const int16_t *data, size_t frames) {
+    size_t retroCallbackAudioSampleBatch(const int16_t *data, size_t frames) {
         auto appContext = AppContext::Current();
         if (appContext) {
             auto audio = appContext->GetAudio();
@@ -70,7 +71,7 @@ namespace libRetroRunner {
         return frames;
     }
 
-    void libretro_callback_input_poll(void) {
+    void retroCallbackInputPoll(void) {
         auto appContext = AppContext::Current();
         if (appContext) {
             auto input = appContext->GetInput();
@@ -78,7 +79,7 @@ namespace libRetroRunner {
         }
     }
 
-    int16_t libretro_callback_input_state(unsigned int port, unsigned int device, unsigned int index, unsigned int id) {
+    int16_t retroCallbackInputState(unsigned int port, unsigned int device, unsigned int index, unsigned int id) {
         auto appContext = AppContext::Current();
         if (appContext) {
             auto input = appContext->GetInput();
@@ -120,6 +121,7 @@ namespace libRetroRunner {
     }
 
     AppContext::~AppContext() {
+
         if (appInstance != nullptr && appInstance.get() == this) {
             appInstance = nullptr;
         }
@@ -145,7 +147,7 @@ namespace libRetroRunner {
                     BIT_TEST(state_, AppState::kContentReady)) {
 
                     //avoid emulator run too fast
-                    speed_limiter_.CheckAndWait(game_runtime_context_->get_fps());
+                    speed_limiter_.CheckAndWait(game_runtime_context_->GetFps());
 
                     video_->Prepare();
                     core_->retro_run();
@@ -165,6 +167,8 @@ namespace libRetroRunner {
             BIT_UNSET(state_, AppState::kCoreReady);
         }
         BIT_UNSET(state_, AppState::kRunning);
+
+        this->frontend_notify_ = nullptr;
         LOGW_APP("emu stopped");
     }
 }
@@ -248,12 +252,12 @@ namespace libRetroRunner {
             return;
         }
         game_runtime_context_ = std::make_shared<GameRuntimeContext>();
-        game_runtime_context_->set_game_path(rom);
-        game_runtime_context_->set_save_path(save);
+        game_runtime_context_->SetGamePath(rom);
+        game_runtime_context_->SetSavePath(save);
 
         core_runtime_context_ = std::make_shared<CoreRuntimeContext>();
-        core_runtime_context_->set_core_path(core);
-        core_runtime_context_->set_system_path(system);
+        core_runtime_context_->SetCorePath(core);
+        core_runtime_context_->SetSystemPath(system);
 
         environment_ = std::make_shared<Environment>();
         environment_->SetGameRuntimeContext(game_runtime_context_);
@@ -331,8 +335,8 @@ namespace libRetroRunner {
                     return;
                 }
                 case AppCommands::kUnloadVideo: {
-                    if (core_runtime_context_->get_render_hardware_acceleration()) {
-                        retro_hw_context_reset_t destroy_func = core_runtime_context_->get_render_hw_context_destroy();
+                    if (core_runtime_context_->GetRenderUseHardwareAcceleration()) {
+                        retro_hw_context_reset_t destroy_func = core_runtime_context_->GetRenderHWContextDestroyCallback();
                         if (destroy_func) destroy_func();
                     }
                     if (video_) {
@@ -344,7 +348,7 @@ namespace libRetroRunner {
                 }
                 case AppCommands::kInitInput: {
                     input_ = InputContext::Create(Setting::Current()->GetInputDriver());
-                    input_->Init(core_runtime_context_->get_max_user_count());
+                    input_->Init(core_runtime_context_->GetMaxUserCount());
                     return;
                 }
                 case AppCommands::kResetGame: {
@@ -458,17 +462,16 @@ namespace libRetroRunner {
         return addCommandWithPath(savePath, AppCommands::kLoadSRAM, wait_for_result);
     }
 
-
     void AppContext::commandLoadCore() {
-        std::string core_path = core_runtime_context_->get_core_path();
+        std::string core_path = core_runtime_context_->GetCorePath();
         try {
             core_ = std::make_shared<Core>(core_path);
-            core_->retro_set_video_refresh(&libretro_callback_hw_video_refresh);
-            core_->retro_set_environment(&libretro_callback_set_environment);
-            core_->retro_set_audio_sample(&libretro_callback_audio_sample);
-            core_->retro_set_audio_sample_batch(&libretro_callback_audio_sample_batch);
-            core_->retro_set_input_poll(&libretro_callback_input_poll);
-            core_->retro_set_input_state(&libretro_callback_input_state);
+            core_->retro_set_video_refresh(&retroCallbackHwVideoRefresh);
+            core_->retro_set_environment(&retroCallbackSetEnvironment);
+            core_->retro_set_audio_sample(&retroCallbackAudioSample);
+            core_->retro_set_audio_sample_batch(&retroCallbackAudioSampleBatch);
+            core_->retro_set_input_poll(&retroCallbackInputPoll);
+            core_->retro_set_input_state(&retroCallbackInputState);
             core_->retro_init();
             BIT_SET(state_, AppState::kCoreReady);
             LOGD_APP("core loaded: %s", core_path.c_str());
@@ -488,7 +491,7 @@ namespace libRetroRunner {
             return;
         }
 
-        std::string rom_path = game_runtime_context_->get_game_path();
+        std::string rom_path = game_runtime_context_->GetGamePath();
         struct retro_system_info system_info{};
         core_->retro_get_system_info(&system_info);
 
@@ -513,16 +516,20 @@ namespace libRetroRunner {
         //获取核心默认的尺寸
         struct retro_system_av_info avInfo;
         core_->retro_get_system_av_info(&avInfo);
-        game_runtime_context_->set_geometry_width(avInfo.geometry.base_width);
-        game_runtime_context_->set_geometry_height(avInfo.geometry.base_height);
-        game_runtime_context_->set_geometry_max_width(avInfo.geometry.max_width);
-        game_runtime_context_->set_geometry_max_height(avInfo.geometry.max_height);
-        game_runtime_context_->set_geometry_aspect_ratio(avInfo.geometry.aspect_ratio);
-        game_runtime_context_->set_sample_rate(avInfo.timing.sample_rate);
-        game_runtime_context_->set_fps(avInfo.timing.fps);
+        game_runtime_context_->SetGeometryWidth(avInfo.geometry.base_width);
+        game_runtime_context_->SetGeometryHeight(avInfo.geometry.base_height);
+        game_runtime_context_->SetGeometryMaxWidth(avInfo.geometry.max_width);
+        game_runtime_context_->SetGeometryMaxHeight(avInfo.geometry.max_height);
+        game_runtime_context_->SetGeometryAspectRatio(avInfo.geometry.aspect_ratio);
+        game_runtime_context_->SetSampleRate(avInfo.timing.sample_rate);
+        game_runtime_context_->SetFps(avInfo.timing.fps);
 
         BIT_SET(state_, AppState::kContentReady);
         LOGD_APP("content loaded");
+
+        this->NotifyFrontend(AppNotifications::kAppNotificationGameGeometryChanged);
+
+
         AddCommand(AppCommands::kInitAudio);
         AddCommand(AppCommands::kInitInput);
     }
@@ -619,7 +626,6 @@ namespace libRetroRunner {
         std::string savePath = paramCommand->GetArg();
         auto data = Utils::readFileAsBytes(savePath);
 
-
         if (!data.empty()) {
             if (!core_->retro_unserialize(&(data[0]), data.size())) {
                 LOGE_APP("can't unserialize state from %s ", savePath.c_str());
@@ -632,7 +638,6 @@ namespace libRetroRunner {
             ret = RRError::kEmptyFile;
         }
 
-
         if (command->GetCommandType() == CommandType::kThreadCommand) {
             std::shared_ptr<ThreadCommand<int, std::string>> threadCommand = std::static_pointer_cast<ThreadCommand<int, std::string>>(command);
             threadCommand->SetResult(ret);
@@ -640,6 +645,27 @@ namespace libRetroRunner {
         }
     }
 
+}
+
+namespace libRetroRunner {
+
+    template<typename T>
+    void AppContext::NotifyFrontend(FrontendNotify<T> *notify) {
+        if (frontend_notify_) {
+            notify->Retain();
+            std::async(std::launch::async, [](FrontendNotifyCallback callback, FrontendNotify<T> *obj) {
+                callback(obj);
+                obj->Release();
+            }, frontend_notify_, notify);
+        }
+    }
+
+    void AppContext::NotifyFrontend(int notifyType) {
+        auto cmd = std::make_shared<int>(notifyType);
+        auto *notify = new FrontendNotify<int>(notifyType, cmd);
+        this->NotifyFrontend(notify);
+        notify->Release();
+    }
 
 }
 

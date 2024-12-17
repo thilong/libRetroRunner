@@ -22,65 +22,65 @@ namespace libRetroRunner {
 
     public:
         //getter
-        inline std::string get_core_path() const { return core_path_; }
+        inline std::string GetCorePath() const { return core_path_; }
 
-        inline std::string get_system_path() const { return system_path_; }
+        inline std::string GetSystemPath() const { return system_path_; }
 
-        inline const std::map<unsigned int, std::string> &get_support_controllers() { return support_controllers_; }
+        inline const std::map<unsigned int, std::string> &GetSupportControllers() { return support_controllers_; }
 
-        inline unsigned int get_language() const { return language_; }
+        inline unsigned int GetLanguage() const { return language_; }
 
-        inline unsigned int get_max_user_count() const { return max_user_count_; }
+        inline unsigned int GetMaxUserCount() const { return max_user_count_; }
 
-        inline bool get_support_no_game() const { return support_no_game_; }
+        inline bool GetSupportNoGame() const { return support_no_game_; }
 
-        inline int get_pixel_format() const { return pixel_format_; }
+        inline int GetPixelFormat() const { return pixel_format_; }
 
-        inline int get_render_context_type() const { return render_context_type_; }
+        inline int GetRenderContextType() const { return render_context_type_; }
 
-        inline int get_render_major_version() const { return render_major_version_; }
+        inline int GetRenderMajorVersion() const { return render_major_version_; }
 
-        inline int get_render_minor_version() const { return render_minor_version_; }
+        inline int GetRenderMinorVersion() const { return render_minor_version_; }
 
-        inline bool get_render_hardware_acceleration() const { return render_hardware_acceleration_; }
+        inline bool GetRenderUseHardwareAcceleration() const { return render_hardware_acceleration_; }
 
-        inline bool get_render_depth() const { return render_depth_; }
+        inline bool GetRenderUseDepth() const { return render_depth_; }
 
-        inline bool get_render_stencil() const { return render_stencil_; }
+        inline bool GetRenderUseStencil() const { return render_stencil_; }
 
-        inline retro_hw_context_reset_t get_render_hw_context_reset() const { return render_hw_context_reset_; }
+        inline retro_hw_context_reset_t GetRenderHWContextResetCallback() const { return render_hw_context_reset_; }
 
-        inline retro_hw_context_reset_t get_render_hw_context_destroy() const { return render_hw_context_destroy_; }
+        inline retro_hw_context_reset_t GetRenderHWContextDestroyCallback() const { return render_hw_context_destroy_; }
 
         //setter
-        inline void set_core_path(std::string core_path) { core_path_ = core_path; }
+        inline void SetCorePath(std::string core_path) { core_path_ = core_path; }
 
-        inline void set_system_path(std::string system_path) { system_path_ = system_path; }
+        inline void SetSystemPath(std::string system_path) { system_path_ = system_path; }
 
-        inline void set_support_controller(int key, std::string value) { support_controllers_[key] = value; }
+        inline void SetSupportController(int key, std::string value) { support_controllers_[key] = value; }
 
 
-        inline void set_max_user_count(unsigned int max_user_count) { max_user_count_ = max_user_count; }
+        inline void SetMaxUserCount(unsigned int max_user_count) { max_user_count_ = max_user_count; }
 
-        inline void set_support_no_game(bool support_no_game) { support_no_game_ = support_no_game; }
+        inline void SetSupportNoGame(bool support_no_game) { support_no_game_ = support_no_game; }
 
-        inline void set_pixel_format(int pixel_format) { pixel_format_ = pixel_format; }
+        inline void SetPixelFormat(int pixel_format) { pixel_format_ = pixel_format; }
 
-        inline void set_render_context_type(int render_context_type) { render_context_type_ = render_context_type; }
+        inline void SetRenderContextType(int render_context_type) { render_context_type_ = render_context_type; }
 
-        inline void set_render_major_version(int render_major_version) { render_major_version_ = render_major_version; }
+        inline void SetRenderMajorVersion(int render_major_version) { render_major_version_ = render_major_version; }
 
-        inline void set_render_minor_version(int render_minor_version) { render_minor_version_ = render_minor_version; }
+        inline void SetRenderMinorVersion(int render_minor_version) { render_minor_version_ = render_minor_version; }
 
-        inline void set_render_hardware_acceleration(bool render_hardware_acceleration) { render_hardware_acceleration_ = render_hardware_acceleration; }
+        inline void SetRenderUseHardwareAcceleration(bool render_hardware_acceleration) { render_hardware_acceleration_ = render_hardware_acceleration; }
 
-        inline void set_render_depth(bool render_depth) { render_depth_ = render_depth; }
+        inline void SetRenderUseDepth(bool render_depth) { render_depth_ = render_depth; }
 
-        inline void set_render_stencil(bool render_stencil) { render_stencil_ = render_stencil; }
+        inline void SetRenderUseStencil(bool render_stencil) { render_stencil_ = render_stencil; }
 
-        inline void set_render_hw_context_reset(retro_hw_context_reset_t render_hw_context_reset) { render_hw_context_reset_ = render_hw_context_reset; }
+        inline void SetRenderHWContextResetCallback(retro_hw_context_reset_t render_hw_context_reset) { render_hw_context_reset_ = render_hw_context_reset; }
 
-        inline void set_render_hw_context_destroy(retro_hw_context_reset_t render_hw_context_destroy) { render_hw_context_destroy_ = render_hw_context_destroy; }
+        inline void SetRenderHWContextDestroyCallback(retro_hw_context_reset_t render_hw_context_destroy) { render_hw_context_destroy_ = render_hw_context_destroy; }
 
     private:
 

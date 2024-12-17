@@ -59,7 +59,7 @@ public class RRNative {
     public static native void setVideoSurfaceSize(int width, int height);
 
     /*set emu speed multiplier， > 0.1, 1.0 = 60fps */
-    public static native void setFastForward(double multiplier);
+    public static native void setFastForward(float multiplier);
 
     /**
      * update button state

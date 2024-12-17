@@ -8,6 +8,7 @@ namespace libRetroRunner {
 
     CoreRuntimeContext::CoreRuntimeContext() {
 
+        pixel_format_ = RETRO_PIXEL_FORMAT_RGB565;
         max_user_count_ = 4;
         support_no_game_ = false;
         render_context_type_ = -1;
@@ -20,6 +21,9 @@ namespace libRetroRunner {
         render_hw_context_reset_ = nullptr;
     }
 
-    CoreRuntimeContext::~CoreRuntimeContext() = default;
+    CoreRuntimeContext::~CoreRuntimeContext() {
+        render_hw_context_destroy_ = nullptr;
+        render_hw_context_reset_ = nullptr;
+    }
 }
 

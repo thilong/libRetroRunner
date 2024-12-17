@@ -17,6 +17,10 @@ namespace libRetroRunner {
         sample_rate_ = 44800;
     }
 
+    std::string GameRuntimeContext::GetSaveStateFilePath(int slot) {
+        return game_path_ + ".state" + std::to_string(slot);
+    }
+
     GameRuntimeContext::~GameRuntimeContext() = default;
 }
 

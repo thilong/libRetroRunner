@@ -27,6 +27,24 @@ namespace libRetroRunner {
 
 using namespace libRetroRunner;
 
+void OnFrontendNotifyCallback(void *data) {
+    auto *notifyObj = (FrontendNotifyObject *) data;
+    int notifyType = notifyObj->GetNotifyType();
+    switch (notifyType) {
+        case kAppNotificationContentLoaded:
+            LOGD_JNI("frontend notify: content loaded");
+            break;
+        case kAppNotificationTerminated:
+            LOGD_JNI("frontend notify: app terminated");
+            break;
+        case kAppNotificationGameGeometryChanged:
+            LOGD_JNI("frontend notify: game geometry changed");
+            break;
+        default:
+            break;
+    }
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_initEnv(JNIEnv *env, jclass clazz) {
     env->GetJavaVM(&(gVm));
@@ -50,10 +68,14 @@ Java_com_aidoo_retrorunner_RRNative_addVariable(JNIEnv *env, jclass clazz, jstri
     JString valueVal(env, key);
     environment->UpdateVariable(keyVal.stdString(), valueVal.stdString(), notify_core);
 }
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_start(JNIEnv *env, jclass clazz) {
     const std::shared_ptr<AppContext> &app = AppContext::Current();
-    if (app.get() != nullptr) app->Start();
+    if (app) {
+        app->SetFrontendNotify(OnFrontendNotifyCallback);
+        app->Start();
+    }
 }
 extern "C"
 JNIEXPORT void JNICALL
@@ -100,10 +122,12 @@ Java_com_aidoo_retrorunner_RRNative_setVideoSurfaceSize(JNIEnv *env, jclass claz
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_setFastForward(JNIEnv *env, jclass clazz, jdouble multiplier) {
-    DeclareEnvironment();
-    LOGD_JNI("set fast forward speed to x%f", multiplier);
-    environment->SetFastForwardSpeed(multiplier);
+Java_com_aidoo_retrorunner_RRNative_setFastForward(JNIEnv *env, jclass clazz, jfloat multiplier) {
+    auto app = AppContext::Current();
+    if (app.get() == nullptr) return;
+    auto gameCtx = app->GetGameRuntimeContext();
+    gameCtx->SetGameSpeed(multiplier);
+    LOGD_JNI("set game speed to x%f", multiplier);
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -131,26 +155,32 @@ Java_com_aidoo_retrorunner_RRNative_updateAxisState(JNIEnv *env, jclass clazz, j
 
 extern "C" JNIEXPORT jdouble JNICALL
 Java_com_aidoo_retrorunner_RRNative_getAspectRatio(JNIEnv *env, jclass clazz) {
-    DeclareEnvironment(0);
-    return environment->GetAspectRatio();
+    auto app = AppContext::Current();
+    if (!app) return 0;
+    auto gameCtx = app->GetGameRuntimeContext();
+    return gameCtx->GetGeometryRotation();
 }
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_getGameWidth(JNIEnv *env, jclass clazz) {
-    DeclareEnvironment(0);
-    return environment->GetGameWidth();
+    auto app = AppContext::Current();
+    if (!app) return 0;
+    auto gameCtx = app->GetGameRuntimeContext();
+    return (int) gameCtx->GetGeometryWidth();
 }
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_getGameHeight(JNIEnv *env, jclass clazz) {
-    DeclareEnvironment(0);
-    return environment->GetGameHeight();
+    auto app = AppContext::Current();
+    if (!app) return 0;
+    auto gameCtx = app->GetGameRuntimeContext();
+    return (int) gameCtx->GetGeometryHeight();
 }
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_takeScreenshot(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
     auto app = AppContext::Current();
-    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    if (!app) return RRError::kAppNotRunning;
     JString pathVal(env, path);
     std::string savePath = pathVal.stdString();
     return app->AddTakeScreenshotCommand(savePath, wait_for_result);
@@ -159,7 +189,7 @@ Java_com_aidoo_retrorunner_RRNative_takeScreenshot(JNIEnv *env, jclass clazz, js
 extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_saveRam(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
     auto app = AppContext::Current();
-    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    if (!app) return RRError::kAppNotRunning;
     JString pathVal(env, path);
     std::string savePath = pathVal.stdString();
     return app->AddSaveSRAMCommand(savePath, wait_for_result);
@@ -168,7 +198,7 @@ Java_com_aidoo_retrorunner_RRNative_saveRam(JNIEnv *env, jclass clazz, jstring p
 extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_loadRam(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
     auto app = AppContext::Current();
-    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    if (!app) return RRError::kAppNotRunning;
     JString pathVal(env, path);
     std::string savePath = pathVal.stdString();
     return app->AddLoadSRAMCommand(savePath, wait_for_result);
@@ -177,25 +207,25 @@ Java_com_aidoo_retrorunner_RRNative_loadRam(JNIEnv *env, jclass clazz, jstring p
 extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_saveState(JNIEnv *env, jclass clazz, jint idx, jboolean wait_for_result) {
     auto app = AppContext::Current();
-    if (app.get() == nullptr) return RRError::kAppNotRunning;
-    auto paths = app->GetPaths();
-    auto savePath = paths->GetSaveStatePath(idx);
+    if (!app) return RRError::kAppNotRunning;
+    auto gameCtx = app->GetGameRuntimeContext();
+    auto savePath = gameCtx->GetSaveStateFilePath(idx);
     return app->AddSaveStateCommand(savePath, wait_for_result);
 }
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_loadState(JNIEnv *env, jclass clazz, jint idx, jboolean wait_for_result) {
     auto app = AppContext::Current();
-    if (app.get() == nullptr) return RRError::kAppNotRunning;
-    auto paths = app->GetPaths();
-    auto savePath = paths->GetSaveStatePath(idx);
+    if (!app) return RRError::kAppNotRunning;
+    auto gameCtx = app->GetGameRuntimeContext();
+    auto savePath = gameCtx->GetSaveStateFilePath(idx);
     return app->AddLoadStateCommand(savePath, wait_for_result);
 }
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_saveStateWithPath(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
     auto app = AppContext::Current();
-    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    if (!app) return RRError::kAppNotRunning;
     JString pathVal(env, path);
     std::string savePath = pathVal.stdString();
     return app->AddLoadStateCommand(savePath, wait_for_result);
@@ -204,7 +234,7 @@ extern "C"
 JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_loadStateWithPath(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
     auto app = AppContext::Current();
-    if (app.get() == nullptr) return RRError::kAppNotRunning;
+    if (!app) return RRError::kAppNotRunning;
     JString pathVal(env, path);
     std::string savePath = pathVal.stdString();
     return app->AddLoadStateCommand(savePath, wait_for_result);

@@ -19,7 +19,7 @@ namespace libRetroRunner {
         return ret;
     }
 
-    std::vector<unsigned char> Utils::readFileAsBytes(const int fileDescriptor) {
+    std::vector<unsigned char> Utils::readFileAsBytes(int fileDescriptor) {
         FILE *file = fdopen(fileDescriptor, "r");
         size_t size = getFileSize(file);
 

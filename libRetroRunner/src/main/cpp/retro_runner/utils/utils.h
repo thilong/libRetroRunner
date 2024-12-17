@@ -14,7 +14,7 @@ namespace libRetroRunner {
 
         static std::vector<unsigned char> readFileAsBytes(const std::string &filePath);
 
-        static std::vector<unsigned char> readFileAsBytes(const int fileDescriptor);
+        static std::vector<unsigned char> readFileAsBytes(int fileDescriptor);
 
         static int writeBytesToFile(const std::string &filePath, const char *data, size_t size);
 

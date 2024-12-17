@@ -130,10 +130,10 @@ public class RetroRunnerActivity extends AppCompatActivity {
     void onTestFastForward(View view) {
         if (view.getTag() != null) {
             view.setTag(null);
-            retroRunnerView.setFastForward(1.0);
+            retroRunnerView.setFastForward(1.0f);
         } else {
             view.setTag(1);
-            retroRunnerView.setFastForward(2.0);
+            retroRunnerView.setFastForward(2.0f);
         }
 
     }

@@ -94,25 +94,43 @@ namespace libRetroRunner {
 //静态变量与公共方法
 namespace libRetroRunner {
 
-    GLfloat gBufferObjectData[24] = {
-            -1.0F, -1.0F, 0.0F, 0.0F,  //左下
-            -1.0F, +1.0F, 0.0F, 1.0F, //左上
-            +1.0F, +1.0F, 1.0F, 1.0F, //右上
-            +1.0F, -1.0F, 1.0F, 0.0F, //右下
+    GLfloat glPositionVBOData[12] = {
+            -1.0F, -1.0F,  //左下
+            -1.0F, +1.0F,  //左上
+            +1.0F, +1.0F,  //右上
+            +1.0F, -1.0F,  //右下
 
-            -1.0F, -1.0F, 0.0F, 0.0F, //左下
-            -1.0F, +1.0F, 0.0F, 1.0F, //左上
+            -1.0F, -1.0F,  //左下
+            -1.0F, +1.0F,  //左上
     };
 
-    GLfloat gFlipBufferObjectData[24] = {
-            -1.0F, -1.0F, 0.0F, 1.0F,
-            -1.0F, +1.0F, 0.0F, 0.0F,
-            +1.0F, +1.0F, 1.0F, 0.0F,
-            +1.0F, -1.0F, 1.0F, 1.0F,
+    GLfloat glTextureCoordVBOData[48] = {
+            0.0F, 0.0F,  //左下
+            0.0F, 1.0F, //左上
+            1.0F, 1.0F, //右上
+            1.0F, 0.0F, //右下
 
-            -1.0F, -1.0F, 0.0F, 1.0F,
-            -1.0F, +1.0F, 0.0F, 0.0F,
+            0.0F, 0.0F, //左下
+            0.0F, 1.0F, //左上
+            1.0F, 1.0F, //右上
+            1.0F, 0.0F, //右下
+
+            0.0F, 0.0F,  //左下
+            0.0F, 1.0F, //左上
+            1.0F, 1.0F, //右上
+            1.0F, 0.0F, //右下
+
+            0.0F, 0.0F,  //左下
+            0.0F, 1.0F, //左上
+            1.0F, 1.0F, //右上
+            1.0F, 0.0F, //右下
+
+            0.0F, 0.0F,  //左下
+            0.0F, 1.0F, //左上
+            1.0F, 1.0F, //右上
+            1.0F, 0.0F, //右下
     };
+
 
     static GLuint _loadShader(GLenum shaderType, const char *source) {
         GLuint shader = glCreateShader(shaderType);
@@ -198,6 +216,7 @@ namespace libRetroRunner {
             attr_position = glGetAttribLocation(program, "a_position");
             attr_coordinate = glGetAttribLocation(program, "a_texCoord");
             attr_texture = glGetUniformLocation(program, "u_texture");
+            attr_flip_ = glGetUniformLocation(program, "u_flipVertical");
             LOGD_SP("shader pass created, program id: %d", programId);
         }
     }
@@ -207,9 +226,13 @@ namespace libRetroRunner {
     }
 
     void GLShaderPass::Destroy() {
-        if (toFramebufferVertexBuffer) {
-            glDeleteBuffers(1, &toFramebufferVertexBuffer);
-            toFramebufferVertexBuffer = 0;
+        if (vbo_position_) {
+            glDeleteBuffers(1, &vbo_position_);
+            vbo_position_ = 0;
+        }
+        if (vbo_texture_coordinate_) {
+            glDeleteBuffers(1, &vbo_texture_coordinate_);
+            vbo_texture_coordinate_ = 0;
         }
         if (programId) {
             glDeleteProgram(programId);
@@ -240,24 +263,24 @@ namespace libRetroRunner {
         frameBuffer->SetLinear(linear);
         frameBuffer->Create(includeDepth, includeStencil);
 
-        if (!toFramebufferVertexBuffer) {
-            toFramebufferVertexBuffer = _createVBO(gBufferObjectData, sizeof(gBufferObjectData));
+        if (!vbo_position_) {
+            vbo_position_ = _createVBO(glPositionVBOData, sizeof(glPositionVBOData));
         }
-        if (toFramebufferVertexBuffer == 0) {
-            LOGE_SP("create VBO for framebuffer drawing failed.");
+        if (!vbo_position_) {
+            LOGE_SP("create position vbo failed.");
         }
 
-        if (!toScreenVertexBuffer) {
-            toScreenVertexBuffer = _createVBO(gFlipBufferObjectData, sizeof(gFlipBufferObjectData));
+        if (!vbo_texture_coordinate_) {
+            vbo_texture_coordinate_ = _createVBO(glTextureCoordVBOData, sizeof(glTextureCoordVBOData));
         }
-        if (toScreenVertexBuffer == 0) {
-            LOGE_SP("create VBO for screen drawing failed.");
+        if (!vbo_texture_coordinate_) {
+            LOGE_SP("create position vbo failed.");
         }
         GL_CHECK("GLShaderPass::CreateFrameBuffer");
     }
 
-    void GLShaderPass::DrawOnScreen(int width, int height) {
-        drawTexture(0, width, height);
+    void GLShaderPass::DrawOnScreen(int width, int height, unsigned int rotation) {
+        drawTexture(0, width, height, rotation);
     }
 
     void GLShaderPass::FillTexture(GLuint textureId) {
@@ -267,7 +290,7 @@ namespace libRetroRunner {
     //如果textureId大于0，则表示把textureId的内容绘制到frameBuffer上
     //否则，直接绘制frameBuffer的内容到屏幕上
     //这里应该添加大小，位置，旋转等控制
-    void GLShaderPass::drawTexture(GLuint textureId, int width, int height) {
+    void GLShaderPass::drawTexture(GLuint textureId, int width, int height, unsigned int rotation) {
         bool renderToScreen = textureId == 0;
         if (renderToScreen) {
             glViewport(0, 0, width, height);
@@ -279,20 +302,28 @@ namespace libRetroRunner {
 
         glUseProgram(programId);
 
-        // toScreenVertexBuffer 翻转了的
-        // toFramebufferVertexBuffer 没有翻转
-        glBindBuffer(GL_ARRAY_BUFFER, (renderToScreen && !hardwareAccelerated) ? toScreenVertexBuffer : toFramebufferVertexBuffer);
-
-        //set position
+        //position
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_position_);
         glEnableVertexAttribArray(attr_position);
-        glVertexAttribPointer(attr_position, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
+        glVertexAttribPointer(attr_position, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), 0);
 
-        //set vertex
+        //vertex
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_texture_coordinate_);
         glEnableVertexAttribArray(attr_coordinate);
-        //如果是渲染到屏幕，因为opengl(左下为原点)与libretro(左上为原点)的图像坐标系不一样的原因，需要翻转图片
-        glVertexAttribPointer(attr_coordinate, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *) (2 * sizeof(GLfloat)));
+        if (renderToScreen) {
+            glVertexAttribPointer(attr_coordinate, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void *) (2 * rotation * sizeof(GLfloat)));
+        } else
+            glVertexAttribPointer(attr_coordinate, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void *) 0);
 
-        //set texture
+        //flip
+        glEnableVertexAttribArray(attr_flip_);
+        if (renderToScreen && !hardwareAccelerated) {
+            glUniform1i(attr_flip_, true);
+        } else {
+            glUniform1i(attr_flip_, false);
+        }
+
+
         glActiveTexture(GL_TEXTURE0);
         if (renderToScreen) {
             glBindTexture(GL_TEXTURE_2D, frameBuffer->GetTexture());
@@ -301,6 +332,7 @@ namespace libRetroRunner {
             glBindTexture(GL_TEXTURE_2D, textureId);
             glUniform1i(attr_texture, 0);
         }
+
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
 

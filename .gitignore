@@ -10,3 +10,4 @@ local.properties
 .cxx
 **/libflycast.so
 .DS_Store
+/build

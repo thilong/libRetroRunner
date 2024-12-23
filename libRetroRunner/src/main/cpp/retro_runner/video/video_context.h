@@ -9,6 +9,7 @@
 #include <string>
 #include <jni.h>
 
+#include <retro_runner/runtime_contexts/game_context.h>
 
 namespace libRetroRunner {
 
@@ -32,15 +33,11 @@ namespace libRetroRunner {
 
         virtual void OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) = 0;
 
-        virtual void OnGameGeometryChanged() = 0;
-
         virtual void SetSurface(int argc, void **argV) = 0;
 
         virtual void SetSurfaceSize(unsigned width, unsigned height) = 0;
 
         virtual unsigned int GetCurrentFramebuffer() { return 0; }
-
-        virtual void SetCoreOutputPixelFormat(int format) = 0;
 
         /* dump video frame into a file, may fail, this should run on emu thread. */
         virtual bool TakeScreenshot(const std::string &path) = 0;
@@ -48,17 +45,14 @@ namespace libRetroRunner {
         /* set the path to store the next screenshot, when finish dumping, path will be set to empty. */
         void SetNextScreenshotStorePath(std::string &path);
 
-        /* set the game geometry changed flag, this is notified by core.
-         * when a new video context is created, the flag is set to true.
-         * */
-        void SetGameGeometryChanged(bool changed) {
-            game_geometry_changed_ = changed;
-        }
+        /*set if video output is enabled.*/
+        void SetEnabled(bool flag);
 
+        void SetGameContext(std::shared_ptr<GameRuntimeContext>& ctx);
     protected:
-
+        bool enabled_;
         std::string next_screenshot_store_path_;
-        bool game_geometry_changed_;
+        std::weak_ptr<GameRuntimeContext> game_runtime_ctx_;
     };
 }
 #endif

@@ -69,17 +69,16 @@ namespace libRetroRunner {
 namespace libRetroRunner {
 
     GLESVideoContext::GLESVideoContext() : VideoContext() {
-        game_geometry_changed_ = true;
-        is_ready = false;
-        eglContext = nullptr;
-        eglDisplay = nullptr;
-        eglSurface = nullptr;
-        is_hardware_accelerated = false;
-        screen_height = 0;
-        screen_height = 0;
-        eglDisplay = EGL_NO_DISPLAY;
-        eglSurface = EGL_NO_SURFACE;
-        eglContext = EGL_NO_CONTEXT;
+        is_ready_ = false;
+        egl_context_ = nullptr;
+        egl_display_ = nullptr;
+        egl_surface_ = nullptr;
+        is_hardware_accelerated_ = false;
+        screen_height_ = 0;
+        screen_height_ = 0;
+        egl_display_ = EGL_NO_DISPLAY;
+        egl_surface_ = EGL_NO_SURFACE;
+        egl_context_ = EGL_NO_CONTEXT;
     }
 
     GLESVideoContext::~GLESVideoContext() {
@@ -87,11 +86,11 @@ namespace libRetroRunner {
     }
 
     bool GLESVideoContext::Init() {
-        if (eglDisplay == EGL_NO_DISPLAY || eglSurface == EGL_NO_SURFACE || eglContext == EGL_NO_CONTEXT) {
-            LOGE("eglDisplay is not initialized.");
+        if (egl_display_ == EGL_NO_DISPLAY || egl_surface_ == EGL_NO_SURFACE || egl_context_ == EGL_NO_CONTEXT) {
+            LOGE("egl_display_ is not initialized.");
             return false;
         }
-        if (eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext) != EGL_TRUE) {
+        if (eglMakeCurrent(egl_display_, egl_surface_, egl_surface_, egl_context_) != EGL_TRUE) {
             LOGE("eglMakeCurrent failed.");
             return false;
         }
@@ -104,45 +103,46 @@ namespace libRetroRunner {
         auto coreCtx = appContext->GetCoreRuntimeContext();
         auto gameCtx = appContext->GetGameRuntimeContext();
         core_pixel_format_ = coreCtx->GetPixelFormat();
-        is_hardware_accelerated = coreCtx->GetRenderUseHardwareAcceleration();
+        is_hardware_accelerated_ = coreCtx->GetRenderUseHardwareAcceleration();
 
         createPassChain();
-        if (is_hardware_accelerated) {
+        if (is_hardware_accelerated_) {
             retro_hw_context_reset_t reset_func = coreCtx->GetRenderHWContextResetCallback();
             if (reset_func) reset_func();
         }
-        is_ready = true;
-        LOGD_GLVIDEO("GLESVideoContext initialized, hardware accelerated: %d.", is_hardware_accelerated);
+        is_ready_ = true;
+        enabled_ = true;
+        LOGD_GLVIDEO("GLESVideoContext initialized, hardware accelerated: %d.", is_hardware_accelerated_);
         return true;
     }
 
     void GLESVideoContext::Destroy() {
-        is_ready = false;
-
+        is_ready_ = false;
+        enabled_ = false;
         if (software_render_tex_) {
             software_render_tex_->Destroy();
             software_render_tex_ = nullptr;
         }
         //循环调用passes的Destroy
-        for (auto &pass: passes) {
+        for (auto &pass: passes_) {
             pass->Destroy();
         }
-        passes.erase(passes.begin(), passes.end());
+        passes_.erase(passes_.begin(), passes_.end());
 
-        if (eglDisplay != EGL_NO_DISPLAY) {
+        if (egl_display_ != EGL_NO_DISPLAY) {
 
-            if (eglSurface != EGL_NO_SURFACE) {
+            if (egl_surface_ != EGL_NO_SURFACE) {
                 //LOGW("eglDestroySurface.");
-                //eglDestroySurface(eglDisplay, eglSurface);
-                eglSurface = EGL_NO_SURFACE;
+                //eglDestroySurface(egl_display_, egl_surface_);
+                egl_surface_ = EGL_NO_SURFACE;
             }
-            if (eglContext != EGL_NO_CONTEXT) {
-                eglDestroyContext(eglDisplay, eglContext);
-                eglContext = EGL_NO_CONTEXT;
+            if (egl_context_ != EGL_NO_CONTEXT) {
+                eglDestroyContext(egl_display_, egl_context_);
+                egl_context_ = EGL_NO_CONTEXT;
             }
-            eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-            eglTerminate(eglDisplay);
-            eglDisplay = EGL_NO_DISPLAY;
+            eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            eglTerminate(egl_display_);
+            egl_display_ = EGL_NO_DISPLAY;
         }
     }
 
@@ -160,7 +160,7 @@ namespace libRetroRunner {
             LOGE_GLVIDEO("egl Initialize failed.%d", eglGetError());
             return;
         }
-        eglDisplay = display;
+        egl_display_ = display;
         //2:EGL_OPENGL_ES2_BIT   3:EGL_OPENGL_ES3_BIT_KHR
         const EGLint atrrs[] = {
                 EGL_ALPHA_SIZE, 8,
@@ -181,8 +181,8 @@ namespace libRetroRunner {
         }
 
         EGLint attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
-        eglContext = eglCreateContext(display, eglConfig, nullptr, attributes);
-        if (!eglContext) {
+        egl_context_ = eglCreateContext(display, eglConfig, nullptr, attributes);
+        if (!egl_context_) {
             LOGE_GLVIDEO("eglCreateContext failed.");
             return;
         }
@@ -199,8 +199,8 @@ namespace libRetroRunner {
                 EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
                 EGL_NONE,
         };
-        eglSurface = eglCreateWindowSurface(display, eglConfig, window, window_attribs);
-        if (!eglSurface) {
+        egl_surface_ = eglCreateWindowSurface(display, eglConfig, window, window_attribs);
+        if (!egl_surface_) {
             LOGE_GLVIDEO("eglCreateWindowSurface failed.");
             return;
         }
@@ -209,7 +209,7 @@ namespace libRetroRunner {
     }
 
     void GLESVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {
-        if (!is_ready) {
+        if (!is_ready_ || !enabled_) {
             return;
         }
         /**
@@ -227,25 +227,25 @@ namespace libRetroRunner {
                 }
                 //render the data to our game texture, then use it as a texture for the first pass.
                 software_render_tex_->WriteTextureData(data, width, height, core_pixel_format_);
-                passes[0]->FillTexture(software_render_tex_->GetTexture());
+                passes_[0]->FillTexture(software_render_tex_->GetTexture());
             }
             DrawFrame();
         }
     }
 
     void GLESVideoContext::DrawFrame() {
-
-        if (screen_width == 0 || screen_height == 0) {
-            LOGW_GLVIDEO("draw frame failed: screen_width or screen_height is 0.");
+        if (!enabled_)return;
+        if (screen_width_ == 0 || screen_height_ == 0) {
+            LOGW_GLVIDEO("draw frame failed: screen_width_ or screen_height_ is 0.");
             return;
         }
         do {
-            /* we draw the passes in order, and fill the texture of the next pass with the texture of the previous pass.
+            /* we draw the passes_ in order, and fill the texture of the next pass with the texture of the previous pass.
              * this is prepared for shader processing.
              */
             std::vector<std::unique_ptr<GLShaderPass> >::iterator pass;
             GLShaderPass *prePass = nullptr;
-            for (pass = passes.begin(); pass != passes.end(); pass++) {
+            for (pass = passes_.begin(); pass != passes_.end(); pass++) {
                 if (prePass != nullptr) {
                     (*pass)->FillTexture(prePass->GetTexture());
                 }
@@ -254,18 +254,18 @@ namespace libRetroRunner {
 
             //check if we need to dump the frame to file
             if (!next_screenshot_store_path_.empty()) {
-                passes.rbegin()->get()->DrawToFile(next_screenshot_store_path_);
+                passes_.rbegin()->get()->DrawToFile(next_screenshot_store_path_);
                 next_screenshot_store_path_.clear();
             }
 
             //draw the last pass to screen
-            if (!passes.empty())
-                passes.rbegin()->get()->DrawOnScreen(screen_width, screen_height);
+            if (!passes_.empty())
+                passes_.rbegin()->get()->DrawOnScreen(screen_width_, screen_height_);
 
-            eglSwapBuffers(eglDisplay, eglSurface);
+            eglSwapBuffers(egl_display_, egl_surface_);
 
             //reset opengl es context for hardware acceleration
-            if (is_hardware_accelerated) {
+            if (is_hardware_accelerated_) {
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 glDisable(GL_DEPTH_TEST);
@@ -284,55 +284,56 @@ namespace libRetroRunner {
     }
 
     void GLESVideoContext::SetSurfaceSize(unsigned int width, unsigned int height) {
-        screen_width = width;
-        screen_height = height;
+        screen_width_ = width;
+        screen_height_ = height;
     }
 
     unsigned int GLESVideoContext::GetCurrentFramebuffer() {
-        if (passes.empty()) {
+        if (passes_.empty()) {
             return 0;
         }
-        return passes[0]->GetFrameBuffer();
-    }
-
-    void GLESVideoContext::OnGameGeometryChanged() {
-
+        return passes_[0]->GetFrameBuffer();
     }
 
     void GLESVideoContext::Prepare() {
-        if (game_geometry_changed_) {
-            if (passes.empty()) {
-                createPassChain();
-            } else {
-                auto gameCtx = AppContext::Current()->GetGameRuntimeContext();
-                auto coreCtx = AppContext::Current()->GetCoreRuntimeContext();
-                auto setting = Setting::Current();
-                std::unique_ptr<GLShaderPass> *pass = &passes[0];
-                (*pass)->CreateFrameBuffer(gameCtx->GetGeometryWidth(), gameCtx->GetGeometryHeight(), setting->GetVideoUseLinear(), coreCtx->GetRenderUseDepth(), coreCtx->GetRenderUseStencil());
+        auto gameCtx = game_runtime_ctx_.lock();
+        if (gameCtx) {
+            game_video_ration_ = gameCtx->GetGeometryRotation() % 4;
+            if (gameCtx->GetIsGeometryChanged()) {
+                if (passes_.empty()) {
+                    createPassChain();
+                } else {
+                    auto coreCtx = AppContext::Current()->GetCoreRuntimeContext();
+                    auto setting = Setting::Current();
+                    std::unique_ptr<GLShaderPass> *pass = &passes_[0];
+                    (*pass)->CreateFrameBuffer(gameCtx->GetGeometryWidth(), gameCtx->GetGeometryHeight(), setting->GetVideoUseLinear(), coreCtx->GetRenderUseDepth(), coreCtx->GetRenderUseStencil());
+                }
+                gameCtx->SetGeometryChanged(false);
             }
-            game_geometry_changed_ = false;
+
         }
     }
 
     void GLESVideoContext::createPassChain() {
-        if (passes.empty()) {
+        if (passes_.empty()) {
             auto gameCtx = AppContext::Current()->GetGameRuntimeContext();
             auto coreCtx = AppContext::Current()->GetCoreRuntimeContext();
             auto setting = Setting::Current();
 
             std::unique_ptr<GLShaderPass> pass = std::make_unique<GLShaderPass>(nullptr, nullptr);
             pass->SetPixelFormat(core_pixel_format_);
-            pass->SetHardwareAccelerated(is_hardware_accelerated);
+            pass->SetHardwareAccelerated(is_hardware_accelerated_);
             pass->CreateFrameBuffer(gameCtx->GetGeometryWidth(), gameCtx->GetGeometryHeight(), setting->GetVideoUseLinear(), coreCtx->GetRenderUseDepth(), coreCtx->GetRenderUseStencil());
-            passes.push_back(std::move(pass));
+            passes_.push_back(std::move(pass));
         }
     }
 
     bool GLESVideoContext::TakeScreenshot(const std::string &path) {
-        if (passes.empty()) {
+        if (passes_.empty() || !is_ready_ || !enabled_) {
+            LOGE_GLVIDEO("Can't write data to screenshot file since the video context is not valid.");
             return false;
         }
-        passes.rbegin()->get()->DrawToFile(path);
+        passes_.rbegin()->get()->DrawToFile(path);
         return true;
     }
 

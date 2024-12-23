@@ -8,7 +8,9 @@
 
 namespace libRetroRunner {
 
-    VideoContext::VideoContext() {}
+    VideoContext::VideoContext() {
+        enabled_ = false;
+    }
 
     VideoContext::~VideoContext() {}
 
@@ -24,5 +26,13 @@ namespace libRetroRunner {
         }
         LOGW("[VIDEO] Unsupported video driver '%s'.", driver.c_str());
         return nullptr;
+    }
+
+    void VideoContext::SetEnabled(bool flag) {
+        enabled_ = flag;
+    }
+
+    void VideoContext::SetGameContext(std::shared_ptr<GameRuntimeContext> &ctx) {
+        game_runtime_ctx_ = ctx;
     }
 }

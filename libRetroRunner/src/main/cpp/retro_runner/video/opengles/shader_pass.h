@@ -24,13 +24,20 @@ namespace libRetroRunner {
         /*把一张纹理拉伸满绘制到目标上*/
         void FillTexture(GLuint textureId);
 
-        /*把当前绑定的FBO绘制到屏幕上*/
-        void DrawOnScreen(int width, int height);
+        /**
+         * draw current framebuffer to screen
+         * @param width  screen width
+         * @param height  screen height
+         * @param rotation  game video rotation
+         * @see GLESVideoContext::game_video_ration_
+         */
+        void DrawOnScreen(int width, int height, unsigned int rotation = 0);
 
         /*把当前绑定的FBO绘制到文件中，dump*/
         void DrawToFile(const std::string &path);
+
     private:
-        void drawTexture(GLuint textureId, int width = -1, int height = -1);
+        void drawTexture(GLuint textureId, int width = 0, int height = 0, unsigned rotation = 0);
 
     public:
         inline void SetPixelFormat(int format) {
@@ -107,9 +114,10 @@ namespace libRetroRunner {
         GLuint attr_position;
         GLuint attr_coordinate;
         GLuint attr_texture;
+        GLuint attr_flip_;
 
-        GLuint toFramebufferVertexBuffer = 0;
-        GLuint toScreenVertexBuffer = 0;
+        GLuint vbo_position_ = 0;
+        GLuint vbo_texture_coordinate_ = 0;
 
         bool hardwareAccelerated = false;
     };

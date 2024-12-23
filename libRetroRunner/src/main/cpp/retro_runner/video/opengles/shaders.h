@@ -15,13 +15,19 @@ const std::string default_vertex_shader =
                 attribute vec4 a_position;
                 attribute vec2 a_texCoord;
                 varying vec2 v_texCoord;
+                uniform bool u_flipVertical;
 
                 void main() {
                     gl_Position = a_position;
-                    v_texCoord = a_texCoord;
+                    if (u_flipVertical) {
+                        v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
+                    } else {
+                        v_texCoord = a_texCoord;
+                    }
                 }
 
         );
+
 
 const std::string default_fragment_shader =
         GLSL(

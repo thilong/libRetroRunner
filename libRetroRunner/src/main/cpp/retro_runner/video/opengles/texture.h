@@ -21,24 +21,23 @@ namespace libRetroRunner {
 
     public:
         inline unsigned int GetTexture() {
-            return textureId;
+            return textureId_;
         }
 
         inline unsigned int GetWidth() {
-            return texture_width;
+            return texture_width_;
         }
 
         inline unsigned int GetHeight() {
-            return texture_height;
+            return texture_height_;
         }
 
     private:
-        unsigned int texture_width;
-        unsigned int texture_height;
-        unsigned char *buffer;
-        unsigned int textureId;
+        unsigned int texture_width_ = 0;
+        unsigned int texture_height_ = 0;
+        unsigned char *buffer_ = nullptr;
+        unsigned int textureId_ = 0;
     };
-
 
 
 }

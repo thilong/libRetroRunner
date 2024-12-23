@@ -66,16 +66,17 @@ namespace libRetroRunner {
     }
 
     void GLTextureObject::Create(unsigned int width, unsigned int height) {
-        this->texture_width = width;
-        this->texture_height = height;
-        if (buffer) {
-            delete[] buffer;
+        this->texture_width_ = width;
+        this->texture_height_ = height;
+        if (buffer_) {
+            delete[] buffer_;
+            buffer_ = nullptr;
         }
         bool linear = true;
-        buffer = new unsigned char[width * height * 4];
-        glGenTextures(1, &textureId);
+        buffer_ = new unsigned char[width * height * 4];
+        glGenTextures(1, &textureId_);
         GL_CHECK("glGenTextures");
-        glBindTexture(GL_TEXTURE_2D, textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId_);
         GL_CHECK("glBindTexture");
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -86,48 +87,48 @@ namespace libRetroRunner {
 
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        LOGD_TB("texture created: %d, width:%u, height:%u", textureId, width, height);
+        LOGD_TB("texture created: %d, width:%u, height:%u", textureId_, width, height);
     }
 
     void GLTextureObject::WriteTextureData(const void *data, unsigned int width, unsigned int height, int pixelFormat) {
-        if (width != this->texture_width || height != this->texture_height) {
-            if (buffer) {
-                delete[] buffer;
-                buffer = new unsigned char[width * height * 4];
-                LOGW("[VIDEO] texture size changed: %d, width:%u, height:%u", textureId, width, height);
+        if (width != this->texture_width_ || height != this->texture_height_) {
+            if (buffer_) {
+                delete[] buffer_;
+                buffer_ = new unsigned char[width * height * 4];
+                LOGW("[VIDEO] texture size changed: %d, width:%u, height:%u", textureId_, width, height);
             }
         }
         switch (pixelFormat) {
             case RETRO_PIXEL_FORMAT_XRGB8888:
-                convertXRGB8888ToRGBA8888(data, width, height, buffer);
+                convertXRGB8888ToRGBA8888(data, width, height, buffer_);
                 break;
             case RETRO_PIXEL_FORMAT_RGB565:
-                convertRGB565ToRGBA8888(data, width, height, buffer);
+                convertRGB565ToRGBA8888(data, width, height, buffer_);
                 break;
             case RETRO_PIXEL_FORMAT_0RGB1555:
-                convert0RGB1555ToRGBA8888(data, width, height, buffer);
+                convert0RGB1555ToRGBA8888(data, width, height, buffer_);
                 break;
         }
 
         glActiveTexture(GL_TEXTURE0);
         GL_CHECK("glActiveTexture");
-        glBindTexture(GL_TEXTURE_2D, textureId);
+        glBindTexture(GL_TEXTURE_2D, textureId_);
         GL_CHECK("glBindTexture");
 
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer_);
         GL_CHECK("glTexSubImage2D");
         glBindTexture(GL_TEXTURE_2D, 0);
 
     }
 
     void GLTextureObject::Destroy() {
-        if (buffer) {
-            delete[] buffer;
-            buffer = nullptr;
+        if (buffer_) {
+            delete[] buffer_;
+            buffer_ = nullptr;
         }
-        if (textureId) {
-            glDeleteTextures(1, &textureId);
-            textureId = 0;
+        if (textureId_) {
+            glDeleteTextures(1, &textureId_);
+            textureId_ = 0;
         }
     }
 

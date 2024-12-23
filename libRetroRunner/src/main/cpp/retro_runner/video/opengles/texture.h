@@ -1,5 +1,5 @@
 //
-// Created by aidoo on 2024/11/5.
+// Created by Aidoo.TK on 2024/11/5.
 //
 
 #ifndef _TEXTURE_H

@@ -1,5 +1,5 @@
 //
-// Created by aidoo on 2024/12/17.
+// Created by Aidoo.TK on 2024/12/17.
 //
 
 #ifndef LIBRETRORUNNER_FRONTEND_NOTIFY_HPP

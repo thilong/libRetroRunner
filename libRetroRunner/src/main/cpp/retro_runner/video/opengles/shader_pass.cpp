@@ -1,5 +1,5 @@
 //
-// Created by aidoo on 2024/11/5.
+// Created by Aidoo.TK on 2024/11/5.
 //
 
 #include <android/bitmap.h>
@@ -178,20 +178,20 @@ namespace libRetroRunner {
         const char *finalVertexShaderCode = vertexShaderCode ? vertexShaderCode : default_vertex_shader.c_str();
         const char *finalFragmentShaderCode = fragmentShaderCode ? fragmentShaderCode : default_fragment_shader.c_str();
 
-        vertexShader = _loadShader(GL_VERTEX_SHADER, finalVertexShaderCode);
-        if (!vertexShader) {
+        vertex_shader_ = _loadShader(GL_VERTEX_SHADER, finalVertexShaderCode);
+        if (!vertex_shader_) {
             return;
         }
 
-        fragmentShader = _loadShader(GL_FRAGMENT_SHADER, finalFragmentShaderCode);
-        if (!fragmentShader) {
+        fragment_shader_ = _loadShader(GL_FRAGMENT_SHADER, finalFragmentShaderCode);
+        if (!fragment_shader_) {
             return;
         }
 
         GLuint program = glCreateProgram();
         if (program) {
-            glAttachShader(program, vertexShader);
-            glAttachShader(program, fragmentShader);
+            glAttachShader(program, vertex_shader_);
+            glAttachShader(program, fragment_shader_);
             glLinkProgram(program);
             GLint linkStatus = GL_FALSE;
             glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
@@ -212,12 +212,12 @@ namespace libRetroRunner {
         }
 
         if (program) {
-            programId = program;
-            attr_position = glGetAttribLocation(program, "a_position");
-            attr_coordinate = glGetAttribLocation(program, "a_texCoord");
-            attr_texture = glGetUniformLocation(program, "u_texture");
+            program_id_ = program;
+            attr_position_ = glGetAttribLocation(program, "a_position");
+            attr_coordinate_ = glGetAttribLocation(program, "a_texCoord");
+            attr_texture_ = glGetUniformLocation(program, "u_texture");
             attr_flip_ = glGetUniformLocation(program, "u_flipVertical");
-            LOGD_SP("shader pass created, program id: %d", programId);
+            LOGD_SP("shader pass created, program id: %d", program_id_);
         }
     }
 
@@ -234,17 +234,17 @@ namespace libRetroRunner {
             glDeleteBuffers(1, &vbo_texture_coordinate_);
             vbo_texture_coordinate_ = 0;
         }
-        if (programId) {
-            glDeleteProgram(programId);
-            programId = 0;
+        if (program_id_) {
+            glDeleteProgram(program_id_);
+            program_id_ = 0;
         }
-        if (vertexShader) {
-            glDeleteShader(vertexShader);
-            vertexShader = 0;
+        if (vertex_shader_) {
+            glDeleteShader(vertex_shader_);
+            vertex_shader_ = 0;
         }
-        if (fragmentShader) {
-            glDeleteShader(fragmentShader);
-            fragmentShader = 0;
+        if (fragment_shader_) {
+            glDeleteShader(fragment_shader_);
+            fragment_shader_ = 0;
         }
 
     }
@@ -287,9 +287,9 @@ namespace libRetroRunner {
         drawTexture(textureId);
     }
 
-    //如果textureId大于0，则表示把textureId的内容绘制到frameBuffer上
-    //否则，直接绘制frameBuffer的内容到屏幕上
-    //这里应该添加大小，位置，旋转等控制
+    //when textureId is not 0, means draw the textureId to framebuffer of this pass.
+    //otherwise, draw the texture of current pass to screen.
+    //we should deal the following attributes: size, rotation, position...
     void GLShaderPass::drawTexture(GLuint textureId, int width, int height, unsigned int rotation) {
         bool renderToScreen = textureId == 0;
         if (renderToScreen) {
@@ -300,24 +300,24 @@ namespace libRetroRunner {
             glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->GetFrameBuffer());
         }
 
-        glUseProgram(programId);
+        glUseProgram(program_id_);
 
         //position
         glBindBuffer(GL_ARRAY_BUFFER, vbo_position_);
-        glEnableVertexAttribArray(attr_position);
-        glVertexAttribPointer(attr_position, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), 0);
+        glEnableVertexAttribArray(attr_position_);
+        glVertexAttribPointer(attr_position_, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), 0);
 
         //vertex
         glBindBuffer(GL_ARRAY_BUFFER, vbo_texture_coordinate_);
-        glEnableVertexAttribArray(attr_coordinate);
+        glEnableVertexAttribArray(attr_coordinate_);
         if (renderToScreen) {
-            glVertexAttribPointer(attr_coordinate, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void *) (2 * rotation * sizeof(GLfloat)));
+            glVertexAttribPointer(attr_coordinate_, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void *) (2 * rotation * sizeof(GLfloat)));
         } else
-            glVertexAttribPointer(attr_coordinate, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void *) 0);
+            glVertexAttribPointer(attr_coordinate_, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void *) 0);
 
         //flip
         glEnableVertexAttribArray(attr_flip_);
-        if (renderToScreen && !hardwareAccelerated) {
+        if (renderToScreen && !hardware_accelerated_) {
             glUniform1i(attr_flip_, true);
         } else {
             glUniform1i(attr_flip_, false);
@@ -327,17 +327,17 @@ namespace libRetroRunner {
         glActiveTexture(GL_TEXTURE0);
         if (renderToScreen) {
             glBindTexture(GL_TEXTURE_2D, frameBuffer->GetTexture());
-            glUniform1i(attr_texture, 0);
+            glUniform1i(attr_texture_, 0);
         } else {
             glBindTexture(GL_TEXTURE_2D, textureId);
-            glUniform1i(attr_texture, 0);
+            glUniform1i(attr_texture_, 0);
         }
 
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
 
-        glDisableVertexAttribArray(attr_position);
-        glDisableVertexAttribArray(attr_coordinate);
+        glDisableVertexAttribArray(attr_position_);
+        glDisableVertexAttribArray(attr_coordinate_);
 
         glUseProgram(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -345,7 +345,6 @@ namespace libRetroRunner {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-    //只有最后上屏的一张会被保存，因此反转的原则和上屏是一样的
     void GLShaderPass::DrawToFile(const std::string &path) {
         glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->GetFrameBuffer());
         LOGW_SP("dump framebuffer to file: %s", path.c_str());
@@ -364,8 +363,9 @@ namespace libRetroRunner {
             return;
         }
         glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-        //翻转图片
-        if (!hardwareAccelerated) {
+
+        /* we should flip the texture in software rendering.*/
+        if (!hardware_accelerated_) {
             memcpy(flippedPixels, pixels, width * height * 4);
         } else {
             for (int y = 0; y < height; ++y) {

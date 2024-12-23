@@ -1,6 +1,10 @@
-//
-// Created by aidoo on 2024/11/5.
-//
+/*
+ * Created by Aidoo.TK on 2024/11/5.
+ *
+ * we create framebuffer to each shader pass.
+ * draw the texture of game to pass 0, then each pass draw the it's texture to the framebuffer
+ * of next pass. After done all pass drawing. We draw the final one to the screen.
+*/
 
 #ifndef _SHADER_PASS_H
 #define _SHADER_PASS_H
@@ -21,7 +25,7 @@ namespace libRetroRunner {
 
         void CreateFrameBuffer(int width, int height, bool linear, bool includeDepth, bool includeStencil);
 
-        /*把一张纹理拉伸满绘制到目标上*/
+        /*draw the texture with id of 'textureId' to current framebuffer.*/
         void FillTexture(GLuint textureId);
 
         /**
@@ -33,7 +37,7 @@ namespace libRetroRunner {
          */
         void DrawOnScreen(int width, int height, unsigned int rotation = 0);
 
-        /*把当前绑定的FBO绘制到文件中，dump*/
+        /*draw the texture of current framebuffer to file.*/
         void DrawToFile(const std::string &path);
 
     private:
@@ -45,32 +49,32 @@ namespace libRetroRunner {
         }
 
         inline void SetHardwareAccelerated(bool accelerated) {
-            hardwareAccelerated = accelerated;
+            hardware_accelerated_ = accelerated;
         }
 
         //以下为shader相关
         inline GLuint GetProgramId() {
-            return programId;
+            return program_id_;
         }
 
         inline GLuint GetVertexShader() {
-            return vertexShader;
+            return vertex_shader_;
         }
 
         inline GLuint GetFragmentShader() {
-            return fragmentShader;
+            return fragment_shader_;
         }
 
         inline GLuint GetAttrPosition() {
-            return attr_position;
+            return attr_position_;
         }
 
         inline GLuint GetAttrCoordinate() {
-            return attr_coordinate;
+            return attr_coordinate_;
         }
 
         inline GLuint GetAttrTexture() {
-            return attr_texture;
+            return attr_texture_;
         }
         //以下为framebuffer相关
 
@@ -105,21 +109,24 @@ namespace libRetroRunner {
     private:
         std::unique_ptr<GLFrameBufferObject> frameBuffer;
 
+        /** core pixel format,
+         * only used to detect if the core pixel format is set.
+         * */
         unsigned int pixelFormat;
 
-        GLuint programId = 0;
-        GLuint vertexShader = 0;
-        GLuint fragmentShader = 0;
+        GLuint program_id_ = 0;
+        GLuint vertex_shader_ = 0;
+        GLuint fragment_shader_ = 0;
 
-        GLuint attr_position;
-        GLuint attr_coordinate;
-        GLuint attr_texture;
+        GLuint attr_position_;
+        GLuint attr_coordinate_;
+        GLuint attr_texture_;
         GLuint attr_flip_;
 
         GLuint vbo_position_ = 0;
         GLuint vbo_texture_coordinate_ = 0;
 
-        bool hardwareAccelerated = false;
+        bool hardware_accelerated_ = false;
     };
 
 }

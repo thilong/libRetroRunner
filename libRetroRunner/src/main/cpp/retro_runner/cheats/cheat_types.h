@@ -1,5 +1,5 @@
 //
-// Created by Aidoo on 2024/11/25.
+// Created by Aidoo.TK on 2024/11/25.
 //
 
 #ifndef _CHEAT_TYPES_H

@@ -40,6 +40,7 @@ namespace libRetroRunner {
         }
 
     private:
+        /** not used, we use RGBA8888 for all platforms.*/
         unsigned int pixel_format;
 
         bool linear;

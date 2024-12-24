@@ -18,14 +18,14 @@
 namespace libRetroRunner {
     static long id_gen = time(nullptr);
 
-    void __coreUpdateCheat(Cheat &cheat) {
-        if (cheat.code.empty()) return;
+    void __coreUpdateCheat(std::shared_ptr<Cheat> &cheat) {
+        if (!cheat || cheat->code.empty()) return;
         auto app = AppContext::Current();
         if (!app) return;
         auto core = app->GetCore();
         if (!core || !core->retro_cheat_set) return;
-        LOGW_CHT("try update cheat:%d, %s, %s, %d", cheat.index, cheat.code.c_str(), cheat.description.c_str(), cheat.enabled);
-        core->retro_cheat_set(cheat.index, cheat.enabled, cheat.code.c_str());
+        LOGW_CHT("updating cheat:%d, %s, %s, %d", cheat->index, cheat->code.c_str(), cheat->description.c_str(), cheat->enabled);
+        core->retro_cheat_set(cheat->index, cheat->enabled, cheat->code.c_str());
 
     }
 
@@ -43,80 +43,84 @@ namespace libRetroRunner {
     }
 
     CheatManager::CheatManager() {
-        badCheat.id = 0;
-        badCheat.enabled = false;
-        badCheat.index = -1;
+        last_index_ = 0;
     }
 
     CheatManager::~CheatManager() {
-
+        //clear all cheats
     }
 
-    Cheat &CheatManager::GetCheatAt(int index) {
-        if (index < 0 || index >= cheats.size()) {
-            return badCheat;
+    std::shared_ptr<Cheat> CheatManager::GetCheatAt(int index) {
+        if (index < 0 || index >= cheats_.size()) {
+            return nullptr;
         }
-        auto pair = cheats.begin();
+
+        auto pair = cheats_.begin();
         for (int i = 0; i < index; i++) {
             pair++;
         }
         return pair->second;
     }
 
-    Cheat &CheatManager::GetCheat(long id) {
-        if (cheats.count(id) == 0) {
-            return badCheat;
+    std::shared_ptr<Cheat> CheatManager::GetCheat(long id) {
+        if (cheats_.count(id) == 0) {
+            return nullptr;
         }
-        return cheats[id];
+        return cheats_[id];
     }
 
     long CheatManager::AddCheat(const std::string &code, const std::string &description, bool enable) {
         long id = __genId();
-        Cheat cheat;
-        cheat.id = id;
-        cheat.code = code;
-        cheat.description = description;
-        cheat.enabled = enable;
-        cheat.index = lastIndex++;
-        cheats[id] = cheat;
+        auto cheat = std::make_shared<Cheat>();
+        cheat->id = id;
+        cheat->code = code;
+        cheat->description = description;
+        cheat->enabled = enable;
+        cheat->index = last_index_++;
+        cheats_[id] = cheat;
         __coreUpdateCheat(cheat);
         return id;
     }
 
     void CheatManager::RemoveCheat(long id) {
-        if (cheats.count(id) == 0) return;
-        Cheat &cheat = cheats[id];
-        cheat.enabled = false;
+        if (cheats_.count(id) == 0) return;
+        auto cheat = cheats_[id];
+        cheat->enabled = false;
         __coreUpdateCheat(cheat);
-        cheats.erase(id);
+        cheats_.erase(id);
     }
 
     void CheatManager::UpdateCheatEnabled(long id, bool enable) {
-        if (cheats.count(id) > 0) {
-            cheats[id].enabled = enable;
-            __coreUpdateCheat(cheats[id]);
+        if (cheats_.count(id) > 0) {
+            cheats_[id]->enabled = enable;
+            __coreUpdateCheat(cheats_[id]);
         }
     }
 
-    /*已经添加到核心中的条目并不会被删除，只会被禁用*/
+    /*cheats that are added in core won't be remove but will be disabled.*/
     void CheatManager::RemoveAll() {
         __coreRemoveAllCheat();
-        cheats.clear();
+        cheats_.clear();
     }
 
     int CheatManager::LoadFromFile(const std::string &path) {
-        if (!RetroCheatFile::Load(path, cheats)) {
+        std::map<long, std::shared_ptr<Cheat>> tempCheats;
+
+        if (!RetroCheatFile::Load(path, tempCheats)) {
             LOGE_CHT("load cheat file failed, from %s", path.c_str());
             return -1;
         }
-        for (auto cheat: cheats) {
-            __coreUpdateCheat(cheat.second);
+        for (auto cheatPair: tempCheats) {
+            auto cheat = cheatPair.second;
+            cheat->index = last_index_++;
+            __coreUpdateCheat(cheat);
+            cheats_[cheatPair.first] = cheat;
         }
         return 0;
     }
 
     int CheatManager::SaveToFile(const std::string &path) {
-        bool saveRet = RetroCheatFile::Save(path, cheats);
+        bool saveRet = RetroCheatFile::Save(path, cheats_);
         return saveRet ? 0 : -1;
     }
 

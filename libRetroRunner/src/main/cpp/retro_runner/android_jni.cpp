@@ -101,6 +101,7 @@ Java_com_aidoo_retrorunner_RRNative_stop(JNIEnv *env, jclass clazz) {
     const std::shared_ptr<AppContext> &app = AppContext::Current();
     if (app.get() != nullptr) app->Stop();
 }
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_setVideoSurface(JNIEnv *env, jclass clazz, jobject surface) {
     auto app = AppContext::Current();

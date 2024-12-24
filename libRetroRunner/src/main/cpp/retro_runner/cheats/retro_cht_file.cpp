@@ -3,66 +3,86 @@
 //
 #include "retro_cht_file.h"
 #include <fstream>
+#include <regex>
 
 namespace libRetroRunner {
 
-    bool RetroCheatFile::Load(const std::string &path, std::map<long, Cheat> &cheats) {
+    extern long __genId();
+
+    bool RetroCheatFile::Load(const std::string &path, std::map<long, std::shared_ptr<Cheat>> &cheats) {
         std::ifstream file(path);
         if (!file.is_open()) {
             return false;
         }
+        int total_cheats = 0;
         std::string line;
-        int cheatIndex = 0;
-        std::string cheatItemHead = "cheat" + std::to_string(cheatIndex) + "_";
-        long id = time(nullptr);
-        Cheat cheat;
-        cheat.id = id;
-
-        long addedId = -1;
+        //step 1: check cheat count
+        std::string cheatCountHead = "cheats = ";
         while (std::getline(file, line)) {
-            if (line.empty() || line.length() < 10 || line.find("cheats =") == 0) continue;
-
-            if (line.find(cheatItemHead) == std::string::npos) {
-                cheats[cheat.id] = cheat;
-                addedId = cheat.id;
-                cheatIndex++;
-                id++;
-
-                cheat.id = id;
-                cheatItemHead = "cheat" + std::to_string(cheatIndex) + "_";
-            }
-
-            if (line.find(cheatItemHead + "desc = ") == 0) {
-                cheat.description = line.substr(cheatItemHead.length() + 6);
-                //remove  "
-                if (cheat.description.length() > 0 && cheat.description.find('"') != std::string::npos) {
-                    int pos = cheat.description.find('"');
-                    cheat.description = cheat.description.substr(pos+ 1, cheat.code.length() - (pos + 1));
+            if (line.find(cheatCountHead) == 0) {
+                int count = std::stoi(line.substr(cheatCountHead.length()));
+                file.close();
+                if (count <= 0) {
+                    return false;
                 }
-                if (cheat.description.length() > 0 && cheat.description[cheat.description.length() - 1] == '"') {
-                    cheat.description = cheat.description.substr(0, cheat.description.length() - 1);
-                }
-            } else if (line.find(cheatItemHead + "code = ") == 0) {
-                cheat.code = line.substr(cheatItemHead.length() + 6);
-                //remove  "
-                if (cheat.code.length() > 0 && cheat.code.find('"') != std::string::npos) {
-                    int pos = cheat.code.find('"');
-                    cheat.code = cheat.code.substr(pos + 1, cheat.code.length() - (pos + 1));
-                }
-                if (cheat.code.length() > 0 && cheat.code[cheat.code.length() - 1] == '"') {
-                    cheat.code = cheat.code.substr(0, cheat.code.length() - 1);
-                }
-            } else if (line.find(cheatItemHead + "enable = ") == 0) {
-                cheat.enabled = line.substr(cheatItemHead.length() + 9) == "true";
+                total_cheats = count;
+                break;
             }
         }
-        if (addedId != cheat.id)
-            cheats[cheat.id] = cheat;
+        std::vector<std::shared_ptr<Cheat>> tempCheats(total_cheats);
+
+        //step 2: load cheats
+        file.seekg(0, std::ios::beg);
+        while (std::getline(file, line)) {
+            std::regex cheatPattern(R"(cheat(\d+)_(\w+) = (.+))");
+            std::smatch match;
+            if (std::regex_search(line, match, cheatPattern)) {
+                int index = std::stoi(match[1]);
+                std::string property = match[2];
+                std::string value = match[3];
+                //remove " at start in value
+                if (value[0] == '"') {
+                    value = value.substr(1, value.length() - 2);
+                }
+                //remove " at end in value
+                if (value.length() > 0 && value[value.length() - 1] == '"') {
+                    value = value.substr(0, value.length() - 1);
+                }
+
+
+                if (index >= total_cheats) {
+                    break;
+                }
+                std::shared_ptr<Cheat> cheat = tempCheats[index];
+                if (!cheat) {
+                    cheat = std::make_shared<Cheat>();
+                    tempCheats[index] = cheat;
+                }
+                cheat->index = index;
+                if (property == "desc") {
+                    cheat->description = value;
+                } else if (property == "code") {
+                    cheat->code = value;
+                } else if (property == "enable") {
+                    cheat->enabled = (value == "true");
+                }
+            }
+        }
         file.close();
+
+        //step 3: move tempCheats to cheats
+        for (auto cheat: tempCheats) {
+            if (cheat) {
+                long id = __genId();
+                cheat->id = id;
+                cheats[id] = cheat;
+            }
+        }
+
         return true;
     }
 
-    bool RetroCheatFile::Save(const std::string &path, std::map<long, Cheat> &cheats) {
+    bool RetroCheatFile::Save(const std::string &path, std::map<long, std::shared_ptr<Cheat>> &cheats) {
         int cheatsCount = cheats.size();
         std::ofstream file(path, std::fstream::trunc | std::fstream::out);
         if (!file.is_open()) {
@@ -71,10 +91,10 @@ namespace libRetroRunner {
         file << "cheats = " << cheatsCount << std::endl;
         int idx = 0;
         for (auto pair: cheats) {
-            Cheat &cheat = pair.second;
-            file << "cheat" << idx << "_desc = \"" << cheat.description << "\"" << std::endl;
-            file << "cheat" << idx << "_code = \"" << cheat.code << "\"" << std::endl;
-            file << "cheat" << idx << "_enable = " << (cheat.enabled ? "true" : "false") << std::endl;
+            auto cheat = pair.second;
+            file << "cheat" << idx << "_desc = \"" << cheat->description << "\"" << std::endl;
+            file << "cheat" << idx << "_code = \"" << cheat->code << "\"" << std::endl;
+            file << "cheat" << idx << "_enable = " << (cheat->enabled ? "true" : "false") << std::endl;
         }
         file.flush();
         file.close();

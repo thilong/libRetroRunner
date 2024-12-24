@@ -7,6 +7,7 @@
 
 #include <string>
 #include <map>
+#include <memory>
 #include "cheat_types.h"
 
 
@@ -15,9 +16,9 @@ namespace libRetroRunner {
     public:
         RetroCheatFile() {}
 
-        static bool Load(const std::string &path, std::map<long, Cheat> &cheats);
+        static bool Load(const std::string &path, std::map<long, std::shared_ptr<Cheat>> &cheats);
 
-        static bool Save(const std::string &path, std::map<long, Cheat> &cheats);
+        static bool Save(const std::string &path, std::map<long, std::shared_ptr<Cheat>> &cheats);
 
     private:
 

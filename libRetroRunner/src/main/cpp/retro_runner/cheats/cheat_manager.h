@@ -24,11 +24,11 @@ namespace libRetroRunner {
 
         int SaveToFile(const std::string &path);
 
-        int GetCheatCount() { return cheats.size(); }
+        int GetCheatCount() { return cheats_.size(); }
 
-        Cheat &GetCheatAt(int index);
+        std::shared_ptr<Cheat> GetCheatAt(int index);
 
-        Cheat &GetCheat(long id);
+        std::shared_ptr<Cheat> GetCheat(long id);
 
         long AddCheat(const std::string &code, const std::string &description, bool enable);
 
@@ -39,9 +39,8 @@ namespace libRetroRunner {
         void UpdateCheatEnabled(long id, bool enable);
 
     private:
-        Cheat badCheat;
-        int lastIndex = 0;
-        std::map<long, Cheat> cheats;
+        int last_index_ = 0;
+        std::map<long, std::shared_ptr<Cheat>> cheats_;
     };
 }
 

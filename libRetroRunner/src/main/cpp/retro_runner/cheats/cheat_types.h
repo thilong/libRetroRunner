@@ -8,15 +8,14 @@
 #include <string>
 
 namespace libRetroRunner {
-    class Cheat {
-        friend class CheatManager;
-
-    public:
+    struct Cheat {
+        /* id of cheat */
         long id;
         bool enabled;
         std::string code;
         std::string description;
 
+        /* cheat index in core.*/
         int index;
     };
 }

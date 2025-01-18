@@ -167,7 +167,10 @@ namespace libRetroRunner {
             BIT_UNSET(state_, AppState::kCoreReady);
         }
         BIT_UNSET(state_, AppState::kRunning);
-
+        if (video_) {
+            video_->Destroy();
+            video_ = nullptr;
+        }
         this->frontend_notify_ = nullptr;
         LOGW_APP("emu stopped");
     }
@@ -280,7 +283,8 @@ namespace libRetroRunner {
             return;
         } else {
             std::string driver = Setting::Current()->GetVideoDriver();
-            video_ = VideoContext::Create(driver);
+            if (!video_)
+                video_ = VideoContext::Create(driver);
             if (video_) {
                 video_->SetGameContext(game_runtime_context_);
                 video_->SetSurface(argc, argv);
@@ -339,13 +343,8 @@ namespace libRetroRunner {
                     return;
                 }
                 case AppCommands::kUnloadVideo: {
-                    if (core_runtime_context_->GetRenderUseHardwareAcceleration()) {
-                        retro_hw_context_reset_t destroy_func = core_runtime_context_->GetRenderHWContextDestroyCallback();
-                        if (destroy_func) destroy_func();
-                    }
                     if (video_) {
-                        video_->Destroy();
-                        video_ = nullptr;
+                        video_->Unload();
                     }
                     BIT_UNSET(state_, AppState::kVideoReady);
                     return;

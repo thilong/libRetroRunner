@@ -26,6 +26,9 @@ namespace libRetroRunner {
 
         virtual void Destroy() = 0;
 
+        /*unload video output, keep context.*/
+        virtual void Unload() = 0;
+
         /* prepare video context for every frame before emu-step.*/
         virtual void Prepare() = 0;
 

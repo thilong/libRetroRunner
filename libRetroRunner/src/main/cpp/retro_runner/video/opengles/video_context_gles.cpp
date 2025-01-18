@@ -70,15 +70,14 @@ namespace libRetroRunner {
 
     GLESVideoContext::GLESVideoContext() : VideoContext() {
         is_ready_ = false;
+        egl_initialized_ = false;
         egl_context_ = nullptr;
         egl_display_ = nullptr;
         egl_surface_ = nullptr;
+        egl_config_ = nullptr;
         is_hardware_accelerated_ = false;
         screen_height_ = 0;
         screen_height_ = 0;
-        egl_display_ = EGL_NO_DISPLAY;
-        egl_surface_ = EGL_NO_SURFACE;
-        egl_context_ = EGL_NO_CONTEXT;
     }
 
     GLESVideoContext::~GLESVideoContext() {
@@ -146,66 +145,81 @@ namespace libRetroRunner {
         }
     }
 
+    void GLESVideoContext::Unload() {
+        is_ready_ = false;
+        enabled_ = false;
+        auto appContext = AppContext::Current();
+        auto coreCtx = appContext->GetCoreRuntimeContext();
+        auto gameCtx = appContext->GetGameRuntimeContext();
+        if (is_hardware_accelerated_) {
+            retro_hw_context_reset_t destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
+            if (destroy_func) destroy_func();
+        }
+        egl_display_ = EGL_NO_DISPLAY;
+        eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+    }
+
     void GLESVideoContext::SetSurface(int argc, void **argv) {
-        JNIEnv *env = (JNIEnv *) argv[0];
-        jobject surface = (jobject) argv[1];
+        if (!egl_initialized_) {
+            egl_display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+            if (egl_display_ == EGL_NO_DISPLAY) {
+                LOGE_GLVIDEO("egl have not got display.");
+                return;
+            }
+            if (eglInitialize(egl_display_, 0, 0) != EGL_TRUE) {
+                LOGE_GLVIDEO("egl Initialize failed.%d", eglGetError());
+                return;
+            }
+            //2:EGL_OPENGL_ES2_BIT   3:EGL_OPENGL_ES3_BIT_KHR
+            const EGLint atrrs[] = {
+                    EGL_ALPHA_SIZE, 8,
+                    EGL_RED_SIZE, 8,
+                    EGL_BLUE_SIZE, 8,
+                    EGL_GREEN_SIZE, 8,
+                    EGL_DEPTH_SIZE, 16,
+                    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                    EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                    EGL_NONE
+            };
+            //opengl es2: EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 
-        ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
-        EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        if (display == EGL_NO_DISPLAY) {
-            LOGE_GLVIDEO("egl have not got display.");
-            return;
-        }
-        if (eglInitialize(display, 0, 0) != EGL_TRUE) {
-            LOGE_GLVIDEO("egl Initialize failed.%d", eglGetError());
-            return;
-        }
-        egl_display_ = display;
-        //2:EGL_OPENGL_ES2_BIT   3:EGL_OPENGL_ES3_BIT_KHR
-        const EGLint atrrs[] = {
-                EGL_ALPHA_SIZE, 8,
-                EGL_RED_SIZE, 8,
-                EGL_BLUE_SIZE, 8,
-                EGL_GREEN_SIZE, 8,
-                EGL_DEPTH_SIZE, 16,
-                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-                EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-                EGL_NONE
-        };
-        //opengl es2: EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-        EGLConfig eglConfig;
-        EGLint numOfEglConfig;
-        if (eglChooseConfig(display, atrrs, &eglConfig, 1, &numOfEglConfig) != EGL_TRUE) {
-            LOGE_GLVIDEO("egl choose config failed.%d,", eglGetError());
-            return;
-        }
+            EGLint numOfEglConfig;
+            if (eglChooseConfig(egl_display_, atrrs, &egl_config_, 1, &numOfEglConfig) != EGL_TRUE) {
+                LOGE_GLVIDEO("egl choose config failed.%d,", eglGetError());
+                return;
+            }
 
-        EGLint attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
-        egl_context_ = eglCreateContext(display, eglConfig, nullptr, attributes);
-        if (!egl_context_) {
-            LOGE_GLVIDEO("eglCreateContext failed.");
-            return;
+            EGLint attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
+            egl_context_ = eglCreateContext(egl_display_, egl_config_, nullptr, attributes);
+            if (!egl_context_) {
+                LOGE_GLVIDEO("eglCreateContext failed.");
+                return;
+            }
+            egl_initialized_ = true;
         }
 
         EGLint format;
-        if (!eglGetConfigAttrib(display, eglConfig, EGL_NATIVE_VISUAL_ID, &format)) {
+        if (!eglGetConfigAttrib(egl_display_, egl_config_, EGL_NATIVE_VISUAL_ID, &format)) {
             LOGE_GLVIDEO("egl get config attrib failed.");
             return;
         }
 
+        JNIEnv *env = (JNIEnv *) argv[0];
+        jobject surface = (jobject) argv[1];
+
+        ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
         ANativeWindow_acquire(window);
         ANativeWindow_setBuffersGeometry(window, 0, 0, format);
         EGLint window_attribs[] = {
                 EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
                 EGL_NONE,
         };
-        egl_surface_ = eglCreateWindowSurface(display, eglConfig, window, window_attribs);
+        egl_surface_ = eglCreateWindowSurface(egl_display_, egl_context_, window, window_attribs);
         if (!egl_surface_) {
             LOGE_GLVIDEO("eglCreateWindowSurface failed.");
             return;
         }
-
-
     }
 
     void GLESVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {

@@ -77,26 +77,26 @@ Java_com_aidoo_retrorunner_RRNative_start(JNIEnv *env, jclass clazz) {
         app->Start();
     }
 }
-extern "C"
-JNIEXPORT void JNICALL
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_pause(JNIEnv *env, jclass clazz) {
     const std::shared_ptr<AppContext> &app = AppContext::Current();
     if (app.get() != nullptr) app->Pause();
 }
-extern "C"
-JNIEXPORT void JNICALL
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_resume(JNIEnv *env, jclass clazz) {
     const std::shared_ptr<AppContext> &app = AppContext::Current();
     if (app.get() != nullptr) app->Resume();
 }
-extern "C"
-JNIEXPORT void JNICALL
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_reset(JNIEnv *env, jclass clazz) {
     const std::shared_ptr<AppContext> &app = AppContext::Current();
     if (app.get() != nullptr) app->Reset();
 }
-extern "C"
-JNIEXPORT void JNICALL
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_stop(JNIEnv *env, jclass clazz) {
     const std::shared_ptr<AppContext> &app = AppContext::Current();
     if (app.get() != nullptr) app->Stop();
@@ -222,8 +222,8 @@ Java_com_aidoo_retrorunner_RRNative_loadState(JNIEnv *env, jclass clazz, jint id
     auto savePath = gameCtx->GetSaveStateFilePath(idx);
     return app->AddLoadStateCommand(savePath, wait_for_result);
 }
-extern "C"
-JNIEXPORT jint JNICALL
+
+extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_saveStateWithPath(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
     auto app = AppContext::Current();
     if (!app) return RRError::kAppNotRunning;
@@ -231,8 +231,8 @@ Java_com_aidoo_retrorunner_RRNative_saveStateWithPath(JNIEnv *env, jclass clazz,
     std::string savePath = pathVal.stdString();
     return app->AddLoadStateCommand(savePath, wait_for_result);
 }
-extern "C"
-JNIEXPORT jint JNICALL
+
+extern "C" JNIEXPORT jint JNICALL
 Java_com_aidoo_retrorunner_RRNative_loadStateWithPath(JNIEnv *env, jclass clazz, jstring path, jboolean wait_for_result) {
     auto app = AppContext::Current();
     if (!app) return RRError::kAppNotRunning;

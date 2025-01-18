@@ -27,6 +27,8 @@ namespace libRetroRunner {
 
         void Destroy() override;
 
+        void Unload() override;
+
         void SetSurface(int argc, void **argv) override;
 
         void SetSurfaceSize(unsigned int width, unsigned int height) override;
@@ -73,6 +75,9 @@ namespace libRetroRunner {
         EGLDisplay egl_display_;
         EGLSurface egl_surface_;
         EGLContext egl_context_;
+        EGLConfig egl_config_;
+        bool egl_initialized_;
+
 
         bool is_ready_;
 

@@ -155,7 +155,7 @@ namespace libRetroRunner {
             retro_hw_context_reset_t destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
             if (destroy_func) destroy_func();
         }
-        egl_display_ = EGL_NO_DISPLAY;
+        egl_surface_ = EGL_NO_SURFACE;
         eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 
     }

@@ -78,6 +78,9 @@ namespace libRetroRunner {
         is_hardware_accelerated_ = false;
         screen_height_ = 0;
         screen_height_ = 0;
+        egl_display_ = EGL_NO_DISPLAY;
+        egl_surface_ = EGL_NO_SURFACE;
+        egl_context_ = EGL_NO_CONTEXT;
     }
 
     GLESVideoContext::~GLESVideoContext() {
@@ -183,7 +186,6 @@ namespace libRetroRunner {
                     EGL_NONE
             };
             //opengl es2: EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-
             EGLint numOfEglConfig;
             if (eglChooseConfig(egl_display_, atrrs, &egl_config_, 1, &numOfEglConfig) != EGL_TRUE) {
                 LOGE_GLVIDEO("egl choose config failed.%d,", eglGetError());
@@ -196,11 +198,13 @@ namespace libRetroRunner {
                 LOGE_GLVIDEO("eglCreateContext failed.");
                 return;
             }
+
+            LOGI_GLVIDEO("egl initialized.");
             egl_initialized_ = true;
         }
 
-        EGLint format;
-        if (!eglGetConfigAttrib(egl_display_, egl_config_, EGL_NATIVE_VISUAL_ID, &format)) {
+        EGLint eglFormat;
+        if (!eglGetConfigAttrib(egl_display_, egl_config_, EGL_NATIVE_VISUAL_ID, &eglFormat)) {
             LOGE_GLVIDEO("egl get config attrib failed.");
             return;
         }
@@ -209,15 +213,16 @@ namespace libRetroRunner {
         jobject surface = (jobject) argv[1];
 
         ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
+
         ANativeWindow_acquire(window);
-        ANativeWindow_setBuffersGeometry(window, 0, 0, format);
+        ANativeWindow_setBuffersGeometry(window, 0, 0, eglFormat);
         EGLint window_attribs[] = {
                 EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
                 EGL_NONE,
         };
-        egl_surface_ = eglCreateWindowSurface(egl_display_, egl_context_, window, window_attribs);
+        egl_surface_ = eglCreateWindowSurface(egl_display_, egl_config_, window, window_attribs);
         if (!egl_surface_) {
-            LOGE_GLVIDEO("eglCreateWindowSurface failed.");
+            LOGE_GLVIDEO("eglCreateWindowSurface failed, 0x%x", eglGetError());
             return;
         }
     }

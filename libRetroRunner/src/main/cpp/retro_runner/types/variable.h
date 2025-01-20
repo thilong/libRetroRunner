@@ -6,11 +6,13 @@
 #define _VARIABLE_H
 
 #include <string>
+#include <vector>
 
 struct Variable {
     std::string key;
     std::string value;
     std::string description;
+    std::string options;
 };
 
 

@@ -517,20 +517,22 @@ namespace libRetroRunner {
             std::string description(request->value);
             std::string value(request->value);
 
+
             auto firstValueStart = value.find(';') + 2;
             auto firstValueEnd = value.find('|', firstValueStart);
             value = value.substr(firstValueStart, firstValueEnd - firstValueStart);
 
             auto currentVariable = variables[key];
             currentVariable.key = key;
-            currentVariable.description = description;
+            currentVariable.description = description.substr(0, description.find(';'));
+            currentVariable.options = description.substr(description.find(';') + 2);
 
             if (currentVariable.value.empty()) {
                 currentVariable.value = value;
             }
 
             variables[key] = currentVariable;
-            LOGD_Env("core provide variable: %s -> %s", key.c_str(), value.c_str());
+            LOGD_Env("core provide variable: %s -> %s: %s", key.c_str(), value.c_str(), description.c_str());
         }
         return true;
     }

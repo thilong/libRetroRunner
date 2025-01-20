@@ -283,10 +283,11 @@ namespace libRetroRunner {
             return;
         } else {
             std::string driver = Setting::Current()->GetVideoDriver();
-            if (!video_)
+            if (!video_) {
                 video_ = VideoContext::Create(driver);
-            if (video_) {
                 video_->SetGameContext(game_runtime_context_);
+            }
+            if (video_) {
                 video_->SetSurface(argc, argv);
                 AddCommand(AppCommands::kInitVideo);
             }

@@ -106,7 +106,7 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_setVideoSurface(JNIEnv *env, jclass clazz, jobject surface) {
     auto app = AppContext::Current();
     if (app) {
-        void *argv[] = {env, surface};
+        void *argv[2] = {env, surface};
         app->SetVideoSurface(2, argv);
     }
 }

@@ -45,6 +45,10 @@ add_library(RetroRunner SHARED
         retro_runner/video/opengles/shader_pass.cpp
         retro_runner/video/opengles/frame_buffer_object.cpp
 
+
+        retro_runner/video/vulkan/video_context_vulkan.cpp
+
+
         retro_runner/input/input_context.cpp
         retro_runner/input/empty_input.cpp
         retro_runner/input/software_input.cpp

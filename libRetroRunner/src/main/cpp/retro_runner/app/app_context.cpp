@@ -665,8 +665,8 @@ namespace libRetroRunner {
     }
 
     void AppContext::NotifyFrontend(int notifyType) {
-        auto cmd = std::make_shared<int>(notifyType);
-        auto *notify = new FrontendNotify<int>(notifyType, cmd);
+        //auto cmd = std::make_shared<int>(notifyType);
+        auto *notify = new FrontendNotify<int>(notifyType);
         this->NotifyFrontend(notify);
         notify->Release();
     }

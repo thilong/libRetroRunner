@@ -573,7 +573,6 @@ namespace libRetroRunner {
         if (geometry_changed) {
             game_ctx->SetGeometryChanged(true);
             AppContext::Current()->NotifyFrontend(AppNotifications::kAppNotificationGameGeometryChanged);
-
         }
         return true;
     }

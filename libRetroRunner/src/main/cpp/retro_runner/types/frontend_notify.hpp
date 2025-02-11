@@ -47,6 +47,10 @@ namespace libRetroRunner {
             data_ = nullptr;
         }
 
+        inline std::shared_ptr<T> GetData() {
+            return data_;
+        }
+
     private:
         std::shared_ptr<T> data_;
     };

@@ -10,7 +10,7 @@ namespace libRetroRunner {
     Setting::Setting() {
 
 #ifdef ANDROID
-        video_driver_ = "gl";
+        video_driver_ = "vulkan";
         audio_driver_ = "android";
         input_driver_ = "software";
 #endif

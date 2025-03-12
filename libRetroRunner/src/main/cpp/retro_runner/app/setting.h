@@ -55,7 +55,7 @@ namespace libRetroRunner {
 
         bool low_latency_ = true;
         int max_player_count_ = 4;
-        bool video_linear = true;
+        bool video_linear = false;
     };
 
 }

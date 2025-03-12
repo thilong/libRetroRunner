@@ -38,6 +38,9 @@ namespace libRetroRunner {
         unsigned int GetCurrentFramebuffer() override;
 
         bool TakeScreenshot(const std::string &path) override;
+
+    private:
+        class VulkanContext* vulkan_context_ = nullptr;
     };
 }
 

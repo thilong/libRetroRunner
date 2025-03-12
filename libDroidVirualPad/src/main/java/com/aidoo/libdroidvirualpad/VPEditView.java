@@ -2,31 +2,26 @@ package com.aidoo.libdroidvirualpad;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 
-public class VirtualPadEditView extends View {
+public class VPEditView extends View {
 
     boolean isEditing = false;
-    ArrayList<ComponentBase> buttons = null;
+    ArrayList<VPComponentBase> buttons = null;
 
-    public VirtualPadEditView(Context context) {
+    public VPEditView(Context context) {
         super(context);
     }
 
-    public VirtualPadEditView(Context context, @Nullable AttributeSet attrs) {
+    public VPEditView(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
 
-    public VirtualPadEditView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+    public VPEditView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
 
@@ -43,10 +38,10 @@ public class VirtualPadEditView extends View {
     }
 
     @Override
-    public void draw(@NonNull Canvas canvas) {
+    public void draw( Canvas canvas) {
         super.draw(canvas);
 
-        for (ComponentBase button : buttons) {
+        for (VPComponentBase button : buttons) {
             button.draw(canvas);
         }
 

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.4.1)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
 
-add_definitions("-DVFS_FRONTEND -DHAVE_STRL")
+add_definitions("-DVFS_FRONTEND -DHAVE_STRL -DVK_NO_PROTOTYPES=1 -DVK_USE_PLATFORM_ANDROID_KHR")
 
 set(OBOE_DIR oboe)
 add_subdirectory(${OBOE_DIR} oboe)
@@ -46,6 +46,8 @@ add_library(RetroRunner SHARED
         retro_runner/video/opengles/frame_buffer_object.cpp
 
 
+        retro_runner/video/vulkan/vulkan_context.cpp
+        retro_runner/video/vulkan/vulkan_api_wrapper.cpp
         retro_runner/video/vulkan/video_context_vulkan.cpp
 
 

@@ -1,9 +1,13 @@
 //
 // Created by aidoo on 1/24/2025.
 //
+#include <vulkan/vulkan.h>
+
 #include "video_context_vulkan.h"
+#include "vulkan_api_wrapper.h"
 
 namespace libRetroRunner {
+
     VulkanVideoContext::VulkanVideoContext() {
 
     }
@@ -13,7 +17,8 @@ namespace libRetroRunner {
     }
 
     bool VulkanVideoContext::Init() {
-        return false;
+        if(!InitVulkan()) return false;
+        return true;
     }
 
     void VulkanVideoContext::Destroy() {

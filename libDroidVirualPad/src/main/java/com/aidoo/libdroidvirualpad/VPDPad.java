@@ -2,11 +2,11 @@ package com.aidoo.libdroidvirualpad;
 
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
-import android.util.Log;
+import android.view.KeyEvent;
 
 import java.util.HashMap;
 
-public class VPDPad extends ComponentBase {
+public class VPDPad extends VPComponentBase {
 
     public static final int STATE_DIR_LEFT = 1 << 1;
     public static final int STATE_DIR_TOP = 1 << 2;
@@ -14,13 +14,17 @@ public class VPDPad extends ComponentBase {
     public static final int STATE_DIR_BOTTOM = 1 << 4;
 
     private int state = STATE_UP;
-
+    private boolean is8Direction = false;
     private final HashMap<Integer, Drawable> drawables;
     private final HashMap<Integer, Integer> dirValues;
 
     public VPDPad() {
         drawables = new HashMap<>();
         dirValues = new HashMap<>();
+        dirValues.put(STATE_DIR_LEFT, KeyEvent.KEYCODE_DPAD_LEFT);
+        dirValues.put(STATE_DIR_TOP, KeyEvent.KEYCODE_DPAD_UP);
+        dirValues.put(STATE_DIR_RIGHT, KeyEvent.KEYCODE_DPAD_RIGHT);
+        dirValues.put(STATE_DIR_BOTTOM, KeyEvent.KEYCODE_DPAD_DOWN);
     }
 
     public void setDrawableForState(int state, Drawable drawable) {
@@ -31,8 +35,13 @@ public class VPDPad extends ComponentBase {
         dirValues.put(dir, value);
     }
 
+    public void setIs8Direction(boolean is8Direction) {
+        this.is8Direction = is8Direction;
+    }
+
     @Override
     public void setState(int state) {
+        isDirty = false;
         boolean anyChange = false;
         for (int idx = 1; idx < 5; idx++) {
             int dir = 1 << idx;
@@ -42,7 +51,7 @@ public class VPDPad extends ComponentBase {
                 if (eventCallback != null) {
                     Integer dirValue = dirValues.get(dir);
                     if (dirValue != null) {
-                        eventCallback.onButtonEvent(nextState ? ACTION_DOWN : ACTION_UP, value);
+                        eventCallback.onButtonEvent(nextState ? ACTION_DOWN : ACTION_UP, dirValue);
                         anyChange = true;
                     }
                 }
@@ -56,6 +65,7 @@ public class VPDPad extends ComponentBase {
 
     @Override
     public boolean onPointerEvent(int pointerId, int action, int x, int y) {
+        if (action == ACTION_DOWN && !isInBounds(x, y)) return false;
         if (action == ACTION_UP) {
             if (pointerId == this.pointerId) {
                 setPointerId(-1);
@@ -71,18 +81,26 @@ public class VPDPad extends ComponentBase {
         }
         setPointerId(pointerId);
 
-        Log.d("VirtualPad", "onPointerEvent: " + action + " - ( " + x + " , " + y + " )");
         int centerX = this.x + this.width / 2;
         int centerY = this.y + this.height / 2;
         //根据(x,y), (centerX, centerY)的距离与角度判断方向
-        double dx = centerX - x;
-        double dy = centerY - y;
+        double dx = x - centerX;
+        double dy = y - centerY;
         double distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < width / 4.0) {
             setState(STATE_UP);
             return isDirty;
         }
         double angle = Math.atan2(dy, dx);
+        if (is8Direction) {
+            calc8Direction(angle);
+        } else {
+            calc4Direction(angle);
+        }
+        return isDirty;
+    }
+
+    private void calc8Direction(double angle) {
         //判断8个方向
         if (angle >= -Math.PI / 8 && angle < Math.PI / 8) {
             setState(STATE_DIR_RIGHT);
@@ -101,8 +119,19 @@ public class VPDPad extends ComponentBase {
         } else if (angle >= -3 * Math.PI / 8 && angle < -Math.PI / 8) {
             setState(STATE_DIR_TOP | STATE_DIR_RIGHT);
         }
-        Log.d("VirtualPad", "distance: " + distance + " - angle: " + angle + " - state: " + state + " ( " + dx + " , " + dy + " )");
-        return isDirty;
+
+    }
+
+    private void calc4Direction(double angle) {
+        if (angle >= -Math.PI / 4 && angle < Math.PI / 4) {
+            setState(STATE_DIR_RIGHT);
+        } else if (angle >= Math.PI / 4 && angle < 3 * Math.PI / 4) {
+            setState(STATE_DIR_BOTTOM);
+        } else if (angle >= 3 * Math.PI / 4 || angle < -3 * Math.PI / 4) {
+            setState(STATE_DIR_LEFT);
+        } else if (angle >= -3 * Math.PI / 4 && angle < -Math.PI / 4) {
+            setState(STATE_DIR_TOP);
+        }
     }
 
     @Override

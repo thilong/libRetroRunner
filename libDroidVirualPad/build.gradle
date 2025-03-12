@@ -1,13 +1,14 @@
 plugins {
-    alias(libs.plugins.android.library)
+    id 'com.android.library'
 }
-
 android {
     namespace 'com.aidoo.libdroidvirualpad'
     compileSdk 34
 
     defaultConfig {
-        minSdk 24
+        minSdkVersion 21
+        versionCode 1
+        versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
@@ -27,9 +28,4 @@ android {
 
 dependencies {
 
-    implementation libs.appcompat
-    implementation libs.material
-    testImplementation libs.junit
-    androidTestImplementation libs.ext.junit
-    androidTestImplementation libs.espresso.core
 }

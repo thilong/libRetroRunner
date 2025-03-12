@@ -3,9 +3,8 @@ package com.aidoo.libdroidvirualpad;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 
-public class ComponentBase {
+public class VPComponentBase {
     public static final int STATE_UP = 0;
     public static final int STATE_DOWN = 1;
 
@@ -98,6 +97,12 @@ public class ComponentBase {
     }
 
     public void setY(int y) {
+        this.y = y;
+        isDirty = true;
+    }
+
+    public void setPosition(int x, int y) {
+        this.x = x;
         this.y = y;
         isDirty = true;
     }

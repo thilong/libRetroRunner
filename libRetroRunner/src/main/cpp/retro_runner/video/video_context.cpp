@@ -4,6 +4,7 @@
 #include "video_context.h"
 #include <memory>
 #include "opengles/video_context_gles.h"
+#include "vulkan/video_context_vulkan.h"
 #include "../types/log.h"
 
 namespace libRetroRunner {
@@ -23,6 +24,9 @@ namespace libRetroRunner {
         if (driver == "gl") {
             LOGD("[VIDEO] Create OpenGL ES video context for driver 'gl'.");
             return std::make_shared<GLESVideoContext>();
+        } else if(driver == "vulkan"){
+            LOGD("[VIDEO] Create Vulkan video context for driver 'vulkan'.");
+            return std::make_shared<VulkanVideoContext>();
         }
         LOGW("[VIDEO] Unsupported video driver '%s'.", driver.c_str());
         return nullptr;

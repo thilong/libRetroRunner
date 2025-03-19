@@ -114,6 +114,7 @@ namespace libRetroRunner {
             window_ = nullptr;
             vulkanIsReady_ = false;
             if (vulkanInstance_ && vulkanSwapchain_) {
+                vkQueueWaitIdle(vulkanInstance_->getGraphicQueue());
                 vkDeviceWaitIdle(vulkanInstance_->getLogicalDevice());
                 delete vulkanSwapchain_;
                 vulkanSwapchain_ = nullptr;
@@ -154,7 +155,10 @@ namespace libRetroRunner {
 
     void VulkanVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {
         if (data && data != RETRO_HW_FRAME_BUFFER_VALID && vulkanIsReady_) {
-            if (softwareTexture_ == nullptr) {
+            if (softwareTexture_ == nullptr || !(softwareTexture_->getWidth() == width && softwareTexture_->getHeight() == height)) {
+                if (softwareTexture_) {
+                    delete softwareTexture_;
+                }
                 softwareTexture_ = new VulkanSamplingTexture(vulkanInstance_->getPhysicalDevice(), vulkanInstance_->getLogicalDevice(), vulkanInstance_->getQueueFamilyIndex());
                 softwareTexture_->create(width, height);
             }

@@ -67,7 +67,18 @@ namespace libRetroRunner {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                 .renderPass = renderPass_
         };
-        //视图与裁剪
+
+        // dynamic state, let viewport and scissor dynamic, can change at runtime
+        VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+
+        VkPipelineDynamicStateCreateInfo dynamicStateInfo{};
+        dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicStateInfo.dynamicStateCount = 2;
+        dynamicStateInfo.pDynamicStates = dynamicStates;
+
+        pipelineCreateInfo.pDynamicState = &dynamicStateInfo;
+
+        // viewport and scissor
         VkViewport viewport{
                 .width = (float) width,
                 .height = (float) height,

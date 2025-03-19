@@ -42,7 +42,7 @@ namespace libRetroRunner {
             const char *pMessage,
             void *pUserData) {
         if (pMessage) {
-            LOGD_VC("[%d]: %s", messageCode, pMessage);
+            LOGD_VC("[LOG][%d]: %s", messageCode, pMessage);
         }
         /*
         if (messageCode == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
@@ -177,7 +177,7 @@ namespace libRetroRunner {
         if (CreateDebugUtilsMessengerEXT(instance_, &debugCreateInfo, &debugMessenger_) != VK_SUCCESS) {
             VkDebugReportCallbackCreateInfoEXT debugReportCreateInfo{};
             debugReportCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-            debugReportCreateInfo.flags = VK_DEBUG_REPORT_DEBUG_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+            debugReportCreateInfo.flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_DEBUG_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
             debugReportCreateInfo.pfnCallback = debugReportCallbackFn;
 
             if (CreateDebugReportCallbackEXT(instance_, &debugReportCreateInfo, &debugCallback_) != VK_SUCCESS) {

@@ -260,11 +260,13 @@ namespace libRetroRunner {
             vkDestroySemaphore(logicalDevice_, semaphore_, nullptr);
             semaphore_ = VK_NULL_HANDLE;
         }
+        if (commandBuffers_.size() > 0) {
+            vkFreeCommandBuffers(logicalDevice_, commandPool_, commandBuffers_.size(), commandBuffers_.data());
+            commandBuffers_.clear();
+            commandBuffers_.resize(0);
+        }
         for (auto frameBuffer: frameBuffers_) {
             vkDestroyFramebuffer(logicalDevice_, frameBuffer, nullptr);
-        }
-        if (commandPool_) {
-            vkDestroyCommandPool(logicalDevice_, commandPool_, nullptr);
         }
 
         for (auto imageView: imageViews_) {

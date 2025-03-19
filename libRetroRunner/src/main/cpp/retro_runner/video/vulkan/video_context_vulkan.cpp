@@ -141,6 +141,8 @@ namespace libRetroRunner {
             vkDeviceWaitIdle(vulkanInstance_->getLogicalDevice());
             delete vulkanSwapchain_;
             vulkanSwapchain_ = nullptr;
+            vkQueueWaitIdle(vulkanInstance_->getGraphicQueue());
+            vkDeviceWaitIdle(vulkanInstance_->getLogicalDevice());
             Init();
 
         }
@@ -282,6 +284,19 @@ namespace libRetroRunner {
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline_->getPipeline());
+
+        VkViewport viewport{
+                .width = (float) width_,
+                .height = (float) height_,
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f
+        };
+        VkRect2D scissor{
+                .offset = {0, 0},
+                .extent = {width_, width_}
+        };
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         //绑定顶点缓冲区
         VkDeviceSize offsets[] = {0};

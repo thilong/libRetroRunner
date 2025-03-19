@@ -7,11 +7,21 @@
 #include <EGL/egl.h>
 #include "../video_context.h"
 
+
+
 #ifndef LIBRETRORUNNER_VIDEO_CONTEXT_VULKAN_H
 #define LIBRETRORUNNER_VIDEO_CONTEXT_VULKAN_H
 
+class VulkanSamplingTexture;
+class VulkanRWBuffer;
 
 namespace libRetroRunner {
+
+    class VulkanInstance;
+
+    class VulkanPipeline;
+
+    class VulkanSwapchain;
 
     class VulkanVideoContext : public VideoContext {
     public:
@@ -40,7 +50,27 @@ namespace libRetroRunner {
         bool TakeScreenshot(const std::string &path) override;
 
     private:
-        class VulkanContext* vulkan_context_ = nullptr;
+        void recordCommandBufferForSoftwareRender(void * pCommandBuffer, uint32_t imageIndex);
+
+        void vulkanCommitFrame();
+
+
+    private:
+        void *window_{};
+        /* pixel format of core use */
+        int core_pixel_format_;
+
+
+        VulkanInstance *vulkanInstance_{};
+        VulkanPipeline *vulkanPipeline_{};
+        VulkanSwapchain *vulkanSwapchain_{};
+
+        VulkanSamplingTexture *softwareTexture_{};
+        VulkanRWBuffer *vertexBuffer_{};
+
+        bool vulkanIsReady_{};
+        uint32_t width_;
+        uint32_t height_;
     };
 }
 

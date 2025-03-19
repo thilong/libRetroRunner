@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // This file is generated.
-#include "vulkan_api_wrapper.h"
+#include "vulkan_wrapper.h"
 #include <dlfcn.h>
 
-int InitVulkan(void) {
+int InitVulkanApi(void) {
     void* libvulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
     if (!libvulkan)
         return 0;

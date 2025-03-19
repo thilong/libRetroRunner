@@ -72,7 +72,7 @@ namespace libRetroRunner {
             app->SetController(i, device);
             LOGD_SInput("SetController: [%d -> %d]", i, device);
         }
-        LOGD_SInput("SoftwareInput initialized");
+        LOGD_SInput("SoftwareInput allReady");
     }
 
     int16_t SoftwareInput::State(unsigned int port, unsigned int device, unsigned int index, unsigned int id) {

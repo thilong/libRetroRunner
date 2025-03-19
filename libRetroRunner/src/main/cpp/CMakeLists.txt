@@ -46,8 +46,14 @@ add_library(RetroRunner SHARED
         retro_runner/video/opengles/frame_buffer_object.cpp
 
 
-        retro_runner/video/vulkan/vulkan_context.cpp
-        retro_runner/video/vulkan/vulkan_api_wrapper.cpp
+        retro_runner/video/vulkan/rr_vulkan.cpp
+        retro_runner/video/vulkan/vk_read_write_buffer.cpp
+        retro_runner/video/vulkan/vk_sampling_texture.cpp
+        retro_runner/video/vulkan/rr_vulkan_instance.cpp
+        retro_runner/video/vulkan/rr_vulkan_pipeline.cpp
+        retro_runner/video/vulkan/rr_vulkan_swapchain.cpp
+        retro_runner/video/vulkan/rr_draws.cpp
+        retro_runner/video/vulkan/vulkan_wrapper.cpp
         retro_runner/video/vulkan/video_context_vulkan.cpp
 
 

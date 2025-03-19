@@ -89,7 +89,7 @@ namespace libRetroRunner {
 
     bool GLESVideoContext::Init() {
         if (egl_display_ == EGL_NO_DISPLAY || egl_surface_ == EGL_NO_SURFACE || egl_context_ == EGL_NO_CONTEXT) {
-            LOGE("egl_display_ is not initialized.");
+            LOGE("egl_display_ is not allReady.");
             return false;
         }
         if (eglMakeCurrent(egl_display_, egl_surface_, egl_surface_, egl_context_) != EGL_TRUE) {
@@ -114,7 +114,7 @@ namespace libRetroRunner {
         }
         is_ready_ = true;
         enabled_ = true;
-        LOGD_GLVIDEO("GLESVideoContext initialized, hardware accelerated: %d.", is_hardware_accelerated_);
+        LOGD_GLVIDEO("GLESVideoContext allReady, hardware accelerated: %d.", is_hardware_accelerated_);
         return true;
     }
 
@@ -199,7 +199,7 @@ namespace libRetroRunner {
                 return;
             }
 
-            LOGI_GLVIDEO("egl initialized.");
+            LOGI_GLVIDEO("egl allReady.");
             egl_initialized_ = true;
         }
 

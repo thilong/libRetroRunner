@@ -4,16 +4,18 @@
 #include <vector>
 #include <memory>
 
-#include <EGL/egl.h>
 #include "../video_context.h"
 
-
+#include <libretro-common/include/libretro_vulkan.h>
 
 #ifndef LIBRETRORUNNER_VIDEO_CONTEXT_VULKAN_H
 #define LIBRETRORUNNER_VIDEO_CONTEXT_VULKAN_H
 
 class VulkanSamplingTexture;
+
 class VulkanRWBuffer;
+
+
 
 namespace libRetroRunner {
 
@@ -49,11 +51,12 @@ namespace libRetroRunner {
 
         bool TakeScreenshot(const std::string &path) override;
 
+        void setHWRenderContextNegotiationInterface(const void *interface) override;
+
     private:
-        void recordCommandBufferForSoftwareRender(void * pCommandBuffer, uint32_t imageIndex);
+        void recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex);
 
         void vulkanCommitFrame();
-
 
     private:
         void *window_{};
@@ -71,6 +74,10 @@ namespace libRetroRunner {
         bool vulkanIsReady_{};
         uint32_t width_;
         uint32_t height_;
+
+        const retro_hw_render_context_negotiation_interface_vulkan *retroHWNegotiationInterface_{};
+
+
     };
 }
 

@@ -15,6 +15,8 @@
 #include "paths.h"
 #include "../vfs/vfs_context.h"
 
+#include <libretro_vulkan.h>
+
 #define POINTER_VAL(_TYPE_) (*((_TYPE_*)data))
 
 #define LOGD_Env(...) LOGD("[Environment] "  __VA_ARGS__)
@@ -89,6 +91,14 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_SET_HW_RENDER:
             case RETRO_ENVIRONMENT_SET_HW_RENDER | RETRO_ENVIRONMENT_EXPERIMENTAL: {
+
+                auto hwRender = static_cast<struct retro_hw_render_callback *>(data);
+                if (hwRender) {
+                    LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER %d", hwRender->context_type);
+                } else {
+                    LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER");
+                }
+
                 return cmdSetHardwareRender(data);
             }
             case RETRO_ENVIRONMENT_GET_VARIABLE: {
@@ -192,7 +202,7 @@ namespace libRetroRunner {
             case RETRO_ENVIRONMENT_SET_MEMORY_MAPS: {
                 //TODO:通知前端核心所使用的内存空间
                 LOGD_Env("call RETRO_ENVIRONMENT_SET_MEMORY_MAPS -> [NO IMPL]");
-                const struct retro_memory_map *map = static_cast<const struct retro_memory_map *>(data);
+                [[maybe_unused]] const struct retro_memory_map *map = static_cast<const struct retro_memory_map *>(data);
                 return false;
             }
             case RETRO_ENVIRONMENT_SET_GEOMETRY: {
@@ -215,6 +225,7 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE: {
                 //返回前端硬件渲染的类型，不是所有核心都需要这个回调
+                //如果核心使用Vulkan, 需要返回 retro_hw_render_interface
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE -> [NO IMPL]");
                 //auto callback = static_cast<const struct retro_hw_render_interface **>(data);
                 return false;
@@ -225,10 +236,18 @@ namespace libRetroRunner {
                 return true;
             }
             case RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE: {
-                //通知前端核心是否支持硬件渲染上下文协商
+                //通知前端核心硬件渲染上下文协商接口
                 LOGD_Env(
                         "call RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE -> [NO IMPL]");
-                return false;
+                const struct retro_hw_render_context_negotiation_interface *interface = static_cast<const struct retro_hw_render_context_negotiation_interface *>(data);
+                auto app = AppContext::Current();
+                if (app) {
+                    auto video = app->GetVideo();
+                    if (video) {
+                        video->setHWRenderContextNegotiationInterface(interface);
+                    }
+                }
+                return true;
             }
             case RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS: {
                 //通知前端核心是否支持序列化特性
@@ -316,7 +335,7 @@ namespace libRetroRunner {
             case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER: {
                 //返回前端所期望的硬件渲染类型
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER");
-                POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_OPENGL;
+                POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_VULKAN;
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION: {
@@ -417,7 +436,7 @@ namespace libRetroRunner {
                 //在SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE之前调用，用于确认所支持的类型
                 LOGD_Env(
                         "call RETRO_ENVIRONMENT_GET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_SUPPORT");
-                auto request = static_cast<struct retro_hw_render_context_negotiation_interface *>(data);
+                [[maybe_unused]] auto request = static_cast<struct retro_hw_render_context_negotiation_interface *>(data);
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_JIT_CAPABLE: {
@@ -650,9 +669,15 @@ namespace libRetroRunner {
         //TODO: 核心通知前端音频状态
     }
 
+
+
     retro_proc_address_t Environment::CoreCallbackGetProcAddress(const char *sym) {
+        if (getHWProcAddress) {
+            return (retro_proc_address_t)getHWProcAddress(sym);
+        }
+        return 0;
         //LOGD_Env("get proc address: %s", sym);
-        return (retro_proc_address_t) eglGetProcAddress(sym);
+        //return (retro_proc_address_t) eglGetProcAddress(sym);
     }
 
     const std::string Environment::GetVariable(const std::string &key, const std::string &defaultValue) {

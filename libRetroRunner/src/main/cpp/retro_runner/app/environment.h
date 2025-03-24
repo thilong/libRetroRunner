@@ -13,6 +13,8 @@
 
 namespace libRetroRunner {
 
+
+
     class Environment {
         friend class AppContext;
 

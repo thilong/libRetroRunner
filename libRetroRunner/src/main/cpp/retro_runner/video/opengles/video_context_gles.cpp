@@ -17,6 +17,7 @@
 #include "../../app/app_context.h"
 #include "../../app/environment.h"
 #include "../../app/setting.h"
+#include "../../types/retro_types.h"
 
 #define LOGD_GLVIDEO(...) LOGD("[VIDEO] " __VA_ARGS__)
 #define LOGW_GLVIDEO(...) LOGW("[VIDEO] " __VA_ARGS__)
@@ -67,8 +68,8 @@ namespace libRetroRunner {
 }
 
 namespace libRetroRunner {
-
     GLESVideoContext::GLESVideoContext() : VideoContext() {
+        getHWProcAddress = (rr_hardware_render_proc_address_t)&eglGetProcAddress;
         is_ready_ = false;
         egl_initialized_ = false;
         egl_context_ = nullptr;
@@ -86,6 +87,7 @@ namespace libRetroRunner {
     GLESVideoContext::~GLESVideoContext() {
         Destroy();
     }
+
 
     bool GLESVideoContext::Init() {
         if (egl_display_ == EGL_NO_DISPLAY || egl_surface_ == EGL_NO_SURFACE || egl_context_ == EGL_NO_CONTEXT) {

@@ -36,5 +36,7 @@
 * 3 - Late
 */
 
-
+/**/
+typedef void* (*rr_hardware_render_proc_address_t)(const char*);
+static rr_hardware_render_proc_address_t getHWProcAddress = nullptr;
 #endif

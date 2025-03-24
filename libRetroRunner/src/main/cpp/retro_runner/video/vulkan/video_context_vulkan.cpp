@@ -7,10 +7,15 @@
 #include "video_context_vulkan.h"
 #include "vulkan_wrapper.h"
 
+#include <libretro.h>
+#include <libretro_vulkan.h>
+#include <dlfcn.h>
+
 #include "../../types/log.h"
 #include "../../app/app_context.h"
 #include "../../app/environment.h"
 #include "../../app/setting.h"
+#include "../../types/retro_types.h"
 
 #include "rr_vulkan_instance.h"
 #include "rr_vulkan_pipeline.h"
@@ -26,9 +31,18 @@
 
 #define CHECK_VK_OBJ_NOT_NULL(arg, msg) if (arg == nullptr) { LOGE_VVC(msg); return false; }
 
+void *getVKApiAddress(const char *sym) {
+    void *libvulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+    if (!libvulkan)
+        return 0;
+    return dlsym(libvulkan, sym);
+}
+
 namespace libRetroRunner {
 
     VulkanVideoContext::VulkanVideoContext() {
+        InitVulkanApi();
+        getHWProcAddress = (rr_hardware_render_proc_address_t) &getVKApiAddress;
         vulkanInstance_ = nullptr;
         vulkanPipeline_ = nullptr;
         width_ = 100;
@@ -52,6 +66,9 @@ namespace libRetroRunner {
         }
         if (vulkanInstance_ == nullptr) {
             vulkanInstance_ = new VulkanInstance();
+            if (retroHWNegotiationInterface_) {
+                vulkanInstance_->setRetroNegotiationInterface(retroHWNegotiationInterface_);
+            }
             vulkanInstance_->setEnableLogger(true);
             if (!vulkanInstance_->init()) {
                 vulkanInstance_->destroy();
@@ -60,6 +77,7 @@ namespace libRetroRunner {
                 LOGE_VVC("Failed to init vulkan instance.");
                 return false;
             }
+
         }
         CHECK_VK_OBJ_NOT_NULL(vulkanInstance_, "vulkan instance is null.")
         if (vulkanPipeline_ == nullptr) {
@@ -223,8 +241,9 @@ namespace libRetroRunner {
                 .pCommandBuffers = &commandBuffer,
                 .signalSemaphoreCount = 0,
                 .pSignalSemaphores = nullptr};
-        if (vkQueueSubmit(queue, 1, &submit_info, fence) != VK_SUCCESS) {
-            LOGE_VC("Failed to submit queue!\n");
+        VkResult submitResult = vkQueueSubmit(queue, 1, &submit_info, fence);
+        if (submitResult != VK_SUCCESS) {
+            LOGE_VC("Failed to submit queue: %d", submitResult);
             return;
         }
 
@@ -316,6 +335,14 @@ namespace libRetroRunner {
 
         vkCmdEndRenderPass(commandBuffer);
         vkEndCommandBuffer(commandBuffer);
+    }
+
+    void VulkanVideoContext::setHWRenderContextNegotiationInterface(const void *interface) {
+        if (!interface) return;
+        auto baseInterface = static_cast<const retro_hw_render_context_negotiation_interface *>(interface);
+        if (baseInterface->interface_type == RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN) {
+            retroHWNegotiationInterface_ = static_cast<const retro_hw_render_context_negotiation_interface_vulkan *>(interface);
+        }
     }
 
 }

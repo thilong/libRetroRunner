@@ -284,7 +284,7 @@ namespace libRetroRunner {
         } else {
             std::string driver = Setting::Current()->GetVideoDriver();
             if (!video_) {
-                video_ = VideoContext::Create(driver);
+                video_ = VideoContext::Create(driver, core_runtime_context_->GetRenderContextType());
                 video_->SetGameContext(game_runtime_context_);
             }
             if (video_) {

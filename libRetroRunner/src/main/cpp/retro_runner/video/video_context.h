@@ -16,7 +16,7 @@ namespace libRetroRunner {
 
     class VideoContext {
     public:
-        static std::shared_ptr<VideoContext> Create(std::string &driver);
+        static std::shared_ptr<VideoContext> Create(std::string &driver, int retroHWContextType);
 
         VideoContext();
 
@@ -45,13 +45,17 @@ namespace libRetroRunner {
         /* dump video frame into a file, may fail, this should run on emu thread. */
         virtual bool TakeScreenshot(const std::string &path) = 0;
 
+        /*set render negotiation interface*/
+        virtual void setHWRenderContextNegotiationInterface(const void *) = 0;
+
         /* set the path to store the next screenshot, when finish dumping, path will be set to empty. */
         void SetNextScreenshotStorePath(std::string &path);
 
         /*set if video output is enabled.*/
         void SetEnabled(bool flag);
 
-        void SetGameContext(std::shared_ptr<GameRuntimeContext>& ctx);
+        void SetGameContext(std::shared_ptr<GameRuntimeContext> &ctx);
+
     protected:
         bool enabled_;
         std::string next_screenshot_store_path_;

@@ -20,13 +20,14 @@ namespace libRetroRunner {
         next_screenshot_store_path_ = path;
     }
 
-    std::shared_ptr<VideoContext> VideoContext::Create(std::string &driver) {
+    std::shared_ptr<VideoContext> VideoContext::Create(std::string &driver, int retroHWContextType) {
+        if (driver == "vulkan" || retroHWContextType == 6) {
+            LOGD("[VIDEO] Create Vulkan video context for driver 'vulkan'.");
+            return std::make_shared<VulkanVideoContext>();
+        }
         if (driver == "gl") {
             LOGD("[VIDEO] Create OpenGL ES video context for driver 'gl'.");
             return std::make_shared<GLESVideoContext>();
-        } else if(driver == "vulkan"){
-            LOGD("[VIDEO] Create Vulkan video context for driver 'vulkan'.");
-            return std::make_shared<VulkanVideoContext>();
         }
         LOGW("[VIDEO] Unsupported video driver '%s'.", driver.c_str());
         return nullptr;

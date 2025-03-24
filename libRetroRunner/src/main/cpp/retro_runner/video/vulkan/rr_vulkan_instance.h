@@ -6,6 +6,7 @@
 #define LIBRETRORUNNER_RR_VULKAN_INSTANCE_H
 
 #include "rr_vulkan.h"
+#include <libretro-common/include/libretro_vulkan.h>
 
 namespace libRetroRunner {
     class VulkanInstance {
@@ -26,6 +27,9 @@ namespace libRetroRunner {
         bool init();
 
         void destroy();
+
+        bool initByNegotiationInterface();
+        void setRetroNegotiationInterface(const retro_hw_render_context_negotiation_interface_vulkan *interface);
 
     private:
         void logAvailableExtensions();
@@ -63,6 +67,9 @@ namespace libRetroRunner {
         VkDebugReportCallbackEXT debugCallback_{};
 
         std::vector<const char *> extensions_{};
+
+        const retro_hw_render_context_negotiation_interface_vulkan *negotiationInterface_;
+        struct retro_vulkan_context* retroVkContext_{};
     };
 }
 

@@ -1647,19 +1647,16 @@ enum retro_mod
 #define RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS (42 | RETRO_ENVIRONMENT_EXPERIMENTAL)
 
 /**
- * Defines an interface that the frontend can use
- * to ask the core for the parameters it needs for a hardware rendering context.
- * The exact semantics depend on \ref RETRO_ENVIRONMENT_SET_HW_RENDER "the active rendering API".
- * Will be used some time after \c RETRO_ENVIRONMENT_SET_HW_RENDER is called,
- * but before \c retro_hw_render_callback::context_reset is called.
- *
+ * 定义一个接口，前端可以使用该接口向核心请求硬件渲染上下文所需的参数。
+ * 确切的语义取决于 RETRO_ENVIRONMENT_SET_HW_RENDER “活动渲染 API”。
+ * 将在调用 RETRO_ENVIRONMENT_SET_HW_RENDER 之后、
+ * 但在调用 retro_hw_render_callback::context_reset 之前使用。
  * @param[in] data <tt>const struct retro_hw_render_context_negotiation_interface *</tt>.
- * Pointer to the context negotiation interface.
- * Will be populated by the frontend.
+ * 指向上下文协商接口的指针。
+ * 将由前端填充。
  * Behavior is undefined if \c NULL.
- * @return \c true if this environment call is supported,
- * even if the current graphics API doesn't use
- * a context negotiation interface (in which case the argument is ignored).
+ * @return \c true 如果支持此环境调用，则返回 true，
+ * 即使当前图形 API 不使用上下文协商接口（在这种情况下，参数将被忽略）
  * @see retro_hw_render_context_negotiation_interface
  * @see RETRO_ENVIRONMENT_GET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_SUPPORT
  * @see RETRO_ENVIRONMENT_SET_HW_RENDER

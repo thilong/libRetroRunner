@@ -358,4 +358,8 @@ namespace libRetroRunner {
         return true;
     }
 
+    bool GLESVideoContext::SurfaceChanged(void *surface, unsigned int width, unsigned int height) {
+        return false;
+    }
+
 }

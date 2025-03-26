@@ -12,6 +12,12 @@
 #include <retro_runner/types/frontend_notify.hpp>
 #include <retro_runner/app/speed_limiter.hpp>
 
+#ifdef ANDROID
+
+#include <jni.h>
+
+#endif
+
 namespace libRetroRunner {
 
 
@@ -26,7 +32,11 @@ namespace libRetroRunner {
 
         static std::shared_ptr<AppContext> Current();
 
+        void ThreadInit();
+
         void ThreadLoop();
+
+        void ThreadCleanup();
 
     public:
         inline void SetFrontendNotify(FrontendNotifyCallback notify) {
@@ -47,6 +57,13 @@ namespace libRetroRunner {
 
         std::shared_ptr<GameRuntimeContext> GetGameRuntimeContext() const;
 
+#ifdef ANDROID
+
+        JNIEnv *GetJniEnv() const { return thread_jni_env_; };
+
+#endif
+
+
     public:
 
         /**
@@ -56,9 +73,9 @@ namespace libRetroRunner {
          * @param system    system folder for core
          * @param save      folder to save game states, ram, screenshots
          */
-        void SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save);
+        void SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save);;
 
-        void Start();
+        bool Step();
 
         void Pause();
 
@@ -66,9 +83,12 @@ namespace libRetroRunner {
 
         void Reset();
 
+        /**
+         * Stop emu app context, clean up everything.
+         */
         void Stop();
 
-        void SetVideoSurface(int argc, void **argv);
+        void UpdateVideoSurface(void *surface, unsigned width, unsigned height);
 
         void SetController(unsigned port, int retro_device);
 
@@ -101,9 +121,13 @@ namespace libRetroRunner {
 
         void processCommand();
 
+        void commandInitApp();
+
         void commandLoadCore();
 
         void commandLoadContent();
+
+        void commandInitComponents();
 
         void commandSaveSRAM(std::shared_ptr<Command> &command);
 
@@ -126,19 +150,24 @@ namespace libRetroRunner {
         /* Component: Command Queue */
         std::unique_ptr<CommandQueue> command_queue_;
 
-        std::shared_ptr<class Core> core_;
+        std::shared_ptr<CoreRuntimeContext> core_runtime_context_;
+        std::shared_ptr<GameRuntimeContext> game_runtime_context_;
         std::shared_ptr<class Environment> environment_;
+        std::shared_ptr<class Core> core_;
+
         std::shared_ptr<class VideoContext> video_;
         std::shared_ptr<class InputContext> input_;
         std::shared_ptr<class AudioContext> audio_;
-
-        std::shared_ptr<CoreRuntimeContext> core_runtime_context_;
-        std::shared_ptr<GameRuntimeContext> game_runtime_context_;
 
         SpeedLimiter speed_limiter_;
 
         pid_t emu_thread_id_ = 0;
         FrontendNotifyCallback frontend_notify_ = nullptr;
+
+
+#ifdef ANDROID
+        JNIEnv *thread_jni_env_ = nullptr;
+#endif
     };
 
 }

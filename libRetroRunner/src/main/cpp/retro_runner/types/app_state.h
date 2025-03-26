@@ -7,13 +7,13 @@
 
 enum AppState {
     kNone = 0,
-    kPathsReady = 1 << 0,    //1
-    kCoreReady = 1 << 1,  //2
-    kContentReady = 1 << 2,  //4
-    kVideoReady = 1 << 3, //8
-    kRunning = 1 << 4,   //16
-    kPaused = 1 << 5,
-    kStopped = 1 << 6
+    kPathsReady = 1 << 0,       // all need paths are set.
+    kCoreReady = 1 << 1,        // core has been successfully loaded.
+    kContentReady = 1 << 2,     // game content has been loaded.
+    kVideoReady = 1 << 3,       // video output is read.
+    kRunning = 1 << 4,          // main emu thread is active
+    kPaused = 1 << 5,           // main emu step is paused
+    kAudioEnabled = 1 << 6      // audio output is enabled.
 };
 
 #endif

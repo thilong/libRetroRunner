@@ -16,12 +16,11 @@ namespace libRetroRunner {
 
     enum AppCommands {
         kNone = 10,
+        kInitApp,
         kLoadCore,
         kLoadContent,
-        kInitVideo,
-        kInitInput,
-        kInitAudio,
-
+        kInitComponents,
+        kLoadVideo,
         kUnloadVideo,
 
         kResetGame,

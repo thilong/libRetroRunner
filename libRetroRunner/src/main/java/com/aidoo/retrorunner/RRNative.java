@@ -2,6 +2,9 @@ package com.aidoo.retrorunner;
 
 import android.view.Surface;
 
+/**
+ * The native interface for RetroRunner
+ */
 public class RRNative {
     static {
         System.loadLibrary("RetroRunner");
@@ -10,35 +13,43 @@ public class RRNative {
     private static RRNative instance;
 
     public static RRNative getInstance() {
-        if (instance == null)
+        if (instance == null) {
             instance = new RRNative();
+            RRNative.initEnv(instance);
+        }
         return instance;
     }
 
-    public void initIfNeeded() {
-
+    public void setup() {
     }
-
 
     /*jni methods--------------------------*/
 
-    /*init global env*/
-    public static native void initEnv();
+    /**
+     * init the native env, this method is automatically called by the getInstance method
+     *
+     * @param rrNative the instance of RRNative
+     */
+    public static native void initEnv(RRNative rrNative);
 
-    /*create a new emulate instance, if one is exists, stop it.*/
+    /**
+     * create a new emulate instance, if one is exists, stop it.
+     *
+     * @param romPath    game rom path
+     * @param corePath   retro core path
+     * @param systemPath retro core related path, such as bios, core assets.
+     * @param savePath   game save path
+     */
     public static native void create(String romPath, String corePath, String systemPath, String savePath);
 
     /**
-     * add variable to core
+     * add core variable
      *
      * @param key        variable key
      * @param value      variable value
      * @param notifyCore if true, notify core to update the variable
      */
     public static native void addVariable(String key, String value, boolean notifyCore);
-
-    /* start emulate*/
-    public static native void start();
 
     /*pause*/
     public static native void pause();
@@ -49,14 +60,19 @@ public class RRNative {
     /*reset*/
     public static native void reset();
 
-    /*stop emu, can't resume anymore*/
+    /**
+     * stop emu, this should call in emu thread. after calling this, emu will be stopped and can't be resume.
+     */
     public static native void stop();
 
-    /*set the video surface for drawing*/
-    public static native void setVideoSurface(Surface surface);
+    /**
+     * The impl frontend should call this method in the emu thread, frontend should manage the thread safety
+     *
+     * @return true: continue, false: stop the emu thread
+     */
+    public static native boolean step();
 
-    /*update the video surface size*/
-    public static native void setVideoSurfaceSize(int width, int height);
+    public static native void videoSurfaceChanged(Surface surface, int width, int height);
 
     /*set emu speed multiplier， > 0.1, 1.0 = 60fps */
     public static native void setFastForward(float multiplier);

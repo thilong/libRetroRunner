@@ -29,6 +29,10 @@
 
 #include <jni.h>
 
+namespace libRetroRunner {
+    extern "C" JavaVM *gVm;
+    extern "C" jobject gRRNativeRef;
+}
 #endif
 
 #define LOGD_APP(...) LOGD("[APP] " __VA_ARGS__)
@@ -127,53 +131,6 @@ namespace libRetroRunner {
         }
     }
 
-    void AppContext::ThreadLoop() {
-        emu_thread_id_ = gettid();
-        BIT_SET(state_, AppState::kRunning);
-        try {
-            while (BIT_TEST(state_, AppState::kRunning)) {
-                processCommand();
-                if (!BIT_TEST(state_, AppState::kRunning)) break;
-
-                //if emulate is paused, sleep for 16ms, for 60fps
-                if (BIT_TEST(state_, AppState::kPaused)) {
-                    usleep(16000);
-                    continue;
-                }
-
-
-                //run core step when video and content are ready
-                if (BIT_TEST(state_, AppState::kVideoReady) &&
-                    BIT_TEST(state_, AppState::kContentReady)) {
-
-                    //avoid emulator run too fast
-                    speed_limiter_.CheckAndWait(game_runtime_context_->GetFps());
-
-                    video_->Prepare();
-                    core_->retro_run();
-                } else {
-                    usleep(16000);
-                }
-            }
-        } catch (std::exception &exception) {
-            LOGE_APP("emu end with error: %s", exception.what());
-        }
-        if (BIT_TEST(state_, AppState::kContentReady)) {
-            core_->retro_unload_game();
-            BIT_UNSET(state_, AppState::kContentReady);
-        }
-        if (BIT_TEST(state_, AppState::kCoreReady)) {
-            core_->retro_deinit();
-            BIT_UNSET(state_, AppState::kCoreReady);
-        }
-        BIT_UNSET(state_, AppState::kRunning);
-        if (video_) {
-            video_->Destroy();
-            video_ = nullptr;
-        }
-        this->frontend_notify_ = nullptr;
-        LOGW_APP("emu stopped");
-    }
 }
 
 namespace libRetroRunner {
@@ -209,28 +166,33 @@ namespace libRetroRunner {
 /*-----Emulator control--------------------------------------------------------------*/
 namespace libRetroRunner {
 
-    void AppContext::Start() {
-        if (state_ >= AppState::kRunning) {
-            LOGE_APP("Emulator is already started.");
-            return;
+    bool AppContext::Step() {
+        processCommand();
+
+        if (!BIT_TEST(state_, AppState::kRunning)) return false;
+
+        //if emulate is paused, sleep for 16ms, for 60fps
+        if (BIT_TEST(state_, AppState::kPaused)) {
+            usleep(16000);
+            return true;
         }
 
-        if (!BIT_TEST(state_, AppState::kPathsReady)) {
-            LOGE_APP("Paths are not set yet , can't start emulator.");
-            return;
+        //run core step when video and content are ready
+        if (BIT_TEST(state_, AppState::kVideoReady) &&
+            BIT_TEST(state_, AppState::kContentReady)) {
+            //avoid emulator run too fast
+            speed_limiter_.CheckAndWait(game_runtime_context_->GetFps());
+
+            video_->Prepare();
+            core_->retro_run();
+        } else {
+            usleep(16000);
         }
-        AddCommand(AppCommands::kLoadCore);
-        AddCommand(AppCommands::kLoadContent);
-        std::thread this_thread([](AppContext *app) {
-            app->ThreadLoop();
-            LOGD_APP("emu thread exit.");
-        }, this);
-        this_thread.detach();
-        LOGD_APP("emu started, app: %p, thread result: %ld", this, this_thread.native_handle());
+        return true;
     }
 
     void AppContext::Pause() {
-        AddCommand(AppCommands::kPauseGame);
+        BIT_SET(state_, AppState::kPaused);
         AddCommand(AppCommands::kDisableAudio);
     }
 
@@ -242,12 +204,29 @@ namespace libRetroRunner {
     void AppContext::Reset() {
         if (BIT_TEST(state_, kContentReady)) {
             AddCommand(AppCommands::kResetGame);
+        } else {
+            LOGE_APP("Try to reset game, but content not load yet.");
         }
     }
 
     void AppContext::Stop() {
-        AddCommand(AppCommands::kSaveSRAM);
-        AddCommand(AppCommands::kStopGame);
+        //TODO: save sram
+        //TODO: stop game
+
+        BIT_UNSET(state_, AppState::kRunning);
+        if (BIT_TEST(state_, AppState::kContentReady)) {
+            core_->retro_unload_game();
+            BIT_UNSET(state_, AppState::kContentReady);
+        }
+        if (BIT_TEST(state_, AppState::kCoreReady)) {
+            core_->retro_deinit();
+            BIT_UNSET(state_, AppState::kCoreReady);
+        }
+
+
+#ifdef ANDROID
+        gVm->DetachCurrentThread();
+#endif
     }
 
     void AppContext::SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
@@ -269,29 +248,19 @@ namespace libRetroRunner {
         BIT_SET(state_, AppState::kPathsReady);
     }
 
-    void AppContext::SetVideoSurface(int argc, void **argv) {
-        if (argc < 1) {
-            LOGE_APP("SetVideoSurface: invalid arguments");
-            return;
-        }
-        if (argv[1] == nullptr) {
+    void AppContext::UpdateVideoSurface(void *surface, unsigned int width, unsigned int height) {
+        if (surface == nullptr) {
             BIT_UNSET(state_, AppState::kVideoReady);
             AddCommand(AppCommands::kUnloadVideo);
             if (video_) {
-                video_->SetEnabled(false);
+                video_->SurfaceChanged(surface, width, height);
             }
-            return;
         } else {
-            std::string driver = Setting::Current()->GetVideoDriver();
-            if (!video_) {
-                video_ = VideoContext::Create(driver, core_runtime_context_->GetRenderContextType());
-                video_->SetGameContext(game_runtime_context_);
-            }
-            if (video_) {
-                video_->SetSurface(argc, argv);
-                AddCommand(AppCommands::kInitVideo);
+            if (video_->SurfaceChanged(surface, width, height)) {
+                AddCommand(AppCommands::kLoadVideo);
             }
         }
+
     }
 
     void AppContext::SetController(unsigned int port, int retro_device) {
@@ -329,6 +298,10 @@ namespace libRetroRunner {
         std::shared_ptr<Command> command;
         while (command = command_queue_->Pop(), command) {
             switch (command->GetCommand()) {
+                case AppCommands::kInitApp: {
+                    commandInitApp();
+                    return;
+                }
                 case AppCommands::kLoadCore: {
                     commandLoadCore();
                     return;
@@ -337,22 +310,21 @@ namespace libRetroRunner {
                     commandLoadContent();
                     return;
                 }
-                case AppCommands::kInitVideo: {
+                case AppCommands::kInitComponents: {
+                    commandInitComponents();
+                    break;
+                }
+                case AppCommands::kLoadVideo: {
                     if (video_ && video_->Init()) {
                         BIT_SET(state_, AppState::kVideoReady);
                     }
                     return;
                 }
                 case AppCommands::kUnloadVideo: {
+                    BIT_UNSET(state_, AppState::kVideoReady);
                     if (video_) {
                         video_->Unload();
                     }
-                    BIT_UNSET(state_, AppState::kVideoReady);
-                    return;
-                }
-                case AppCommands::kInitInput: {
-                    input_ = InputContext::Create(Setting::Current()->GetInputDriver());
-                    input_->Init(core_runtime_context_->GetMaxUserCount());
                     return;
                 }
                 case AppCommands::kResetGame: {
@@ -369,15 +341,7 @@ namespace libRetroRunner {
                     BIT_UNSET(state_, AppState::kRunning);
                     return;
                 }
-                case AppCommands::kInitAudio: {
-                    if (!audio_) {
-                        std::string audio_driver = Setting::Current()->GetAudioDriver();
-                        audio_ = AudioContext::Create(audio_driver);
-                        audio_->Init();
-                        AddCommand(AppCommands::kEnableAudio);
-                    }
-                    return;
-                }
+
                 case AppCommands::kEnableAudio: {
                     if (audio_) {
                         audio_->Start();
@@ -466,6 +430,15 @@ namespace libRetroRunner {
         return addCommandWithPath(savePath, AppCommands::kLoadSRAM, wait_for_result);
     }
 
+    void AppContext::commandInitApp() {
+        emu_thread_id_ = gettid();
+        BIT_SET(state_, AppState::kRunning);
+
+#ifdef ANDROID
+        gVm->AttachCurrentThread(&thread_jni_env_, nullptr);
+#endif
+    }
+
     void AppContext::commandLoadCore() {
         std::string core_path = core_runtime_context_->GetCorePath();
         try {
@@ -482,6 +455,7 @@ namespace libRetroRunner {
         } catch (std::exception &exception) {
             core_ = nullptr;
             LOGE_APP("load core %s failed", core_path.c_str());
+            BIT_UNSET(state_, AppState::kRunning);
         }
     }
 
@@ -514,7 +488,8 @@ namespace libRetroRunner {
         bool result = core_->retro_load_game(&game_info);
         if (!result) {
             LOGE_APP("Cannot load game. Leaving.");
-            throw std::runtime_error("Cannot load game");
+            BIT_UNSET(state_, AppState::kRunning);
+            return;
         }
 
         //获取核心默认的尺寸
@@ -531,12 +506,24 @@ namespace libRetroRunner {
         BIT_SET(state_, AppState::kContentReady);
         LOGD_APP("content loaded");
 
-        this->NotifyFrontend(AppNotifications::kAppNotificationGameGeometryChanged);
-
-
-        AddCommand(AppCommands::kInitAudio);
-        AddCommand(AppCommands::kInitInput);
+        //this->NotifyFrontend(AppNotifications::kAppNotificationGameGeometryChanged);
     }
+
+    void AppContext::commandInitComponents() {
+
+        auto driver = Setting::Current()->GetVideoDriver();
+        video_ = VideoContext::Create(driver, core_runtime_context_->GetRenderContextType());
+        video_->SetGameContext(game_runtime_context_);
+
+        auto audio_driver = Setting::Current()->GetAudioDriver();
+        audio_ = AudioContext::Create(audio_driver);
+        audio_->Init();
+        AddCommand(AppCommands::kEnableAudio);
+
+        input_ = InputContext::Create(Setting::Current()->GetInputDriver());
+        input_->Init(core_runtime_context_->GetMaxUserCount());
+    }
+
 
     void AppContext::commandSaveSRAM(std::shared_ptr<Command> &command) {
         std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
@@ -670,6 +657,7 @@ namespace libRetroRunner {
         this->NotifyFrontend(notify);
         notify->Release();
     }
+
 
 }
 

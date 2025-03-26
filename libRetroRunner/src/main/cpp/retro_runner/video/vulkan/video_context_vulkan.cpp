@@ -345,4 +345,8 @@ namespace libRetroRunner {
         }
     }
 
+    bool VulkanVideoContext::SurfaceChanged(void *surface, unsigned int width, unsigned int height) {
+        return false;
+    }
+
 }

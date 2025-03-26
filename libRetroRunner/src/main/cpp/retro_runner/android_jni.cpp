@@ -21,8 +21,7 @@
 
 namespace libRetroRunner {
     extern "C" JavaVM *gVm = nullptr;
-
-
+    extern "C" jobject gRRNativeRef = nullptr;
 }
 
 using namespace libRetroRunner;
@@ -46,8 +45,9 @@ void OnFrontendNotifyCallback(void *data) {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_initEnv(JNIEnv *env, jclass clazz) {
+Java_com_aidoo_retrorunner_RRNative_initEnv(JNIEnv *env, jclass clazz, jobject rrNative) {
     env->GetJavaVM(&(gVm));
+    gRRNativeRef = env->NewGlobalRef(rrNative);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -59,6 +59,13 @@ Java_com_aidoo_retrorunner_RRNative_create(JNIEnv *env, jclass clazz, jstring ro
     JString save(env, save_path);
     app->SetPaths(rom.stdString(), core.stdString(), system.stdString(), save.stdString());
     LOGD_JNI("new app context created: \n\trom:\t%s \n\tcore:\t%s \n\tsystem:\t%s \n\tsave:\t%s", rom.cString(), core.cString(), system.cString(), save.cString());
+    app->SetFrontendNotify(OnFrontendNotifyCallback);
+    LOGD_JNI("frontend notify callback set");
+    app->AddCommand(AppCommands::kInitApp);
+    app->AddCommand(AppCommands::kLoadCore);
+    app->AddCommand(AppCommands::kLoadContent);
+    app->AddCommand(AppCommands::kInitComponents);
+    LOGD_JNI("app created and some commands has been added.");
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -69,14 +76,6 @@ Java_com_aidoo_retrorunner_RRNative_addVariable(JNIEnv *env, jclass clazz, jstri
     environment->UpdateVariable(keyVal.stdString(), valueVal.stdString(), notify_core);
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_start(JNIEnv *env, jclass clazz) {
-    const std::shared_ptr<AppContext> &app = AppContext::Current();
-    if (app) {
-        app->SetFrontendNotify(OnFrontendNotifyCallback);
-        app->Start();
-    }
-}
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_pause(JNIEnv *env, jclass clazz) {
@@ -102,23 +101,20 @@ Java_com_aidoo_retrorunner_RRNative_stop(JNIEnv *env, jclass clazz) {
     if (app.get() != nullptr) app->Stop();
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_setVideoSurface(JNIEnv *env, jclass clazz, jobject surface) {
-    auto app = AppContext::Current();
-    if (app) {
-        void *argv[2] = {env, surface};
-        app->SetVideoSurface(2, argv);
-    }
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_aidoo_retrorunner_RRNative_step(JNIEnv *env, jclass clazz) {
+    const std::shared_ptr<AppContext> &app = AppContext::Current();
+    if (app) return app->Step();
+    return false;
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_setVideoSurfaceSize(JNIEnv *env, jclass clazz, jint width, jint height) {
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_videoSurfaceChanged(JNIEnv *env, jclass clazz, jobject surface, jint width, jint height) {
     auto app = AppContext::Current();
     if (app) {
-        auto video = app->GetVideo();
-        if (video) {
-            video->SetSurfaceSize(width, height);
-        }
+        app->UpdateVideoSurface(surface, width, height);
     }
 }
 
@@ -240,3 +236,4 @@ Java_com_aidoo_retrorunner_RRNative_loadStateWithPath(JNIEnv *env, jclass clazz,
     std::string savePath = pathVal.stdString();
     return app->AddLoadStateCommand(savePath, wait_for_result);
 }
+

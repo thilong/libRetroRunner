@@ -37,6 +37,8 @@ namespace libRetroRunner {
 
         void Unload() override;
 
+        bool SurfaceChanged(void *surface, unsigned width, unsigned height) override;
+
         void SetSurface(int argc, void **argv) override;
 
         void SetSurfaceSize(unsigned int width, unsigned int height) override;
@@ -63,7 +65,6 @@ namespace libRetroRunner {
         /* pixel format of core use */
         int core_pixel_format_;
 
-
         VulkanInstance *vulkanInstance_{};
         VulkanPipeline *vulkanPipeline_{};
         VulkanSwapchain *vulkanSwapchain_{};
@@ -76,7 +77,6 @@ namespace libRetroRunner {
         uint32_t height_;
 
         const retro_hw_render_context_negotiation_interface_vulkan *retroHWNegotiationInterface_{};
-
 
     };
 }

@@ -237,8 +237,7 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE: {
                 //通知前端核心硬件渲染上下文协商接口
-                LOGD_Env(
-                        "call RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE -> [NO IMPL]");
+                LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE %p", data);
                 const struct retro_hw_render_context_negotiation_interface *interface = static_cast<const struct retro_hw_render_context_negotiation_interface *>(data);
                 auto app = AppContext::Current();
                 if (app) {
@@ -333,9 +332,14 @@ namespace libRetroRunner {
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER: {
-                //返回前端所期望的硬件渲染类型
+                //TODO:返回前端所期望的硬件渲染类型，在这里添加更多的类型
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER");
-                POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_VULKAN;
+                std::string driver = Setting::Current()->GetVideoDriver();
+                if (driver.find("vulkan") != std::string::npos) {
+                    POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_VULKAN;
+                } else {
+                    POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_OPENGL;
+                };
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION: {
@@ -670,10 +674,9 @@ namespace libRetroRunner {
     }
 
 
-
     retro_proc_address_t Environment::CoreCallbackGetProcAddress(const char *sym) {
         if (getHWProcAddress) {
-            return (retro_proc_address_t)getHWProcAddress(sym);
+            return (retro_proc_address_t) getHWProcAddress(sym);
         }
         return 0;
         //LOGD_Env("get proc address: %s", sym);

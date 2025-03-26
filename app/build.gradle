@@ -7,7 +7,7 @@ android {
     compileSdk 34
     defaultConfig {
         applicationId 'com.aidoo.test'
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 34
     }
 

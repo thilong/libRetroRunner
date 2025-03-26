@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     static {
-        RRNative.initEnv();
+        RRNative.getInstance().setup();
     }
 
     private static final String TAG = "RetroRunner";
@@ -27,6 +27,8 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private AspectRatio aspectRatio = AspectRatio.FullScreen;
+    private Thread emuThread = null;
+    private volatile boolean emuShouldRun = true;
 
     public RRView(Context context, RRParam config) {
         super(context);
@@ -36,24 +38,30 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-
         startRunnerIfNeeded();
     }
 
     private void startRunnerIfNeeded() {
-        if (runnerStarted) return;
-        runnerStarted = true;
+        if (emuThread != null)
+            return;
         getHolder().addCallback(this);
 
-        RRNative.create(params.getRomPath(), params.getCorePath(), params.getSystemPath(), params.getSavePath());
         if (params.haveVariables()) {
             for (String key : params.getVariables().keySet()) {
                 RRNative.addVariable(key, params.getVariables().get(key), false);
             }
         }
-        RRNative.start();
-    }
 
+        emuThread = new Thread(() -> {
+            RRNative.create(params.getRomPath(), params.getCorePath(), params.getSystemPath(), params.getSavePath());
+            while (emuShouldRun) {
+                emuShouldRun = RRNative.step();
+            }
+            RRNative.stop();
+        });
+
+        emuThread.start();
+    }
 
     public void onPause() {
         Log.w(TAG, "onPause");
@@ -66,27 +74,32 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     public void onDestroy() {
         Log.w(TAG, "[VIEW] onDestroy");
-        RRNative.stop();
+        emuShouldRun = false;
+        if (emuThread != null) {
+            try {
+                emuThread.join();
+            } catch (Exception e) {
+                Log.e(TAG, "[View] failed to wait emu thread join: " + e.getMessage());
+            }
+        }
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         Log.d(TAG, "[VIEW] surfaceCreated");
-        RRNative.setVideoSurface(holder.getSurface());
     }
 
     @Override
     public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
         Log.d(TAG, "[VIEW] surfaceChanged " + width + "x" + height);
-        RRNative.setVideoSurfaceSize(width, height);
+        RRNative.videoSurfaceChanged(holder.getSurface(), width, height);
     }
 
     @Override
     public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
         Log.w(TAG, "[VIEW] surfaceDestroyed");
-        RRNative.setVideoSurface(null);
+        RRNative.videoSurfaceChanged(null, 0, 0);
     }
-
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -159,12 +172,9 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
         setMeasuredDimension(finalWidth, finalHeight);
     }
 
-
     public boolean updateButtonState(KeyEvent event) {
         return RRNative.updateButtonState(0, event.getKeyCode(), event.getAction() == KeyEvent.ACTION_DOWN);
     }
-
-
 
     /*以下函数供外部使用*/
 

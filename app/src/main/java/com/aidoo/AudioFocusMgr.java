@@ -2,6 +2,7 @@ package com.aidoo;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.IntentFilter;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
@@ -340,6 +341,7 @@ public final class AudioFocusMgr {
                     }
                 }
             };
+            context.registerReceiver(noisyReceiver, new IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY));
         }
     }
 

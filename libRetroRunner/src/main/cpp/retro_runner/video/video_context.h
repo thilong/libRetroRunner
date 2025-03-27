@@ -22,12 +22,15 @@ namespace libRetroRunner {
 
         virtual ~VideoContext();
 
-        virtual bool Init() = 0;
-
         virtual void Destroy() = 0;
+
+        virtual bool Load() = 0;
 
         /*unload video output, keep context.*/
         virtual void Unload() = 0;
+
+        virtual void UpdateVideoSize(unsigned width, unsigned height) = 0;
+
 
         /* prepare video context for every frame before emu-step.*/
         virtual void Prepare() = 0;
@@ -35,10 +38,6 @@ namespace libRetroRunner {
         virtual void DrawFrame() = 0;
 
         virtual void OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) = 0;
-
-        virtual bool SurfaceChanged(void *env, void *surface) = 0;
-
-        virtual void SurfaceSizeChanged(unsigned width, unsigned height) = 0;
 
         virtual unsigned int GetCurrentFramebuffer() { return 0; }
 

@@ -22,6 +22,7 @@ namespace libRetroRunner {
         kInitComponents,
         kLoadVideo,
         kUnloadVideo,
+        kUpdateVideoSize,
 
         kResetGame,
         kPauseGame,

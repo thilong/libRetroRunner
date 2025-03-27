@@ -54,7 +54,7 @@ namespace libRetroRunner {
 
     }
 
-    bool VulkanVideoContext::Init() {
+    bool VulkanVideoContext::Load() {
         auto appContext = AppContext::Current();
         auto coreCtx = appContext->GetCoreRuntimeContext();
         auto gameCtx = appContext->GetGameRuntimeContext();
@@ -122,14 +122,6 @@ namespace libRetroRunner {
             delete vulkanSwapchain_;
             vulkanSwapchain_ = nullptr;
         }
-
-    }
-
-    bool VulkanVideoContext::SurfaceChanged(void *env, void *surface) {
-        return false;
-    }
-
-    void VulkanVideoContext::SurfaceSizeChanged(unsigned width, unsigned height) {
 
     }
 
@@ -353,5 +345,10 @@ namespace libRetroRunner {
             retroHWNegotiationInterface_ = static_cast<const retro_hw_render_context_negotiation_interface_vulkan *>(interface);
         }
     }
+
+    void VulkanVideoContext::UpdateVideoSize(unsigned int width, unsigned int height) {
+
+    }
+
 
 }

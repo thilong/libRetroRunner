@@ -250,32 +250,35 @@ namespace libRetroRunner {
         BIT_SET(state_, AppState::kPathsReady);
     }
 
-    void AppContext::SurfaceChanged(void *env, void *surface) {
-        if (!surface) {
-            LOGW_APP("surface -> null.");
-            BIT_UNSET(state_, AppState::kVideoReady);
-            if (video_) {
-                video_->SurfaceChanged(env, nullptr);
-            }
-            AddCommand(AppCommands::kUnloadVideo);
-        } else {
-            if (video_) {
-                LOGW_APP("surface -> %p.", surface);
-                if (video_->SurfaceChanged(env, surface)) {
-                    AddCommand(AppCommands::kLoadVideo);
+    void AppContext::OnSurfaceChanged(void *env, void *surface, unsigned int width, unsigned int height) {
+        if (surface) {
+            if (app_window_.surface != surface) {
+                if (app_window_.window) {
+                    ANativeWindow_release(app_window_.window);
                 }
-            } else {
-                LOGE_APP("surface -> %p , video component should not be null", surface);
+                app_window_.window = ANativeWindow_fromSurface((JNIEnv *) env, (jobject) surface);
+                ANativeWindow_acquire(app_window_.window);
+                app_window_.surface = (jobject) surface;
+            }
+            if (video_) {
+                LOGW_APP("add kLoadVideo via surface changed");
+                AddCommand(AppCommands::kLoadVideo);
+            }
+        } else {
+            BIT_UNSET(state_, AppState::kVideoReady);
+            if (app_window_.window) {
+                ANativeWindow_release(app_window_.window);
+                app_window_.window = nullptr;
+            }
+            app_window_.surface = nullptr;
+            if (video_) {
+                AddCommand(AppCommands::kUnloadVideo);
             }
         }
-    }
-
-    void AppContext::SurfaceSizeChanged(unsigned int width, unsigned int height) {
+        app_window_.width = width;
+        app_window_.height = height;
         if (video_) {
-            LOGD_APP("surface size -> %d x %d", width, height);
-            video_->SurfaceSizeChanged(width, height);
-        } else {
-            LOGE_APP("surface size -> %d x %d , video component should not be null", width, height);
+            AddCommand(AppCommands::kUpdateVideoSize);
         }
     }
 
@@ -330,8 +333,9 @@ namespace libRetroRunner {
                     commandInitComponents();
                     break;
                 }
+
                 case AppCommands::kLoadVideo: {
-                    if (video_ && video_->Init()) {
+                    if (video_ && video_->Load()) {
                         BIT_SET(state_, AppState::kVideoReady);
                     }
                     return;
@@ -343,6 +347,13 @@ namespace libRetroRunner {
                     }
                     return;
                 }
+                case AppCommands::kUpdateVideoSize: {
+                    if (video_) {
+                        video_->UpdateVideoSize(app_window_.width, app_window_.height);
+                    }
+                    return;
+                }
+
                 case AppCommands::kResetGame: {
                     if (BIT_TEST(state_, AppState::kContentReady)) {
                         core_->retro_reset();
@@ -538,8 +549,11 @@ namespace libRetroRunner {
         input_->Init(core_runtime_context_->GetMaxUserCount());
         LOGD_APP("components initialized");
 
-        this->NotifyFrontend(AppNotifications::kAppComponentsInitialized);
-
+        if (app_window_.window) {
+            LOGD_APP("add kLoadVideo via init components");
+            AddCommand(AppCommands::kLoadVideo);
+            AddCommand(AppCommands::kUpdateVideoSize);
+        }
     }
 
     void AppContext::commandSaveSRAM(std::shared_ptr<Command> &command) {

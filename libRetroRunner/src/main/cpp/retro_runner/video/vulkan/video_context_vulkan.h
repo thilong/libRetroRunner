@@ -31,15 +31,13 @@ namespace libRetroRunner {
 
         ~VulkanVideoContext() override;
 
-        bool Init() override;
+        bool Load() override;
 
         void Destroy() override;
 
         void Unload() override;
 
-        bool SurfaceChanged(void *env, void *surface) override;
-
-        void SurfaceSizeChanged(unsigned width, unsigned height) override;
+        void UpdateVideoSize(unsigned width, unsigned height) override;
 
         void Prepare() override;
 

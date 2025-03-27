@@ -1,4 +1,7 @@
 #include <jni.h>
+#include <android/native_window.h>
+#include <android/native_window_jni.h>
+
 #include "utils/jnistring.h"
 #include "types/log.h"
 #include "app/app_context.h"
@@ -8,6 +11,7 @@
 #include "types/error.h"
 #include "app/paths.h"
 #include "types/app_state.h"
+
 
 #define LOGD_JNI(...) LOGD("[JNI] " __VA_ARGS__)
 #define LOGW_JNI(...) LOGW("[JNI] " __VA_ARGS__)
@@ -118,24 +122,6 @@ Java_com_aidoo_retrorunner_RRNative_step(JNIEnv *env, jclass clazz) {
     if (app) return app->Step();
     return false;
 }
-
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_SurfaceChanged(JNIEnv *env, jclass clazz, jobject surface) {
-    auto app = AppContext::Current();
-    if (app) {
-        app->SurfaceChanged(env, surface);
-    }
-}
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_SurfaceSizeChanged(JNIEnv *env, jclass clazz, jint width, jint height) {
-    auto app = AppContext::Current();
-    if (app) {
-        app->SurfaceSizeChanged(width, height);
-    }
-}
-
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_setFastForward(JNIEnv *env, jclass clazz, jfloat multiplier) {
@@ -256,23 +242,27 @@ Java_com_aidoo_retrorunner_RRNative_loadStateWithPath(JNIEnv *env, jclass clazz,
     return app->AddLoadStateCommand(savePath, wait_for_result);
 }
 
-
 extern "C"
-JNIEXPORT jlong JNICALL
-Java_com_aidoo_retrorunner_RRNative_getEmuState(JNIEnv *env, jclass clazz) {
-    auto app = AppContext::Current();
-    if (app) {
-        return app->GetState();
-    }
-    return 0;
+JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_SurfaceTest(JNIEnv *env, jclass clazz, jobject surface) {
+    ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
+    LOGD_JNI("surface test: %p %p", surface, window);
+    ANativeWindow_release(window);
 }
 
 extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_aidoo_retrorunner_RRNative_getIsEmuRunning(JNIEnv *env, jclass clazz) {
+JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_OnSurfaceChanged(JNIEnv *env, jclass clazz, jobject surface, jint width, jint height) {
     auto app = AppContext::Current();
     if (app) {
-        return (app->GetState() & AppState::kRunning) > 0;
+        app->OnSurfaceChanged(env, surface, width, height);
+    } else {
+        LOGE_JNI("Emu app context is null.");
     }
-    return false;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_destroy(JNIEnv *env, jclass clazz) {
+
 }

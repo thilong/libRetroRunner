@@ -45,6 +45,8 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
         Log.d(TAG, "startRunnerIfNeeded , thread: " + Thread.currentThread().getId());
         if (emuThread != null)
             return;
+        getHolder().addCallback(this);
+
         RRNative.create(params.getRomPath(), params.getCorePath(), params.getSystemPath(), params.getSavePath());
         RRNative.onEmuNotificationCallback = this::onEmuNotification;
         if (params.haveVariables()) {
@@ -64,23 +66,6 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     private void onEmuNotification(int cmd) {
         Log.w(TAG, "[VIEW] on notification: " + cmd);
-        if (cmd == 103) {
-            //emu components initialized, but the state maybe not running, error may occur when load core and content
-            if (RRNative.getIsEmuRunning()) {
-                getHolder().addCallback(this);
-                mainHandler.post(() -> {
-                    Surface surface = getHolder().getSurface();
-                    if (surface != null) {
-                        RRNative.SurfaceChanged(surface);
-                        RRNative.SurfaceSizeChanged(this.getWidth(), this.getHeight());
-                    }
-                });
-            } else {
-                Log.e(TAG, "emu components initialized, but the state maybe not running, error may occur when load core and content");
-                //TODO: may stop emu thread
-            }
-        }
-
     }
 
     public void onPause() {
@@ -106,27 +91,20 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     @Override
-    public void surfaceCreated(SurfaceHolder holder) {
+    public void surfaceCreated(@NonNull SurfaceHolder holder) {
         Log.d(TAG, "[VIEW] surfaceCreated, thread: " + Thread.currentThread().getId());
-        if (RRNative.getIsEmuRunning()) {
-            RRNative.SurfaceChanged(holder.getSurface());
-        }
     }
 
     @Override
     public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
         Log.d(TAG, "[VIEW] surfaceChanged " + width + "x" + height + ", thread: " + Thread.currentThread().getId());
-        if (RRNative.getIsEmuRunning()) {
-            RRNative.SurfaceSizeChanged(width, height);
-        }
+        RRNative.OnSurfaceChanged(holder.getSurface(), width, height);
     }
 
     @Override
     public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
         Log.w(TAG, "[VIEW] surfaceDestroyed");
-        if (RRNative.getIsEmuRunning()) {
-            RRNative.SurfaceChanged(null);
-        }
+        RRNative.OnSurfaceChanged(null, this.getWidth(), this.getHeight());
     }
 
     @Override

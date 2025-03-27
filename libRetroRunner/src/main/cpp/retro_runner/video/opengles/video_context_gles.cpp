@@ -76,6 +76,7 @@ namespace libRetroRunner {
         egl_display_ = nullptr;
         egl_surface_ = nullptr;
         egl_config_ = nullptr;
+        egl_format_ = 0;
         is_hardware_accelerated_ = false;
         screen_width_ = 0;
         screen_height_ = 0;
@@ -88,37 +89,6 @@ namespace libRetroRunner {
         Destroy();
     }
 
-    bool GLESVideoContext::Init() {
-        if (egl_display_ == EGL_NO_DISPLAY || egl_surface_ == EGL_NO_SURFACE || egl_context_ == EGL_NO_CONTEXT) {
-            LOGE("egl_display_ is not allReady.");
-            return false;
-        }
-        if (eglMakeCurrent(egl_display_, egl_surface_, egl_surface_, egl_context_) != EGL_TRUE) {
-            LOGE("eglMakeCurrent failed.");
-            return false;
-        }
-        LOGD_GLVIDEO("eglMakeCurrent %p,  thread: %d", egl_surface_, gettid());
-        GL_CHECK("GLESVideoContext::Init 0");
-#if defined(HAVE_GLES3) && (ENABLE_GL_DEBUG)
-        initializeGLESLogCallbackIfNeeded();
-#endif
-
-        auto appContext = AppContext::Current();
-        auto coreCtx = appContext->GetCoreRuntimeContext();
-        auto gameCtx = appContext->GetGameRuntimeContext();
-        core_pixel_format_ = coreCtx->GetPixelFormat();
-        is_hardware_accelerated_ = coreCtx->GetRenderUseHardwareAcceleration();
-
-        createPassChain();
-        if (is_hardware_accelerated_) {
-            retro_hw_context_reset_t reset_func = coreCtx->GetRenderHWContextResetCallback();
-            if (reset_func) reset_func();
-        }
-        is_ready_ = true;
-        enabled_ = true;
-        LOGD_GLVIDEO("GLESVideoContext allReady, hardware accelerated: %d.", is_hardware_accelerated_);
-        return true;
-    }
 
     void GLESVideoContext::Destroy() {
         is_ready_ = false;
@@ -150,22 +120,7 @@ namespace libRetroRunner {
         }
     }
 
-    void GLESVideoContext::Unload() {
-        is_ready_ = false;
-        enabled_ = false;
-        auto appContext = AppContext::Current();
-        auto coreCtx = appContext->GetCoreRuntimeContext();
-        auto gameCtx = appContext->GetGameRuntimeContext();
-        if (is_hardware_accelerated_) {
-            retro_hw_context_reset_t destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
-            if (destroy_func) destroy_func();
-        }
-        egl_surface_ = EGL_NO_SURFACE;
-        eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-
-    }
-
-    bool GLESVideoContext::SurfaceChanged(void *env, void *surface) {
+    bool GLESVideoContext::Load() {
         if (!egl_initialized_) {
             egl_display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
             if (egl_display_ == EGL_NO_DISPLAY) {
@@ -200,35 +155,76 @@ namespace libRetroRunner {
                 LOGE_GLVIDEO("eglCreateContext failed.");
                 return false;
             }
-
+            if (!eglGetConfigAttrib(egl_display_, egl_config_, EGL_NATIVE_VISUAL_ID, &egl_format_)) {
+                LOGE_GLVIDEO("egl get config attrib failed.");
+                return false;
+            }
             LOGI_GLVIDEO("egl initialized.");
             egl_initialized_ = true;
         }
-        bool ret = surface_ptr_ != (long) surface;
-        if (!surface) return ret;
-        EGLint eglFormat;
-        if (!eglGetConfigAttrib(egl_display_, egl_config_, EGL_NATIVE_VISUAL_ID, &eglFormat)) {
-            LOGE_GLVIDEO("egl get config attrib failed.");
-            return ret;
-        }
-        ANativeWindow *window = ANativeWindow_fromSurface((JNIEnv *) env, (jobject) surface);
-        ANativeWindow_acquire(window);
-        ANativeWindow_setBuffersGeometry(window, 0, 0, eglFormat);
+
+        if (is_ready_) return true;
+
+        auto app = AppContext::Current();
+        AppWindow appWindow = app->GetAppWindow();
+
+        ANativeWindow_setBuffersGeometry(appWindow.window, 0, 0, egl_format_);
         EGLint window_attribs[] = {
                 EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
                 EGL_NONE,
         };
-        egl_surface_ = eglCreateWindowSurface(egl_display_, egl_config_, window, window_attribs);
+        egl_surface_ = eglCreateWindowSurface(egl_display_, egl_config_, appWindow.window, window_attribs);
         if (!egl_surface_) {
             LOGE_GLVIDEO("eglCreateWindowSurface failed, 0x%x", eglGetError());
             return false;
         }
-        surface_ptr_ = (long) surface;
-        LOGD_GLVIDEO("eglCreateWindowSurface success: %p, thread: %d", egl_surface_, gettid());
-        return ret;
+
+        if (egl_display_ == EGL_NO_DISPLAY || egl_context_ == EGL_NO_CONTEXT) {
+            LOGE("egl_display_ is not allReady.");
+            return false;
+        }
+        if (eglMakeCurrent(egl_display_, egl_surface_, egl_surface_, egl_context_) != EGL_TRUE) {
+            LOGE("eglMakeCurrent failed.");
+            return false;
+        }
+        LOGD_GLVIDEO("eglMakeCurrent %p,  thread: %d", egl_surface_, gettid());
+        GL_CHECK("GLESVideoContext::Init 0");
+#if defined(HAVE_GLES3) && (ENABLE_GL_DEBUG)
+        initializeGLESLogCallbackIfNeeded();
+#endif
+
+        auto coreCtx = app->GetCoreRuntimeContext();
+        auto gameCtx = app->GetGameRuntimeContext();
+        core_pixel_format_ = coreCtx->GetPixelFormat();
+        is_hardware_accelerated_ = coreCtx->GetRenderUseHardwareAcceleration();
+
+        createPassChain();
+        if (is_hardware_accelerated_) {
+            retro_hw_context_reset_t reset_func = coreCtx->GetRenderHWContextResetCallback();
+            if (reset_func) reset_func();
+        }
+        is_ready_ = true;
+        enabled_ = true;
+        LOGD_GLVIDEO("GLESVideoContext allReady, hardware accelerated: %d.", is_hardware_accelerated_);
+        return true;
     }
 
-    void GLESVideoContext::SurfaceSizeChanged(unsigned width, unsigned height) {
+    void GLESVideoContext::Unload() {
+        is_ready_ = false;
+        enabled_ = false;
+        auto appContext = AppContext::Current();
+        auto coreCtx = appContext->GetCoreRuntimeContext();
+        auto gameCtx = appContext->GetGameRuntimeContext();
+        if (is_hardware_accelerated_) {
+            retro_hw_context_reset_t destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
+            if (destroy_func) destroy_func();
+        }
+        egl_surface_ = EGL_NO_SURFACE;
+        eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+    }
+
+    void GLESVideoContext::UpdateVideoSize(unsigned width, unsigned height) {
         screen_width_ = width;
         screen_height_ = height;
         LOGD_GLVIDEO("screen size changed: %d x %d", width, height);

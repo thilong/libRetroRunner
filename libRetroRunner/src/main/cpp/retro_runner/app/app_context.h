@@ -15,13 +15,21 @@
 #ifdef ANDROID
 
 #include <jni.h>
+#include <android/native_window.h>
+#include <android/native_window_jni.h>
 
 #endif
 
 namespace libRetroRunner {
 
     struct AppWindow {
+#ifdef ANDROID
+        ANativeWindow *window;
+        jobject surface;
+#else
         void *window;
+        void *surface;
+#endif
         unsigned width;
         unsigned height;
     };
@@ -60,6 +68,8 @@ namespace libRetroRunner {
 
         long GetState() { return state_; }
 
+        AppWindow &GetAppWindow() { return app_window_; }
+
 #ifdef ANDROID
 
         JNIEnv *GetJniEnv() const { return thread_jni_env_; };
@@ -91,9 +101,7 @@ namespace libRetroRunner {
          */
         void Stop();
 
-
-        void SurfaceChanged(void *env, void *surface);
-        void SurfaceSizeChanged(unsigned width, unsigned height);
+        void OnSurfaceChanged(void *env, void *surface, unsigned width, unsigned height);
 
         void SetController(unsigned port, int retro_device);
 
@@ -173,6 +181,7 @@ namespace libRetroRunner {
 #ifdef ANDROID
         JNIEnv *thread_jni_env_ = nullptr;
 #endif
+        AppWindow app_window_{};
     };
 
 }

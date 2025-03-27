@@ -23,15 +23,13 @@ namespace libRetroRunner {
 
         ~GLESVideoContext() override;
 
-        bool Init() override;
+        bool Load() override;
 
         void Destroy() override;
 
         void Unload() override;
 
-        bool SurfaceChanged(void *env, void *surface) override;
-
-        void SurfaceSizeChanged(unsigned width, unsigned height) override;
+        void UpdateVideoSize(unsigned width, unsigned height) override;
 
         void Prepare() override;
 
@@ -79,7 +77,7 @@ namespace libRetroRunner {
         EGLContext egl_context_;
         EGLConfig egl_config_;
         bool egl_initialized_;
-
+        EGLint egl_format_;
 
         bool is_ready_ = false;
 

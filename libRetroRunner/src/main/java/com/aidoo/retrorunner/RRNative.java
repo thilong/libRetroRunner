@@ -59,9 +59,6 @@ public class RRNative {
      */
     public static native void addVariable(String key, String value, boolean notifyCore);
 
-    public static native boolean getIsEmuRunning();
-    public static native long getEmuState();
-
     /*pause*/
     public static native void pause();
 
@@ -83,8 +80,15 @@ public class RRNative {
      */
     public static native boolean step();
 
-    public static native void SurfaceChanged(Surface surface);
-    public static native void SurfaceSizeChanged(int width, int height);
+    /**
+     * destroy the emu app instance. this method should not call in emu thread, inorder to release outer resource.
+     */
+    public static native void destroy();
+
+    public static native void SurfaceTest(Surface surface);
+
+    public static native void OnSurfaceChanged(Surface surface, int width, int height);
+
 
     /*set emu speed multiplier， > 0.1, 1.0 = 60fps */
     public static native void setFastForward(float multiplier);

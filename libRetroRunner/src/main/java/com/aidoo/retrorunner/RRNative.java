@@ -85,10 +85,7 @@ public class RRNative {
      */
     public static native void destroy();
 
-    public static native void SurfaceTest(Surface surface);
-
-    public static native void OnSurfaceChanged(Surface surface, int width, int height);
-
+    public static native void OnSurfaceChanged( Surface surface, long surfaceId, int width, int height);
 
     /*set emu speed multiplier， > 0.1, 1.0 = 60fps */
     public static native void setFastForward(float multiplier);

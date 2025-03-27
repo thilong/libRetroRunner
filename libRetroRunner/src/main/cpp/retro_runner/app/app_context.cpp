@@ -124,10 +124,10 @@ namespace libRetroRunner {
         core_runtime_context_ = nullptr;
         game_runtime_context_ = nullptr;
         emu_thread_id_ = -1;
+        memset(&app_window_, 0, sizeof(app_window_));
     }
 
     AppContext::~AppContext() {
-
         if (appInstance != nullptr && appInstance.get() == this) {
             appInstance = nullptr;
         }
@@ -212,6 +212,9 @@ namespace libRetroRunner {
     }
 
     void AppContext::Stop() {
+        if (gettid() != emu_thread_id_) {
+            LOGE_APP("AppContext::Stop should be called in emulation thread.");
+        }
         //TODO: save sram
         //TODO: stop game
 
@@ -229,6 +232,22 @@ namespace libRetroRunner {
 #ifdef ANDROID
         gVm->DetachCurrentThread();
 #endif
+    }
+
+    void AppContext::Destroy() {
+        if (gettid() == emu_thread_id_) {
+            LOGE_APP("Can't destroy app context in the emulation thread.");
+            return;
+        }
+        if (app_window_.window) {
+            ANativeWindow_release(app_window_.window);
+            app_window_.window = nullptr;
+        }
+
+        memset(&app_window_, 0, sizeof(app_window_));
+        if (appInstance.get() == this) {
+            appInstance = nullptr;
+        }
     }
 
     void AppContext::CreateWithPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
@@ -250,19 +269,26 @@ namespace libRetroRunner {
         BIT_SET(state_, AppState::kPathsReady);
     }
 
-    void AppContext::OnSurfaceChanged(void *env, void *surface, unsigned int width, unsigned int height) {
+    void AppContext::OnSurfaceChanged(void *env, void *surface, long surfaceId, unsigned int width, unsigned int height) {
+        LOGI_APP("Surface %p Changed: %d x %d", surface, width, height);
+        app_window_.width = width;
+        app_window_.height = height;
         if (surface) {
-            if (app_window_.surface != surface) {
+            if (app_window_.surfaceId != surfaceId) {
                 if (app_window_.window) {
                     ANativeWindow_release(app_window_.window);
                 }
                 app_window_.window = ANativeWindow_fromSurface((JNIEnv *) env, (jobject) surface);
                 ANativeWindow_acquire(app_window_.window);
                 app_window_.surface = (jobject) surface;
-            }
-            if (video_) {
-                LOGW_APP("add kLoadVideo via surface changed");
-                AddCommand(AppCommands::kLoadVideo);
+                app_window_.surfaceId = surfaceId;
+                if (video_) {
+                    AddCommand(AppCommands::kLoadVideo);
+                }
+            } else {
+                if (video_) {
+                    AddCommand(AppCommands::kUpdateVideoSize);
+                }
             }
         } else {
             BIT_UNSET(state_, AppState::kVideoReady);
@@ -271,14 +297,10 @@ namespace libRetroRunner {
                 app_window_.window = nullptr;
             }
             app_window_.surface = nullptr;
+            app_window_.surfaceId = 0;
             if (video_) {
                 AddCommand(AppCommands::kUnloadVideo);
             }
-        }
-        app_window_.width = width;
-        app_window_.height = height;
-        if (video_) {
-            AddCommand(AppCommands::kUpdateVideoSize);
         }
     }
 
@@ -535,7 +557,6 @@ namespace libRetroRunner {
     }
 
     void AppContext::commandInitComponents() {
-
         auto driver = Setting::Current()->GetVideoDriver();
         video_ = VideoContext::Create(driver, core_runtime_context_->GetRenderContextType());
         video_->SetGameContext(game_runtime_context_);
@@ -550,9 +571,7 @@ namespace libRetroRunner {
         LOGD_APP("components initialized");
 
         if (app_window_.window) {
-            LOGD_APP("add kLoadVideo via init components");
             AddCommand(AppCommands::kLoadVideo);
-            AddCommand(AppCommands::kUpdateVideoSize);
         }
     }
 

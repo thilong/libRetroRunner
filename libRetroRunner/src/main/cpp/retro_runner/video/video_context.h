@@ -24,13 +24,15 @@ namespace libRetroRunner {
 
         virtual void Destroy() = 0;
 
+        /** return if video component should be load. */
+        virtual bool ShouldLoad() = 0;
+
         virtual bool Load() = 0;
 
         /*unload video output, keep context.*/
         virtual void Unload() = 0;
 
         virtual void UpdateVideoSize(unsigned width, unsigned height) = 0;
-
 
         /* prepare video context for every frame before emu-step.*/
         virtual void Prepare() = 0;

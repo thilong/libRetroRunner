@@ -24,14 +24,15 @@ namespace libRetroRunner {
 
     struct AppWindow {
 #ifdef ANDROID
-        ANativeWindow *window;
-        jobject surface;
+        ANativeWindow *window = nullptr;
+        jobject surface = nullptr;
+        long surfaceId = 0;
 #else
-        void *window;
-        void *surface;
+        void *window = nullptr;
+        void *surface = nullptr;
 #endif
-        unsigned width;
-        unsigned height;
+        unsigned width = 0;
+        unsigned height = 0;
     };
 
 
@@ -101,7 +102,9 @@ namespace libRetroRunner {
          */
         void Stop();
 
-        void OnSurfaceChanged(void *env, void *surface, unsigned width, unsigned height);
+        void Destroy();
+
+        void OnSurfaceChanged(void *env, void *surface, long surfaceId, unsigned width, unsigned height);
 
         void SetController(unsigned port, int retro_device);
 

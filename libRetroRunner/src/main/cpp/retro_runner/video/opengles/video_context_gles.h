@@ -23,6 +23,8 @@ namespace libRetroRunner {
 
         ~GLESVideoContext() override;
 
+        bool ShouldLoad() override;
+
         bool Load() override;
 
         void Destroy() override;
@@ -81,7 +83,7 @@ namespace libRetroRunner {
 
         bool is_ready_ = false;
 
-        long surface_ptr_ = 0;
+        long surface_id_ = 0;
 
     };
 }

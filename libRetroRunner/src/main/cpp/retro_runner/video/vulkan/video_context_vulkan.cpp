@@ -350,5 +350,9 @@ namespace libRetroRunner {
 
     }
 
+    bool VulkanVideoContext::ShouldLoad() {
+        return false;
+    }
+
 
 }

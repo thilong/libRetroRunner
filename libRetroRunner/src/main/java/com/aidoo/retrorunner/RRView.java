@@ -88,6 +88,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
             }
         }
         RRNative.onEmuNotificationCallback = null;
+        RRNative.destroy();
     }
 
     @Override
@@ -97,14 +98,15 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
-        Log.d(TAG, "[VIEW] surfaceChanged " + width + "x" + height + ", thread: " + Thread.currentThread().getId());
-        RRNative.OnSurfaceChanged(holder.getSurface(), width, height);
+        Surface surface = holder.getSurface();
+        Log.d(TAG, "[VIEW] surface " + surface + "[hash:" + surface.hashCode() + "] Changed " + width + "x" + height + ", thread: " + Thread.currentThread().getId());
+        RRNative.OnSurfaceChanged(surface, surface.hashCode(), width, height);
     }
 
     @Override
     public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
         Log.w(TAG, "[VIEW] surfaceDestroyed");
-        RRNative.OnSurfaceChanged(null, this.getWidth(), this.getHeight());
+        RRNative.OnSurfaceChanged(null, 0, this.getWidth(), this.getHeight());
     }
 
     @Override

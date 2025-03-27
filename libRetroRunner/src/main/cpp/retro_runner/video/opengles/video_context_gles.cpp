@@ -89,7 +89,6 @@ namespace libRetroRunner {
         Destroy();
     }
 
-
     void GLESVideoContext::Destroy() {
         is_ready_ = false;
         enabled_ = false;
@@ -118,6 +117,11 @@ namespace libRetroRunner {
             eglTerminate(egl_display_);
             egl_display_ = EGL_NO_DISPLAY;
         }
+    }
+
+    bool GLESVideoContext::ShouldLoad() {
+        auto app = AppContext::Current();
+        return ((long) app->GetAppWindow().surfaceId) != surface_id_;
     }
 
     bool GLESVideoContext::Load() {
@@ -163,8 +167,6 @@ namespace libRetroRunner {
             egl_initialized_ = true;
         }
 
-        if (is_ready_) return true;
-
         auto app = AppContext::Current();
         AppWindow appWindow = app->GetAppWindow();
 
@@ -192,6 +194,8 @@ namespace libRetroRunner {
 #if defined(HAVE_GLES3) && (ENABLE_GL_DEBUG)
         initializeGLESLogCallbackIfNeeded();
 #endif
+        screen_width_ = appWindow.width;
+        screen_height_ = appWindow.height;
 
         auto coreCtx = app->GetCoreRuntimeContext();
         auto gameCtx = app->GetGameRuntimeContext();
@@ -205,6 +209,7 @@ namespace libRetroRunner {
         }
         is_ready_ = true;
         enabled_ = true;
+        surface_id_ = (long) appWindow.surfaceId;
         LOGD_GLVIDEO("GLESVideoContext allReady, hardware accelerated: %d.", is_hardware_accelerated_);
         return true;
     }
@@ -212,6 +217,8 @@ namespace libRetroRunner {
     void GLESVideoContext::Unload() {
         is_ready_ = false;
         enabled_ = false;
+        surface_id_ = 0;
+
         auto appContext = AppContext::Current();
         auto coreCtx = appContext->GetCoreRuntimeContext();
         auto gameCtx = appContext->GetGameRuntimeContext();
@@ -242,13 +249,11 @@ namespace libRetroRunner {
         if (data != nullptr) {
             if (data != RETRO_HW_FRAME_BUFFER_VALID) {
                 auto appContext = AppContext::Current();
-                /* we check the game texture size, create a texture buffer at  right size*/
+                // create a texture buffer at  right size
                 if (software_render_tex_ == nullptr || software_render_tex_->GetWidth() != width || software_render_tex_->GetHeight() != height) {
                     software_render_tex_ = std::make_unique<GLTextureObject>();
                     software_render_tex_->Create(width, height);
-                    //LOGD_GLVIDEO("create software render texture: %d x %d", width, height);
                 }
-                //LOGD_GLVIDEO("OnNewFrame: %d x %d", width, height);
                 //render the data to our game texture, then use it as a texture for the first pass.
                 software_render_tex_->WriteTextureData(data, width, height, core_pixel_format_);
                 passes_[0]->FillTexture(software_render_tex_->GetTexture());
@@ -285,12 +290,9 @@ namespace libRetroRunner {
             //draw the last pass to screen
             if (!passes_.empty())
                 passes_.rbegin()->get()->DrawOnScreen(screen_width_, screen_height_);
-
-            EGLContext currentContext = eglGetCurrentContext();
-            EGLSurface currentSurface = eglGetCurrentSurface(EGL_DRAW);
-            //LOGD_GLVIDEO("swap buffer: %p, %p, %p, %p", egl_display_, egl_surface_, currentContext, currentSurface);
             glFinish();
             eglSwapBuffers(egl_display_, egl_surface_);
+
             //reset opengl es context for hardware acceleration
             if (is_hardware_accelerated_) {
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -347,7 +349,7 @@ namespace libRetroRunner {
             pass->SetHardwareAccelerated(is_hardware_accelerated_);
             pass->CreateFrameBuffer(gameCtx->GetGeometryWidth(), gameCtx->GetGeometryHeight(), setting->GetVideoUseLinear(), coreCtx->GetRenderUseDepth(), coreCtx->GetRenderUseStencil());
             passes_.push_back(std::move(pass));
-            LOGD_GLVIDEO("create pass chain, pass size: %d", passes_.size());
+            LOGD_GLVIDEO("create pass chain, pass size: %zu", passes_.size());
         }
     }
 

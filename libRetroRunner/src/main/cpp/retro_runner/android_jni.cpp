@@ -244,18 +244,10 @@ Java_com_aidoo_retrorunner_RRNative_loadStateWithPath(JNIEnv *env, jclass clazz,
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_SurfaceTest(JNIEnv *env, jclass clazz, jobject surface) {
-    ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
-    LOGD_JNI("surface test: %p %p", surface, window);
-    ANativeWindow_release(window);
-}
-
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_OnSurfaceChanged(JNIEnv *env, jclass clazz, jobject surface, jint width, jint height) {
+Java_com_aidoo_retrorunner_RRNative_OnSurfaceChanged(JNIEnv *env, jclass clazz, jobject surface, jlong surfaceId, jint width, jint height) {
     auto app = AppContext::Current();
     if (app) {
-        app->OnSurfaceChanged(env, surface, width, height);
+        app->OnSurfaceChanged(env, surface, surfaceId, width, height);
     } else {
         LOGE_JNI("Emu app context is null.");
     }
@@ -264,5 +256,6 @@ Java_com_aidoo_retrorunner_RRNative_OnSurfaceChanged(JNIEnv *env, jclass clazz, 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_destroy(JNIEnv *env, jclass clazz) {
-
+    auto app = AppContext::Current();
+    if (app) app->Destroy();
 }

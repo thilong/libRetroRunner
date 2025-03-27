@@ -75,15 +75,15 @@ namespace libRetroRunner {
         bool linear = true;
         buffer_ = new unsigned char[width * height * 4];
         glGenTextures(1, &textureId_);
-        GL_CHECK("glGenTextures");
+
         glBindTexture(GL_TEXTURE_2D, textureId_);
-        GL_CHECK("glBindTexture");
+
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, linear ? GL_LINEAR : GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, linear ? GL_LINEAR : GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8_OES, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-        GL_CHECK("glTexImage2D");
+
 
         glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -111,12 +111,11 @@ namespace libRetroRunner {
         }
 
         glActiveTexture(GL_TEXTURE0);
-        GL_CHECK("glActiveTexture");
+
         glBindTexture(GL_TEXTURE_2D, textureId_);
-        GL_CHECK("glBindTexture");
 
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer_);
-        GL_CHECK("glTexSubImage2D");
+
         glBindTexture(GL_TEXTURE_2D, 0);
 
     }

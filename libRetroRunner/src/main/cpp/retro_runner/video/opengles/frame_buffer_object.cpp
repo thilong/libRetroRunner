@@ -32,10 +32,12 @@ namespace libRetroRunner {
         glBindTexture(GL_TEXTURE_2D, 0);
 
         glGenFramebuffers(1, &frame_buffer);
+
         if (depth) {
             glGenRenderbuffers(1, &depth_buffer);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer);
+
         //create texture for fbo
         glGenTextures(1, &texture_id);
 
@@ -68,6 +70,7 @@ namespace libRetroRunner {
                     GL_RENDERBUFFER,
                     depth_buffer
             );
+
             if (includeStencil) {
                 glFramebufferRenderbuffer(
                         GL_FRAMEBUFFER,
@@ -81,7 +84,6 @@ namespace libRetroRunner {
         int frameBufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (frameBufferStatus != GL_FRAMEBUFFER_COMPLETE) {
             LOGE_FBO("Error creating framebuffer %d not complete, status: %d, error: %d, %s", frame_buffer, frameBufferStatus, glGetError(), glGetString(glGetError()));
-            throw std::runtime_error("Cannot create framebuffer");
         }
 
         glBindTexture(GL_TEXTURE_2D, 0);

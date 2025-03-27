@@ -69,7 +69,7 @@ namespace libRetroRunner {
 
 namespace libRetroRunner {
     GLESVideoContext::GLESVideoContext() : VideoContext() {
-        getHWProcAddress = (rr_hardware_render_proc_address_t)&eglGetProcAddress;
+        getHWProcAddress = (rr_hardware_render_proc_address_t) &eglGetProcAddress;
         is_ready_ = false;
         egl_initialized_ = false;
         egl_context_ = nullptr;
@@ -77,7 +77,7 @@ namespace libRetroRunner {
         egl_surface_ = nullptr;
         egl_config_ = nullptr;
         is_hardware_accelerated_ = false;
-        screen_height_ = 0;
+        screen_width_ = 0;
         screen_height_ = 0;
         egl_display_ = EGL_NO_DISPLAY;
         egl_surface_ = EGL_NO_SURFACE;
@@ -88,7 +88,6 @@ namespace libRetroRunner {
         Destroy();
     }
 
-
     bool GLESVideoContext::Init() {
         if (egl_display_ == EGL_NO_DISPLAY || egl_surface_ == EGL_NO_SURFACE || egl_context_ == EGL_NO_CONTEXT) {
             LOGE("egl_display_ is not allReady.");
@@ -98,7 +97,8 @@ namespace libRetroRunner {
             LOGE("eglMakeCurrent failed.");
             return false;
         }
-
+        LOGD_GLVIDEO("eglMakeCurrent %p,  thread: %d", egl_surface_, gettid());
+        GL_CHECK("GLESVideoContext::Init 0");
 #if defined(HAVE_GLES3) && (ENABLE_GL_DEBUG)
         initializeGLESLogCallbackIfNeeded();
 #endif
@@ -165,16 +165,16 @@ namespace libRetroRunner {
 
     }
 
-    void GLESVideoContext::SetSurface(int argc, void **argv) {
+    bool GLESVideoContext::SurfaceChanged(void *env, void *surface) {
         if (!egl_initialized_) {
             egl_display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
             if (egl_display_ == EGL_NO_DISPLAY) {
                 LOGE_GLVIDEO("egl have not got display.");
-                return;
+                return false;
             }
             if (eglInitialize(egl_display_, 0, 0) != EGL_TRUE) {
                 LOGE_GLVIDEO("egl Initialize failed.%d", eglGetError());
-                return;
+                return false;
             }
             //2:EGL_OPENGL_ES2_BIT   3:EGL_OPENGL_ES3_BIT_KHR
             const EGLint atrrs[] = {
@@ -191,31 +191,27 @@ namespace libRetroRunner {
             EGLint numOfEglConfig;
             if (eglChooseConfig(egl_display_, atrrs, &egl_config_, 1, &numOfEglConfig) != EGL_TRUE) {
                 LOGE_GLVIDEO("egl choose config failed.%d,", eglGetError());
-                return;
+                return false;
             }
 
             EGLint attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
             egl_context_ = eglCreateContext(egl_display_, egl_config_, nullptr, attributes);
             if (!egl_context_) {
                 LOGE_GLVIDEO("eglCreateContext failed.");
-                return;
+                return false;
             }
 
-            LOGI_GLVIDEO("egl allReady.");
+            LOGI_GLVIDEO("egl initialized.");
             egl_initialized_ = true;
         }
-
+        bool ret = surface_ptr_ != (long) surface;
+        if (!surface) return ret;
         EGLint eglFormat;
         if (!eglGetConfigAttrib(egl_display_, egl_config_, EGL_NATIVE_VISUAL_ID, &eglFormat)) {
             LOGE_GLVIDEO("egl get config attrib failed.");
-            return;
+            return ret;
         }
-
-        JNIEnv *env = (JNIEnv *) argv[0];
-        jobject surface = (jobject) argv[1];
-
-        ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
-
+        ANativeWindow *window = ANativeWindow_fromSurface((JNIEnv *) env, (jobject) surface);
         ANativeWindow_acquire(window);
         ANativeWindow_setBuffersGeometry(window, 0, 0, eglFormat);
         EGLint window_attribs[] = {
@@ -225,8 +221,17 @@ namespace libRetroRunner {
         egl_surface_ = eglCreateWindowSurface(egl_display_, egl_config_, window, window_attribs);
         if (!egl_surface_) {
             LOGE_GLVIDEO("eglCreateWindowSurface failed, 0x%x", eglGetError());
-            return;
+            return false;
         }
+        surface_ptr_ = (long) surface;
+        LOGD_GLVIDEO("eglCreateWindowSurface success: %p, thread: %d", egl_surface_, gettid());
+        return ret;
+    }
+
+    void GLESVideoContext::SurfaceSizeChanged(unsigned width, unsigned height) {
+        screen_width_ = width;
+        screen_height_ = height;
+        LOGD_GLVIDEO("screen size changed: %d x %d", width, height);
     }
 
     void GLESVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {
@@ -245,7 +250,9 @@ namespace libRetroRunner {
                 if (software_render_tex_ == nullptr || software_render_tex_->GetWidth() != width || software_render_tex_->GetHeight() != height) {
                     software_render_tex_ = std::make_unique<GLTextureObject>();
                     software_render_tex_->Create(width, height);
+                    //LOGD_GLVIDEO("create software render texture: %d x %d", width, height);
                 }
+                //LOGD_GLVIDEO("OnNewFrame: %d x %d", width, height);
                 //render the data to our game texture, then use it as a texture for the first pass.
                 software_render_tex_->WriteTextureData(data, width, height, core_pixel_format_);
                 passes_[0]->FillTexture(software_render_tex_->GetTexture());
@@ -283,8 +290,11 @@ namespace libRetroRunner {
             if (!passes_.empty())
                 passes_.rbegin()->get()->DrawOnScreen(screen_width_, screen_height_);
 
+            EGLContext currentContext = eglGetCurrentContext();
+            EGLSurface currentSurface = eglGetCurrentSurface(EGL_DRAW);
+            //LOGD_GLVIDEO("swap buffer: %p, %p, %p, %p", egl_display_, egl_surface_, currentContext, currentSurface);
+            glFinish();
             eglSwapBuffers(egl_display_, egl_surface_);
-
             //reset opengl es context for hardware acceleration
             if (is_hardware_accelerated_) {
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -302,11 +312,6 @@ namespace libRetroRunner {
 
         } while ((false));
 
-    }
-
-    void GLESVideoContext::SetSurfaceSize(unsigned int width, unsigned int height) {
-        screen_width_ = width;
-        screen_height_ = height;
     }
 
     unsigned int GLESVideoContext::GetCurrentFramebuffer() {
@@ -331,8 +336,8 @@ namespace libRetroRunner {
                 }
                 gameCtx->SetGeometryChanged(false);
             }
-
         }
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     void GLESVideoContext::createPassChain() {
@@ -346,6 +351,7 @@ namespace libRetroRunner {
             pass->SetHardwareAccelerated(is_hardware_accelerated_);
             pass->CreateFrameBuffer(gameCtx->GetGeometryWidth(), gameCtx->GetGeometryHeight(), setting->GetVideoUseLinear(), coreCtx->GetRenderUseDepth(), coreCtx->GetRenderUseStencil());
             passes_.push_back(std::move(pass));
+            LOGD_GLVIDEO("create pass chain, pass size: %d", passes_.size());
         }
     }
 
@@ -358,8 +364,5 @@ namespace libRetroRunner {
         return true;
     }
 
-    bool GLESVideoContext::SurfaceChanged(void *surface, unsigned int width, unsigned int height) {
-        return false;
-    }
 
 }

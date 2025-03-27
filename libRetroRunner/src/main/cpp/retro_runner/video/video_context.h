@@ -36,18 +36,9 @@ namespace libRetroRunner {
 
         virtual void OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) = 0;
 
-        /**
-         * update surface , return true if need to init or unload video
-         * @param surface  video surface
-         * @param width    width of surface
-         * @param height    height of surface
-         * @return  to tell if frontend should init or unload video
-         */
-        virtual bool SurfaceChanged(void *surface, unsigned width, unsigned height) = 0;
+        virtual bool SurfaceChanged(void *env, void *surface) = 0;
 
-        virtual void SetSurface(int argc, void **argV) = 0;
-
-        virtual void SetSurfaceSize(unsigned width, unsigned height) = 0;
+        virtual void SurfaceSizeChanged(unsigned width, unsigned height) = 0;
 
         virtual unsigned int GetCurrentFramebuffer() { return 0; }
 

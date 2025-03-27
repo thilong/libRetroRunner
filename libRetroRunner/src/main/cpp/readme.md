@@ -6,7 +6,7 @@
 
 # app的过程
     1. CreateNew
-    2. SetPaths
+    2. CreateWithPaths
     3. Start
     4. Stop
     

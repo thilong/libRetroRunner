@@ -20,6 +20,12 @@
 
 namespace libRetroRunner {
 
+    struct AppWindow {
+        void *window;
+        unsigned width;
+        unsigned height;
+    };
+
 
     class AppContext {
 
@@ -32,11 +38,6 @@ namespace libRetroRunner {
 
         static std::shared_ptr<AppContext> Current();
 
-        void ThreadInit();
-
-        void ThreadLoop();
-
-        void ThreadCleanup();
 
     public:
         inline void SetFrontendNotify(FrontendNotifyCallback notify) {
@@ -57,6 +58,8 @@ namespace libRetroRunner {
 
         std::shared_ptr<GameRuntimeContext> GetGameRuntimeContext() const;
 
+        long GetState() { return state_; }
+
 #ifdef ANDROID
 
         JNIEnv *GetJniEnv() const { return thread_jni_env_; };
@@ -73,7 +76,7 @@ namespace libRetroRunner {
          * @param system    system folder for core
          * @param save      folder to save game states, ram, screenshots
          */
-        void SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save);;
+        void CreateWithPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save);;
 
         bool Step();
 
@@ -88,7 +91,9 @@ namespace libRetroRunner {
          */
         void Stop();
 
-        void UpdateVideoSurface(void *surface, unsigned width, unsigned height);
+
+        void SurfaceChanged(void *env, void *surface);
+        void SurfaceSizeChanged(unsigned width, unsigned height);
 
         void SetController(unsigned port, int retro_device);
 

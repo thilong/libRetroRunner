@@ -217,7 +217,7 @@ namespace libRetroRunner {
             attr_coordinate_ = glGetAttribLocation(program, "a_texCoord");
             attr_texture_ = glGetUniformLocation(program, "u_texture");
             attr_flip_ = glGetUniformLocation(program, "u_flipVertical");
-            LOGD_SP("shader pass created, program id: %d", program_id_);
+            LOGD_SP("shader pass program id: %d", program_id_);
         }
     }
 
@@ -258,13 +258,16 @@ namespace libRetroRunner {
             LOGW_SP("frame buffer size not change, reuse it.");
             return;
         }
+        GL_CHECK("GLShaderPass::frameBuffer->Create 0");
+        LOGD_SP("create frame buffer: %d x %d, depth: %d, stencil: %d, linear: %d", width, height, includeDepth, includeStencil, linear);
         frameBuffer = std::make_unique<GLFrameBufferObject>();
         frameBuffer->SetSize(width, height);
         frameBuffer->SetLinear(linear);
         frameBuffer->Create(includeDepth, includeStencil);
-
+        GL_CHECK("GLShaderPass::frameBuffer->Create 1");
         if (!vbo_position_) {
             vbo_position_ = _createVBO(glPositionVBOData, sizeof(glPositionVBOData));
+            GL_CHECK("GLShaderPass::_createVBO vbo_position_");
         }
         if (!vbo_position_) {
             LOGE_SP("create position vbo failed.");
@@ -272,6 +275,7 @@ namespace libRetroRunner {
 
         if (!vbo_texture_coordinate_) {
             vbo_texture_coordinate_ = _createVBO(glTextureCoordVBOData, sizeof(glTextureCoordVBOData));
+            GL_CHECK("GLShaderPass::_createVBO vbo_texture_coordinate_");
         }
         if (!vbo_texture_coordinate_) {
             LOGE_SP("create position vbo failed.");
@@ -291,22 +295,28 @@ namespace libRetroRunner {
     //otherwise, draw the texture of current pass to screen.
     //we should deal the following attributes: size, rotation, position...
     void GLShaderPass::drawTexture(GLuint textureId, int width, int height, unsigned int rotation) {
+        GL_CHECK("GLShaderPass::drawTexture 0")
         bool renderToScreen = textureId == 0;
         if (renderToScreen) {
             glViewport(0, 0, width, height);
+            GL_CHECK2("glViewport ", "  %d x %d", width, height)
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            GL_CHECK("GLShaderPass::drawTexture 2")
         } else {
             glViewport(0, 0, frameBuffer->GetWidth(), frameBuffer->GetHeight());
+            GL_CHECK2("glViewport ", "  %d x %d", frameBuffer->GetWidth(), frameBuffer->GetHeight())
             glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->GetFrameBuffer());
+            GL_CHECK("GLShaderPass::drawTexture 3")
         }
 
-        glUseProgram(program_id_);
 
+        glUseProgram(program_id_);
+        GL_CHECK2("glUseProgram ", " id : %d", program_id_)
         //position
         glBindBuffer(GL_ARRAY_BUFFER, vbo_position_);
         glEnableVertexAttribArray(attr_position_);
         glVertexAttribPointer(attr_position_, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), 0);
-
+        GL_CHECK("glBindBuffer vbo_position_")
         //vertex
         glBindBuffer(GL_ARRAY_BUFFER, vbo_texture_coordinate_);
         glEnableVertexAttribArray(attr_coordinate_);
@@ -315,6 +325,7 @@ namespace libRetroRunner {
         } else
             glVertexAttribPointer(attr_coordinate_, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void *) 0);
 
+        GL_CHECK("glBindBuffer vbo_texture_coordinate_")
         //flip
         glEnableVertexAttribArray(attr_flip_);
         if (renderToScreen && !hardware_accelerated_) {
@@ -325,6 +336,7 @@ namespace libRetroRunner {
 
 
         glActiveTexture(GL_TEXTURE0);
+        GL_CHECK("glActiveTexture(GL_TEXTURE0)")
         if (renderToScreen) {
             glBindTexture(GL_TEXTURE_2D, frameBuffer->GetTexture());
             glUniform1i(attr_texture_, 0);
@@ -332,17 +344,19 @@ namespace libRetroRunner {
             glBindTexture(GL_TEXTURE_2D, textureId);
             glUniform1i(attr_texture_, 0);
         }
-
+        GL_CHECK("glBindTexture 2")
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
+        GL_CHECK("glDrawArrays 2")
 
         glDisableVertexAttribArray(attr_position_);
         glDisableVertexAttribArray(attr_coordinate_);
 
-        glUseProgram(0);
+
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
+        glUseProgram(0);
     }
 
     void GLShaderPass::DrawToFile(const std::string &path) {

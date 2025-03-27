@@ -33,7 +33,7 @@ Java_com_aidoo_retrorunner_NativeRunner_create(JNIEnv *env, jclass clazz, jstrin
     JString core(env, core_path);
     JString system(env, system_path);
     JString save(env, save_path);
-    app->SetPaths(rom.stdString(), core.stdString(), system.stdString(), save.stdString());
+    app->CreateWithPaths(rom.stdString(), core.stdString(), system.stdString(), save.stdString());
     LOGD_JNI("new app context created.");
 }
 

@@ -14,7 +14,8 @@ namespace libRetroRunner {
     enum AppNotifications {
         kAppNotificationContentLoaded = 100,
         kAppNotificationTerminated,
-        kAppNotificationGameGeometryChanged
+        kAppNotificationGameGeometryChanged,
+        kAppComponentsInitialized,
     };
 
     class FrontendNotifyObject : public RRObjectRef {

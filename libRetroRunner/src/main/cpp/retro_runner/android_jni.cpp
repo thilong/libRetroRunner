@@ -7,6 +7,7 @@
 #include "input/input_context.h"
 #include "types/error.h"
 #include "app/paths.h"
+#include "types/app_state.h"
 
 #define LOGD_JNI(...) LOGD("[JNI] " __VA_ARGS__)
 #define LOGW_JNI(...) LOGW("[JNI] " __VA_ARGS__)
@@ -22,13 +23,22 @@
 namespace libRetroRunner {
     extern "C" JavaVM *gVm = nullptr;
     extern "C" jobject gRRNativeRef = nullptr;
+
 }
 
 using namespace libRetroRunner;
 
+//this method is called on sub thread.
 void OnFrontendNotifyCallback(void *data) {
-    auto *notifyObj = (FrontendNotifyObject *) data;
+    auto notifyObj = (FrontendNotifyObject *) data;
     int notifyType = notifyObj->GetNotifyType();
+    JNIEnv *env = nullptr;
+    gVm->AttachCurrentThread(&env, nullptr);
+    jclass rrNativeClass = env->GetObjectClass(gRRNativeRef);
+    jmethodID gRRNative_onFrontendNotify = env->GetStaticMethodID(rrNativeClass, "onEmuAppNotification", "(I)V");
+    env->CallStaticVoidMethod(rrNativeClass, gRRNative_onFrontendNotify, notifyType);
+    gVm->DetachCurrentThread();
+
     switch (notifyType) {
         case kAppNotificationContentLoaded:
             LOGD_JNI("frontend notify: content loaded");
@@ -57,10 +67,10 @@ Java_com_aidoo_retrorunner_RRNative_create(JNIEnv *env, jclass clazz, jstring ro
     JString core(env, core_path);
     JString system(env, system_path);
     JString save(env, save_path);
-    app->SetPaths(rom.stdString(), core.stdString(), system.stdString(), save.stdString());
+    app->CreateWithPaths(rom.stdString(), core.stdString(), system.stdString(), save.stdString());
     LOGD_JNI("new app context created: \n\trom:\t%s \n\tcore:\t%s \n\tsystem:\t%s \n\tsave:\t%s", rom.cString(), core.cString(), system.cString(), save.cString());
     app->SetFrontendNotify(OnFrontendNotifyCallback);
-    LOGD_JNI("frontend notify callback set");
+
     app->AddCommand(AppCommands::kInitApp);
     app->AddCommand(AppCommands::kLoadCore);
     app->AddCommand(AppCommands::kLoadContent);
@@ -111,12 +121,21 @@ Java_com_aidoo_retrorunner_RRNative_step(JNIEnv *env, jclass clazz) {
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_videoSurfaceChanged(JNIEnv *env, jclass clazz, jobject surface, jint width, jint height) {
+Java_com_aidoo_retrorunner_RRNative_SurfaceChanged(JNIEnv *env, jclass clazz, jobject surface) {
     auto app = AppContext::Current();
     if (app) {
-        app->UpdateVideoSurface(surface, width, height);
+        app->SurfaceChanged(env, surface);
     }
 }
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_SurfaceSizeChanged(JNIEnv *env, jclass clazz, jint width, jint height) {
+    auto app = AppContext::Current();
+    if (app) {
+        app->SurfaceSizeChanged(width, height);
+    }
+}
+
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_setFastForward(JNIEnv *env, jclass clazz, jfloat multiplier) {
@@ -237,3 +256,23 @@ Java_com_aidoo_retrorunner_RRNative_loadStateWithPath(JNIEnv *env, jclass clazz,
     return app->AddLoadStateCommand(savePath, wait_for_result);
 }
 
+
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_com_aidoo_retrorunner_RRNative_getEmuState(JNIEnv *env, jclass clazz) {
+    auto app = AppContext::Current();
+    if (app) {
+        return app->GetState();
+    }
+    return 0;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_aidoo_retrorunner_RRNative_getIsEmuRunning(JNIEnv *env, jclass clazz) {
+    auto app = AppContext::Current();
+    if (app) {
+        return (app->GetState() & AppState::kRunning) > 0;
+    }
+    return false;
+}

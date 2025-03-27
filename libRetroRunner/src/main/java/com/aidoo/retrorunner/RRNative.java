@@ -23,6 +23,14 @@ public class RRNative {
     public void setup() {
     }
 
+    public static RRFuncs.Fn<Integer> onEmuNotificationCallback = null;
+
+    public static void onEmuAppNotification(int cmd) {
+        if (onEmuNotificationCallback != null) {
+            onEmuNotificationCallback.invoke(cmd);
+        }
+    }
+
     /*jni methods--------------------------*/
 
     /**
@@ -51,6 +59,9 @@ public class RRNative {
      */
     public static native void addVariable(String key, String value, boolean notifyCore);
 
+    public static native boolean getIsEmuRunning();
+    public static native long getEmuState();
+
     /*pause*/
     public static native void pause();
 
@@ -72,7 +83,8 @@ public class RRNative {
      */
     public static native boolean step();
 
-    public static native void videoSurfaceChanged(Surface surface, int width, int height);
+    public static native void SurfaceChanged(Surface surface);
+    public static native void SurfaceSizeChanged(int width, int height);
 
     /*set emu speed multiplier， > 0.1, 1.0 = 60fps */
     public static native void setFastForward(float multiplier);

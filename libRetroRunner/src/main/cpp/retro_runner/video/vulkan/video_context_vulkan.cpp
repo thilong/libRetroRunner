@@ -125,6 +125,15 @@ namespace libRetroRunner {
 
     }
 
+    bool VulkanVideoContext::SurfaceChanged(void *env, void *surface) {
+        return false;
+    }
+
+    void VulkanVideoContext::SurfaceSizeChanged(unsigned width, unsigned height) {
+
+    }
+
+    /*
     void VulkanVideoContext::SetSurface(int argc, void **argv) {
         JNIEnv *env = (JNIEnv *) argv[0];
         jobject surface = (jobject) argv[1];
@@ -165,7 +174,7 @@ namespace libRetroRunner {
             Init();
 
         }
-    }
+    }*/
 
     void VulkanVideoContext::Prepare() {
 
@@ -343,10 +352,6 @@ namespace libRetroRunner {
         if (baseInterface->interface_type == RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN) {
             retroHWNegotiationInterface_ = static_cast<const retro_hw_render_context_negotiation_interface_vulkan *>(interface);
         }
-    }
-
-    bool VulkanVideoContext::SurfaceChanged(void *surface, unsigned int width, unsigned int height) {
-        return false;
     }
 
 }

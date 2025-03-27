@@ -28,6 +28,8 @@
 #ifdef ANDROID
 
 #include <jni.h>
+#include <android/native_window_jni.h>
+#include <android/native_window.h>
 
 namespace libRetroRunner {
     extern "C" JavaVM *gVm;
@@ -100,7 +102,7 @@ namespace libRetroRunner {
 
     std::shared_ptr<AppContext> AppContext::CreateNew() {
         if (appInstance != nullptr) {
-            appInstance->Stop();
+            LOGE_APP("AppContext already created.");
         }
 
         appInstance = std::make_shared<AppContext>();
@@ -229,7 +231,7 @@ namespace libRetroRunner {
 #endif
     }
 
-    void AppContext::SetPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
+    void AppContext::CreateWithPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
         if (BIT_TEST(state_, AppState::kPathsReady)) {
             return;
         }
@@ -248,19 +250,33 @@ namespace libRetroRunner {
         BIT_SET(state_, AppState::kPathsReady);
     }
 
-    void AppContext::UpdateVideoSurface(void *surface, unsigned int width, unsigned int height) {
-        if (surface == nullptr) {
+    void AppContext::SurfaceChanged(void *env, void *surface) {
+        if (!surface) {
+            LOGW_APP("surface -> null.");
             BIT_UNSET(state_, AppState::kVideoReady);
-            AddCommand(AppCommands::kUnloadVideo);
             if (video_) {
-                video_->SurfaceChanged(surface, width, height);
+                video_->SurfaceChanged(env, nullptr);
             }
+            AddCommand(AppCommands::kUnloadVideo);
         } else {
-            if (video_->SurfaceChanged(surface, width, height)) {
-                AddCommand(AppCommands::kLoadVideo);
+            if (video_) {
+                LOGW_APP("surface -> %p.", surface);
+                if (video_->SurfaceChanged(env, surface)) {
+                    AddCommand(AppCommands::kLoadVideo);
+                }
+            } else {
+                LOGE_APP("surface -> %p , video component should not be null", surface);
             }
         }
+    }
 
+    void AppContext::SurfaceSizeChanged(unsigned int width, unsigned int height) {
+        if (video_) {
+            LOGD_APP("surface size -> %d x %d", width, height);
+            video_->SurfaceSizeChanged(width, height);
+        } else {
+            LOGE_APP("surface size -> %d x %d , video component should not be null", width, height);
+        }
     }
 
     void AppContext::SetController(unsigned int port, int retro_device) {
@@ -505,8 +521,6 @@ namespace libRetroRunner {
 
         BIT_SET(state_, AppState::kContentReady);
         LOGD_APP("content loaded");
-
-        //this->NotifyFrontend(AppNotifications::kAppNotificationGameGeometryChanged);
     }
 
     void AppContext::commandInitComponents() {
@@ -522,8 +536,11 @@ namespace libRetroRunner {
 
         input_ = InputContext::Create(Setting::Current()->GetInputDriver());
         input_->Init(core_runtime_context_->GetMaxUserCount());
-    }
+        LOGD_APP("components initialized");
 
+        this->NotifyFrontend(AppNotifications::kAppComponentsInitialized);
+
+    }
 
     void AppContext::commandSaveSRAM(std::shared_ptr<Command> &command) {
         std::shared_ptr<ParamCommand<std::string>> paramCommand = std::static_pointer_cast<ParamCommand<std::string>>(command);
@@ -653,7 +670,7 @@ namespace libRetroRunner {
 
     void AppContext::NotifyFrontend(int notifyType) {
         //auto cmd = std::make_shared<int>(notifyType);
-        auto *notify = new FrontendNotify<int>(notifyType);
+        auto notify = new FrontendNotify<int>(notifyType);
         this->NotifyFrontend(notify);
         notify->Release();
     }

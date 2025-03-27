@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
@@ -23,7 +24,6 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     private static final String TAG = "RetroRunner";
     private final RRParam params;
-    private boolean runnerStarted = false;
     private final Executor backgroundExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private AspectRatio aspectRatio = AspectRatio.FullScreen;
@@ -42,25 +42,45 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void startRunnerIfNeeded() {
+        Log.d(TAG, "startRunnerIfNeeded , thread: " + Thread.currentThread().getId());
         if (emuThread != null)
             return;
-        getHolder().addCallback(this);
-
+        RRNative.create(params.getRomPath(), params.getCorePath(), params.getSystemPath(), params.getSavePath());
+        RRNative.onEmuNotificationCallback = this::onEmuNotification;
         if (params.haveVariables()) {
             for (String key : params.getVariables().keySet()) {
                 RRNative.addVariable(key, params.getVariables().get(key), false);
             }
         }
-
         emuThread = new Thread(() -> {
-            RRNative.create(params.getRomPath(), params.getCorePath(), params.getSystemPath(), params.getSavePath());
+            Log.d(TAG, "emu thread running");
             while (emuShouldRun) {
                 emuShouldRun = RRNative.step();
             }
             RRNative.stop();
         });
-
         emuThread.start();
+    }
+
+    private void onEmuNotification(int cmd) {
+        Log.w(TAG, "[VIEW] on notification: " + cmd);
+        if (cmd == 103) {
+            //emu components initialized, but the state maybe not running, error may occur when load core and content
+            if (RRNative.getIsEmuRunning()) {
+                getHolder().addCallback(this);
+                mainHandler.post(() -> {
+                    Surface surface = getHolder().getSurface();
+                    if (surface != null) {
+                        RRNative.SurfaceChanged(surface);
+                        RRNative.SurfaceSizeChanged(this.getWidth(), this.getHeight());
+                    }
+                });
+            } else {
+                Log.e(TAG, "emu components initialized, but the state maybe not running, error may occur when load core and content");
+                //TODO: may stop emu thread
+            }
+        }
+
     }
 
     public void onPause() {
@@ -82,23 +102,31 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
                 Log.e(TAG, "[View] failed to wait emu thread join: " + e.getMessage());
             }
         }
+        RRNative.onEmuNotificationCallback = null;
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        Log.d(TAG, "[VIEW] surfaceCreated");
+        Log.d(TAG, "[VIEW] surfaceCreated, thread: " + Thread.currentThread().getId());
+        if (RRNative.getIsEmuRunning()) {
+            RRNative.SurfaceChanged(holder.getSurface());
+        }
     }
 
     @Override
     public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
-        Log.d(TAG, "[VIEW] surfaceChanged " + width + "x" + height);
-        RRNative.videoSurfaceChanged(holder.getSurface(), width, height);
+        Log.d(TAG, "[VIEW] surfaceChanged " + width + "x" + height + ", thread: " + Thread.currentThread().getId());
+        if (RRNative.getIsEmuRunning()) {
+            RRNative.SurfaceSizeChanged(width, height);
+        }
     }
 
     @Override
     public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
         Log.w(TAG, "[VIEW] surfaceDestroyed");
-        RRNative.videoSurfaceChanged(null, 0, 0);
+        if (RRNative.getIsEmuRunning()) {
+            RRNative.SurfaceChanged(null);
+        }
     }
 
     @Override

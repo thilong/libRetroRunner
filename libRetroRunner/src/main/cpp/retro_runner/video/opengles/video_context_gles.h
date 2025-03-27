@@ -29,12 +29,9 @@ namespace libRetroRunner {
 
         void Unload() override;
 
+        bool SurfaceChanged(void *env, void *surface) override;
 
-        bool SurfaceChanged(void *surface, unsigned width, unsigned height) override;
-
-        void SetSurface(int argc, void **argv) override;
-
-        void SetSurfaceSize(unsigned int width, unsigned int height) override;
+        void SurfaceSizeChanged(unsigned width, unsigned height) override;
 
         void Prepare() override;
 
@@ -84,8 +81,9 @@ namespace libRetroRunner {
         bool egl_initialized_;
 
 
-        bool is_ready_;
+        bool is_ready_ = false;
 
+        long surface_ptr_ = 0;
 
     };
 }

@@ -119,11 +119,6 @@ namespace libRetroRunner {
         }
     }
 
-    bool GLESVideoContext::ShouldLoad() {
-        auto app = AppContext::Current();
-        return ((long) app->GetAppWindow().surfaceId) != surface_id_;
-    }
-
     bool GLESVideoContext::Load() {
         if (!egl_initialized_) {
             egl_display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);

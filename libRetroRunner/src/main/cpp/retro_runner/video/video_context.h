@@ -24,9 +24,6 @@ namespace libRetroRunner {
 
         virtual void Destroy() = 0;
 
-        /** return if video component should be load. */
-        virtual bool ShouldLoad() = 0;
-
         virtual bool Load() = 0;
 
         /*unload video output, keep context.*/

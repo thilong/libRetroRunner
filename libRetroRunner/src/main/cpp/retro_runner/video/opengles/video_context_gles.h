@@ -23,8 +23,6 @@ namespace libRetroRunner {
 
         ~GLESVideoContext() override;
 
-        bool ShouldLoad() override;
-
         bool Load() override;
 
         void Destroy() override;

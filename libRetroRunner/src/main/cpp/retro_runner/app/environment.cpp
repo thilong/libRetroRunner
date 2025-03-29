@@ -49,7 +49,7 @@ namespace libRetroRunner {
                 break;
             }
             case RETRO_ENVIRONMENT_GET_CAN_DUPE: {
-                LOGD_Env("call RETRO_ENVIRONMENT_GET_CAN_DUPE -> false");
+                LOGD_Env("call RETRO_ENVIRONMENT_GET_CAN_DUPE -> true");
                 POINTER_VAL(bool) = true;
                 return true;
             }
@@ -91,14 +91,6 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_SET_HW_RENDER:
             case RETRO_ENVIRONMENT_SET_HW_RENDER | RETRO_ENVIRONMENT_EXPERIMENTAL: {
-
-                auto hwRender = static_cast<struct retro_hw_render_callback *>(data);
-                if (hwRender) {
-                    LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER %d", hwRender->context_type);
-                } else {
-                    LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER");
-                }
-
                 return cmdSetHardwareRender(data);
             }
             case RETRO_ENVIRONMENT_GET_VARIABLE: {
@@ -489,9 +481,13 @@ namespace libRetroRunner {
     }
 
     bool Environment::cmdSetHardwareRender(void *data) {
-
-        if (data == nullptr) return false;
+        if (data == nullptr) {
+            LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER -> null");
+            return false;
+        }
+        
         auto hwRender = static_cast<struct retro_hw_render_callback *>(data);
+        LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER %d", hwRender->context_type);
         auto core_ctx = core_runtime_context_.lock();
 
         core_ctx->SetRenderMajorVersion((int) hwRender->version_major);
@@ -672,7 +668,6 @@ namespace libRetroRunner {
     void Environment::CoreCallbackNotifyAudioState(bool active, unsigned int occupancy, bool underrun_likely) {
         //TODO: 核心通知前端音频状态
     }
-
 
     retro_proc_address_t Environment::CoreCallbackGetProcAddress(const char *sym) {
         if (getHWProcAddress) {

@@ -31,23 +31,19 @@ namespace libRetroRunner {
 
         ~VulkanVideoContext() override;
 
-        bool ShouldLoad() override;
-
         bool Load() override;
-
-        void Destroy() override;
 
         void Unload() override;
 
         void UpdateVideoSize(unsigned width, unsigned height) override;
+
+        void Destroy() override;
 
         void Prepare() override;
 
         void OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) override;
 
         void DrawFrame() override;
-
-        unsigned int GetCurrentFramebuffer() override;
 
         bool TakeScreenshot(const std::string &path) override;
 
@@ -60,19 +56,22 @@ namespace libRetroRunner {
 
     private:
         void *window_{};
-        /* pixel format of core use */
         int core_pixel_format_;
+
+        uint32_t screen_width_;
+        uint32_t screen_height_;
+        bool is_ready_;
+
+        retro_vulkan_context *vk_context_{};
 
         VulkanInstance *vulkanInstance_{};
         VulkanPipeline *vulkanPipeline_{};
         VulkanSwapchain *vulkanSwapchain_{};
-
         VulkanSamplingTexture *softwareTexture_{};
         VulkanRWBuffer *vertexBuffer_{};
 
         bool vulkanIsReady_{};
-        uint32_t width_;
-        uint32_t height_;
+
 
         const retro_hw_render_context_negotiation_interface_vulkan *retroHWNegotiationInterface_{};
 

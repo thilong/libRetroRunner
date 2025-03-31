@@ -45,13 +45,14 @@ namespace libRetroRunner {
         getHWProcAddress = (rr_hardware_render_proc_address_t) &getVKApiAddress;
         vulkanInstance_ = nullptr;
         vulkanPipeline_ = nullptr;
-        width_ = 100;
-        height_ = 100;
-        vulkanIsReady_ = false;
+        screen_width_ = 1;
+        screen_height_ = 100;
+        is_ready_ = false;
+        vk_context_ = nullptr;
     }
 
     VulkanVideoContext::~VulkanVideoContext() {
-
+        Destroy();
     }
 
     bool VulkanVideoContext::Load() {
@@ -125,6 +126,11 @@ namespace libRetroRunner {
 
     }
 
+    void VulkanVideoContext::UpdateVideoSize(unsigned int width, unsigned int height) {
+
+    }
+
+
     /*
     void VulkanVideoContext::SetSurface(int argc, void **argv) {
         JNIEnv *env = (JNIEnv *) argv[0];
@@ -197,9 +203,6 @@ namespace libRetroRunner {
         }
     }
 
-    unsigned int VulkanVideoContext::GetCurrentFramebuffer() {
-        return 0;
-    }
 
     bool VulkanVideoContext::TakeScreenshot(const std::string &path) {
         return false;
@@ -279,6 +282,7 @@ namespace libRetroRunner {
 
 
     void VulkanVideoContext::recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex) {
+
         if (vertexBuffer_ == nullptr) {
             vertexBuffer_ = new VulkanRWBuffer(vulkanInstance_->getPhysicalDevice(), vulkanInstance_->getLogicalDevice(), vulkanInstance_->getQueueFamilyIndex());
             vertexBuffer_->create(sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -345,14 +349,5 @@ namespace libRetroRunner {
             retroHWNegotiationInterface_ = static_cast<const retro_hw_render_context_negotiation_interface_vulkan *>(interface);
         }
     }
-
-    void VulkanVideoContext::UpdateVideoSize(unsigned int width, unsigned int height) {
-
-    }
-
-    bool VulkanVideoContext::ShouldLoad() {
-        return false;
-    }
-
 
 }

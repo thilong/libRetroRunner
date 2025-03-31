@@ -56,8 +56,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
         }
         emuThread = new Thread(() -> {
             Log.d(TAG, "emu thread running");
-            while (emuShouldRun) {
-                emuShouldRun = RRNative.step();
+            while (emuShouldRun && RRNative.step()) {
             }
             RRNative.stop();
         });

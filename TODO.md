@@ -10,3 +10,4 @@ virtual void setHWRenderContextNegotiationInterface(const void *) = 0;
 ```
 2. 需重新实现硬件渲染时的上下文中的get_proc_address, 获取GL或者Vulkan的函数指针
 3. 在创建Video组件时，除了看配置的video驱动，还要根据核心返回的要求来实例化对应的驱动 。比如Vulkan核心要求Vulkan驱动，OpenGL核心要求OpenGL驱动
+4. some 

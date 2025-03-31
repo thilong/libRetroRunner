@@ -49,7 +49,7 @@ namespace libRetroRunner {
                 break;
             }
             case RETRO_ENVIRONMENT_GET_CAN_DUPE: {
-                LOGD_Env("call RETRO_ENVIRONMENT_GET_CAN_DUPE -> false");
+                LOGD_Env("call RETRO_ENVIRONMENT_GET_CAN_DUPE -> true");
                 POINTER_VAL(bool) = true;
                 return true;
             }
@@ -91,14 +91,6 @@ namespace libRetroRunner {
             }
             case RETRO_ENVIRONMENT_SET_HW_RENDER:
             case RETRO_ENVIRONMENT_SET_HW_RENDER | RETRO_ENVIRONMENT_EXPERIMENTAL: {
-
-                auto hwRender = static_cast<struct retro_hw_render_callback *>(data);
-                if (hwRender) {
-                    LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER %d", hwRender->context_type);
-                } else {
-                    LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER");
-                }
-
                 return cmdSetHardwareRender(data);
             }
             case RETRO_ENVIRONMENT_GET_VARIABLE: {
@@ -138,14 +130,16 @@ namespace libRetroRunner {
             case RETRO_ENVIRONMENT_GET_INPUT_DEVICE_CAPABILITIES: {
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_INPUT_DEVICE_CAPABILITIES");
                 POINTER_VAL(uint64_t) = (1 << RETRO_DEVICE_JOYPAD) | (1 << RETRO_DEVICE_ANALOG) |
-                                        (1 << RETRO_DEVICE_POINTER);
-                return false;
+                                        (1 << RETRO_DEVICE_POINTER) | (1 << RETRO_DEVICE_MOUSE) | (1 << RETRO_DEVICE_KEYBOARD);
+                return true;
             }
             case RETRO_ENVIRONMENT_GET_SENSOR_INTERFACE: {
+                //TODO: add sensor implementation
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_SENSOR_INTERFACE -> [NO IMPL]");
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_CAMERA_INTERFACE: {
+                //TODO: add camera interface implementation
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_CAMERA_INTERFACE -> [NO IMPL]");
                 return false;
             }
@@ -156,17 +150,22 @@ namespace libRetroRunner {
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_PERF_INTERFACE: {
+                //TODO: add performance interface implementation
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_PERF_INTERFACE -> [NO IMPL]");
-                //TODO:在这里添加性能计数器
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_LOCATION_INTERFACE: {
+                //TODO: add location interface implementation
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_LOCATION_INTERFACE -> [NO IMPL]");
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_CORE_ASSETS_DIRECTORY: {
+                auto coreRuntime = core_runtime_context_.lock();
+                if (coreRuntime) {
+
+                }
+                //TODO: return core assets directory here, eg: psp
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_CORE_ASSETS_DIRECTORY , RETRO_ENVIRONMENT_GET_CONTENT_DIRECTORY -> [NO IMPL]");
-                //TODO:在这里返回内容目录
                 return false;
             }
             case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: {
@@ -188,6 +187,7 @@ namespace libRetroRunner {
                 return cmdSetSystemAudioVideoInfo(data);
             }
             case RETRO_ENVIRONMENT_SET_PROC_ADDRESS_CALLBACK: {
+                //用于从核心中获取一些函数来实现特殊的功能。需要自己维护这些拷贝。
                 LOGD_Env("call RETRO_ENVIRONMENT_SET_PROC_ADDRESS_CALLBACK -> [NO IMPL]");
                 return false;
             }
@@ -226,31 +226,39 @@ namespace libRetroRunner {
             case RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE: {
                 //返回前端硬件渲染的类型，不是所有核心都需要这个回调
                 //如果核心使用Vulkan, 需要返回 retro_hw_render_interface
-                LOGD_Env("call RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE -> [NO IMPL]");
-                //auto callback = static_cast<const struct retro_hw_render_interface **>(data);
-                return false;
+                auto video = AppContext::Current()->GetVideo();
+                if (video) {
+                    LOGD_Env("call RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE -> [by video component]");
+                    return video->getRetroHardwareRenderInterface((const retro_hw_render_interface **) (data));
+                } else {
+                    LOGD_Env("call RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE -> [NO IMPL]");
+                    return false;
+                }
             }
             case RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS: {
                 //通知前端核心是否支持成就
-                LOGD_Env("call RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS -> [NO IMPL]");
-                return true;
+                LOGD_Env("call RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS -> [FALSE]");
+                return false;
             }
             case RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE: {
                 //通知前端核心硬件渲染上下文协商接口
                 LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE %p", data);
-                const struct retro_hw_render_context_negotiation_interface *interface = static_cast<const struct retro_hw_render_context_negotiation_interface *>(data);
-                auto app = AppContext::Current();
-                if (app) {
-                    auto video = app->GetVideo();
-                    if (video) {
-                        video->setHWRenderContextNegotiationInterface(interface);
-                    }
+                const auto *interface = static_cast<const struct retro_hw_render_context_negotiation_interface *>(data);
+                auto core_ctx = core_runtime_context_.lock();
+                if (core_ctx) {
+                    core_ctx->negotiation_interface_ = interface;
+                    return true;
                 }
-                return true;
+                return false;
             }
             case RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS: {
                 //通知前端核心是否支持序列化特性
                 LOGD_Env("call RETRO_ENVIRONMENT_SET_SERIALIZATION_QUIRKS -> [NO IMPL]");
+                auto core_ctx = core_runtime_context_.lock();
+                if (core_ctx) {
+                    core_ctx->serialization_quirks_ = POINTER_VAL(int);
+                    return true;
+                }
                 return false;
             }
             case RETRO_ENVIRONMENT_SET_HW_SHARED_CONTEXT: {
@@ -489,9 +497,13 @@ namespace libRetroRunner {
     }
 
     bool Environment::cmdSetHardwareRender(void *data) {
+        if (data == nullptr) {
+            LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER -> null");
+            return false;
+        }
 
-        if (data == nullptr) return false;
         auto hwRender = static_cast<struct retro_hw_render_callback *>(data);
+        LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER %d", hwRender->context_type);
         auto core_ctx = core_runtime_context_.lock();
 
         core_ctx->SetRenderMajorVersion((int) hwRender->version_major);
@@ -613,7 +625,7 @@ namespace libRetroRunner {
         //通知前端支持的控制器信息，以方便用户选择不同的控制器,然后使用retro_set_controller_port_device进行设置
         LOGD_Env("call RETRO_ENVIRONMENT_SET_CONTROLLER_INFO -> save supported controller infos.");
         auto core_ctx = core_runtime_context_.lock();
-        struct retro_controller_info *controller = static_cast<struct retro_controller_info *>(data);
+        auto *controller = static_cast<struct retro_controller_info *>(data);
         while (controller != nullptr && controller->types != nullptr) {
             for (int i = 0; i < controller->num_types; ++i) {
                 const retro_controller_description controllerDesc = controller->types[i];
@@ -672,7 +684,6 @@ namespace libRetroRunner {
     void Environment::CoreCallbackNotifyAudioState(bool active, unsigned int occupancy, bool underrun_likely) {
         //TODO: 核心通知前端音频状态
     }
-
 
     retro_proc_address_t Environment::CoreCallbackGetProcAddress(const char *sym) {
         if (getHWProcAddress) {

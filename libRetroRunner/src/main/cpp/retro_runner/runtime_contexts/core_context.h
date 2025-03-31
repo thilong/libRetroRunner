@@ -15,6 +15,8 @@
 namespace libRetroRunner {
 
     class CoreRuntimeContext {
+        friend class Environment;
+
     public:
         CoreRuntimeContext();
 
@@ -52,6 +54,8 @@ namespace libRetroRunner {
 
         inline retro_hw_context_reset_t GetRenderHWContextDestroyCallback() const { return render_hw_context_destroy_; }
 
+        inline struct retro_hw_render_context_negotiation_interface *GetRenderHWNegotiationInterface() const { return negotiation_interface_; }
+
         //setter
         inline void SetCorePath(std::string core_path) { core_path_ = core_path; }
 
@@ -82,6 +86,8 @@ namespace libRetroRunner {
 
         inline void SetRenderHWContextDestroyCallback(retro_hw_context_reset_t render_hw_context_destroy) { render_hw_context_destroy_ = render_hw_context_destroy; }
 
+        inline void SetRenderHWNegotiationInterface(const struct retro_hw_render_context_negotiation_interface *negotiation_interface) { negotiation_interface_ = negotiation_interface; }
+
     private:
 
         std::string core_path_;
@@ -110,6 +116,11 @@ namespace libRetroRunner {
         retro_hw_context_reset_t render_hw_context_reset_;
         retro_hw_context_reset_t render_hw_context_destroy_;
 
+
+        const struct retro_hw_render_context_negotiation_interface *negotiation_interface_;
+
+
+        int serialization_quirks_;
     };
 
 }

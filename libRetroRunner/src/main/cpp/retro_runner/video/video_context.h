@@ -24,9 +24,6 @@ namespace libRetroRunner {
 
         virtual void Destroy() = 0;
 
-        /** return if video component should be load. */
-        virtual bool ShouldLoad() = 0;
-
         virtual bool Load() = 0;
 
         /*unload video output, keep context.*/
@@ -46,8 +43,8 @@ namespace libRetroRunner {
         /* dump video frame into a file, may fail, this should run on emu thread. */
         virtual bool TakeScreenshot(const std::string &path) = 0;
 
-        /*set render negotiation interface*/
-        virtual void setHWRenderContextNegotiationInterface(const void *) = 0;
+        /** provide hardware render interface, return false if no interface .  */
+        virtual bool getRetroHardwareRenderInterface(const struct retro_hw_render_interface **) { return false; };
 
         /* set the path to store the next screenshot, when finish dumping, path will be set to empty. */
         void SetNextScreenshotStorePath(std::string &path);

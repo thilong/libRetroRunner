@@ -274,7 +274,7 @@ namespace libRetroRunner {
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_LED_INTERFACE: {
-                //TODO:获取LED系统
+                //TODO: add led interface here.
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_LED_INTERFACE -> [NO IMPL]");
                 return false;
 
@@ -290,7 +290,7 @@ namespace libRetroRunner {
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_MIDI_INTERFACE: {
-                //TODO:获取MIDI系统
+                //TODO: return midi interface implementation
                 LOGD_Env("call RETRO_ENVIRONMENT_GET_MIDI_INTERFACE -> [NO IMPL]");
                 return false;
             }
@@ -345,9 +345,11 @@ namespace libRetroRunner {
                 std::string driver = Setting::Current()->GetVideoDriver();
                 if (driver.find("vulkan") != std::string::npos) {
                     POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_VULKAN;
-                } else {
+                } else if (driver.find("gl") != std::string::npos){
                     POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_OPENGL;
-                };
+                }else{
+                    POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_DUMMY;
+                }
                 return true;
             }
             case RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION: {

@@ -32,7 +32,6 @@
 #include <android/native_window.h>
 
 namespace libRetroRunner {
-    extern "C" JavaVM *gVm;
     extern "C" jobject gRRNativeRef;
 }
 #endif
@@ -170,6 +169,7 @@ namespace libRetroRunner {
 
     bool AppContext::Step() {
         processCommand();
+        //todo: save sram?
 
         if (!BIT_TEST(state_, AppState::kRunning)) return false;
 
@@ -215,22 +215,33 @@ namespace libRetroRunner {
         if (gettid() != emu_thread_id_) {
             LOGE_APP("AppContext::Stop should be called in emulation thread.");
         }
-        //TODO: save sram
-        //TODO: stop game
-
+        //TODO: save sram, cheat code
         BIT_UNSET(state_, AppState::kRunning);
         if (BIT_TEST(state_, AppState::kContentReady)) {
             core_->retro_unload_game();
             BIT_UNSET(state_, AppState::kContentReady);
+            LOGD_APP("unload content.");
         }
         if (BIT_TEST(state_, AppState::kCoreReady)) {
             core_->retro_deinit();
             BIT_UNSET(state_, AppState::kCoreReady);
+            LOGD_APP("unload core.");
         }
-
-
+        if (audio_) {
+            audio_->Destroy();
+            audio_ = nullptr;
+        }
+        if (video_) {
+            video_->Destroy();
+            video_ = nullptr;
+        }
+        input_ = nullptr;
+        core_ = nullptr;
+        environment_ = nullptr;
+        core_runtime_context_ = nullptr;
+        game_runtime_context_ = nullptr;
 #ifdef ANDROID
-        gVm->DetachCurrentThread();
+        jVm->DetachCurrentThread();
 #endif
     }
 
@@ -270,6 +281,8 @@ namespace libRetroRunner {
     }
 
     void AppContext::OnSurfaceChanged(void *env, void *surface, long surfaceId, unsigned int width, unsigned int height) {
+        if(!BIT_TEST(state_, AppState::kRunning)) return;
+
         LOGI_APP("Surface %p Changed: %d x %d", surface, width, height);
         app_window_.width = width;
         app_window_.height = height;
@@ -338,18 +351,19 @@ namespace libRetroRunner {
     void AppContext::processCommand() {
         std::shared_ptr<Command> command;
         while (command = command_queue_->Pop(), command) {
+            LOGD_APP("process command: %d", command->GetCommand());
             switch (command->GetCommand()) {
                 case AppCommands::kInitApp: {
                     commandInitApp();
-                    return;
+                    break;
                 }
                 case AppCommands::kLoadCore: {
                     commandLoadCore();
-                    return;
+                    break;
                 }
                 case AppCommands::kLoadContent: {
                     commandLoadContent();
-                    return;
+                    break;
                 }
                 case AppCommands::kInitComponents: {
                     commandInitComponents();
@@ -360,48 +374,48 @@ namespace libRetroRunner {
                     if (video_ && video_->Load()) {
                         BIT_SET(state_, AppState::kVideoReady);
                     }
-                    return;
+                    break;
                 }
                 case AppCommands::kUnloadVideo: {
                     BIT_UNSET(state_, AppState::kVideoReady);
                     if (video_) {
                         video_->Unload();
                     }
-                    return;
+                    break;
                 }
                 case AppCommands::kUpdateVideoSize: {
                     if (video_) {
                         video_->UpdateVideoSize(app_window_.width, app_window_.height);
                     }
-                    return;
+                    break;
                 }
 
                 case AppCommands::kResetGame: {
                     if (BIT_TEST(state_, AppState::kContentReady)) {
                         core_->retro_reset();
                     }
-                    return;
+                    break;
                 }
                 case AppCommands::kPauseGame: {
                     BIT_SET(state_, AppState::kPaused);
-                    return;
+                    break;
                 }
                 case AppCommands::kStopGame: {
                     BIT_UNSET(state_, AppState::kRunning);
-                    return;
+                    break;
                 }
 
                 case AppCommands::kEnableAudio: {
                     if (audio_) {
                         audio_->Start();
                     }
-                    return;
+                    break;
                 }
                 case AppCommands::kDisableAudio: {
                     if (audio_) {
                         audio_->Stop();
                     }
-                    return;
+                    break;
                 }
                 case AppCommands::kTakeScreenshot: {
                     if (command->GetCommandType() == CommandType::kThreadCommand) {
@@ -421,23 +435,23 @@ namespace libRetroRunner {
                             video_->SetNextScreenshotStorePath(savePath);
                         }
                     }
-                    return;
+                    break;
                 }
                 case AppCommands::kSaveSRAM: {
                     commandSaveSRAM(command);
-                    return;
+                    break;
                 }
                 case AppCommands::kLoadSRAM: {
                     commandLoadSRAM(command);
-                    return;
+                    break;
                 }
                 case AppCommands::kSaveState: {
                     commandSaveState(command);
-                    return;
+                    break;
                 }
                 case AppCommands::kLoadState: {
                     commandLoadState(command);
-                    return;
+                    break;
                 }
                 case AppCommands::kNone:
                 default:
@@ -484,7 +498,8 @@ namespace libRetroRunner {
         BIT_SET(state_, AppState::kRunning);
 
 #ifdef ANDROID
-        gVm->AttachCurrentThread(&thread_jni_env_, nullptr);
+        jVm->AttachCurrentThread(&thread_jni_env_, nullptr);
+        LOGD_APP("gvm attached to emu thread.");
 #endif
     }
 
@@ -557,6 +572,10 @@ namespace libRetroRunner {
     }
 
     void AppContext::commandInitComponents() {
+        if(!BIT_TEST(state_, AppState::kRunning)){
+            LOGE_APP("emu is not ready to run, skip create components.");
+            return;
+        }
         auto driver = Setting::Current()->GetVideoDriver();
         video_ = VideoContext::Create(driver, core_runtime_context_->GetRenderContextType());
         video_->SetGameContext(game_runtime_context_);

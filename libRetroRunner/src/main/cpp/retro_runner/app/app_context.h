@@ -75,6 +75,8 @@ namespace libRetroRunner {
 
         JNIEnv *GetJniEnv() const { return thread_jni_env_; };
 
+        void SetJavaVm(JavaVM *javaVm) { jVm = javaVm; }
+
 #endif
 
 
@@ -87,7 +89,9 @@ namespace libRetroRunner {
          * @param system    system folder for core
          * @param save      folder to save game states, ram, screenshots
          */
-        void CreateWithPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save);;
+        void
+        CreateWithPaths(const std::string &rom, const std::string &core, const std::string &system,
+                        const std::string &save);;
 
         bool Step();
 
@@ -104,7 +108,8 @@ namespace libRetroRunner {
 
         void Destroy();
 
-        void OnSurfaceChanged(void *env, void *surface, long surfaceId, unsigned width, unsigned height);
+        void
+        OnSurfaceChanged(void *env, void *surface, long surfaceId, unsigned width, unsigned height);
 
         void SetController(unsigned port, int retro_device);
 
@@ -180,11 +185,14 @@ namespace libRetroRunner {
         pid_t emu_thread_id_ = 0;
         FrontendNotifyCallback frontend_notify_ = nullptr;
 
-
 #ifdef ANDROID
+        JavaVM *jVm = nullptr;
         JNIEnv *thread_jni_env_ = nullptr;
 #endif
+
         AppWindow app_window_{};
+
+
     };
 
 }

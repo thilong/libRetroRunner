@@ -22,6 +22,8 @@ namespace libRetroRunner {
 
         virtual void Stop() = 0;
 
+        virtual void Destroy() = 0;
+
         virtual void OnAudioSample(int16_t left, int16_t right) = 0;
 
         virtual void OnAudioSampleBatch(const int16_t *data, size_t frames) = 0;

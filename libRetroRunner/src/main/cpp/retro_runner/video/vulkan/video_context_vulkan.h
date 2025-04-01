@@ -16,7 +16,6 @@ class VulkanSamplingTexture;
 class VulkanRWBuffer;
 
 
-
 namespace libRetroRunner {
 
     class VulkanInstance;
@@ -47,12 +46,19 @@ namespace libRetroRunner {
 
         bool TakeScreenshot(const std::string &path) override;
 
-        void setHWRenderContextNegotiationInterface(const void *interface) override;
-
     private:
         void recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex);
 
         void vulkanCommitFrame();
+
+
+    private:
+        const retro_hw_render_context_negotiation_interface_vulkan* getNegotiationInterface();
+
+        void createVkInstance();
+        bool isPhysicalDeviceSuitable(VkPhysicalDevice device, int *graphicsFamily);
+        void selectVkPhysicalDevice();
+        void createVkSurface();
 
     private:
         void *window_{};
@@ -62,18 +68,16 @@ namespace libRetroRunner {
         uint32_t screen_height_;
         bool is_ready_;
 
-        retro_vulkan_context *vk_context_{};
+        retro_vulkan_context *retro_vk_context_{};
 
-        VulkanInstance *vulkanInstance_{};
-        VulkanPipeline *vulkanPipeline_{};
-        VulkanSwapchain *vulkanSwapchain_{};
-        VulkanSamplingTexture *softwareTexture_{};
-        VulkanRWBuffer *vertexBuffer_{};
+        std::vector<const char *> vk_extensions_{};
+        VkInstance vk_instance_;
+        VkPhysicalDeviceFeatures vk_physical_device_feature_;
+        VkPhysicalDevice vk_physical_device_;
+        VkSurfaceKHR vk_surface_;
+
 
         bool vulkanIsReady_{};
-
-
-        const retro_hw_render_context_negotiation_interface_vulkan *retroHWNegotiationInterface_{};
 
     };
 }

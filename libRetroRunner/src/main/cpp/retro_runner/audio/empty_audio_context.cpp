@@ -32,4 +32,8 @@ namespace libRetroRunner {
     void EmptyAudioContext::OnAudioSampleBatch(const int16_t *data, size_t frames) {
 
     }
+
+    void EmptyAudioContext::Destroy() {
+
+    }
 }

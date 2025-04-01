@@ -42,9 +42,10 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void startRunnerIfNeeded() {
-        Log.d(TAG, "startRunnerIfNeeded , thread: " + Thread.currentThread().getId());
-        if (emuThread != null)
-            return;
+        Log.d(TAG, "startRunnerIfNeeded , ui thread: " + Thread.currentThread().getId());
+        if(RRNative.isEmuStarted()){
+            Log.d(TAG, "emu thread has already started.");
+        }
         getHolder().addCallback(this);
 
         RRNative.create(params.getRomPath(), params.getCorePath(), params.getSystemPath(), params.getSavePath());
@@ -54,13 +55,7 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
                 RRNative.addVariable(key, params.getVariables().get(key), false);
             }
         }
-        emuThread = new Thread(() -> {
-            Log.d(TAG, "emu thread running");
-            while (emuShouldRun && RRNative.step()) {
-            }
-            RRNative.stop();
-        });
-        emuThread.start();
+        RRNative.startEmuThread();
     }
 
     private void onEmuNotification(int cmd) {
@@ -78,16 +73,8 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
 
     public void onDestroy() {
         Log.w(TAG, "[VIEW] onDestroy");
-        emuShouldRun = false;
-        if (emuThread != null) {
-            try {
-                emuThread.join();
-            } catch (Exception e) {
-                Log.e(TAG, "[View] failed to wait emu thread join: " + e.getMessage());
-            }
-        }
+        RRNative.waitEmuThreadStop();
         RRNative.onEmuNotificationCallback = null;
-        RRNative.destroy();
     }
 
     @Override

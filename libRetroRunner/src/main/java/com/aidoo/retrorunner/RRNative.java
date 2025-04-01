@@ -59,6 +59,10 @@ public class RRNative {
      */
     public static native void addVariable(String key, String value, boolean notifyCore);
 
+    public static native boolean isEmuStarted();
+    public static native int startEmuThread();
+    public static native void waitEmuThreadStop();
+
     /*pause*/
     public static native void pause();
 

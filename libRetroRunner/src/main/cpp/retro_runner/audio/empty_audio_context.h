@@ -19,6 +19,8 @@ namespace libRetroRunner {
 
          void Stop() override;
 
+         void Destroy() override;
+
          void OnAudioSample(int16_t left, int16_t right) override;
 
          void OnAudioSampleBatch(const int16_t *data, size_t frames) override;

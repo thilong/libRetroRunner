@@ -41,7 +41,6 @@ namespace libRetroRunner {
 
         bool TakeScreenshot(const std::string &path) override;
 
-        void setHWRenderContextNegotiationInterface(const void *) override {}
 
     private:
 

@@ -334,28 +334,6 @@ namespace libRetroRunner {
         return true;
     }
 
-    void VulkanInstance::setRetroNegotiationInterface(const retro_hw_render_context_negotiation_interface_vulkan *interface) {
-        negotiationInterface_ = interface;
-    }
-
-    bool VulkanInstance::initByNegotiationInterface() {
-        VkApplicationInfo myAppInfo{
-                .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                .pApplicationName = "libRetroRunner",
-                .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-                .pEngineName = "No Engine",
-                .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-                .apiVersion = VK_API_VERSION_1_0,
-        };
-
-        const VkApplicationInfo *appInfo = &myAppInfo;
-        if (negotiationInterface_->get_application_info) {
-            appInfo = negotiationInterface_->get_application_info();
-        }
-        retroVkContext_ = new retro_vulkan_context;
-        //negotiationInterface_->create_device(retroVkContext_, )
-        return false;
-    }
 
 
 }

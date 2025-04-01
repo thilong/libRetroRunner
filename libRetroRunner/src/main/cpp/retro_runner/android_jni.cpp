@@ -1,6 +1,10 @@
+#include <thread>
+#include <memory>
+
 #include <jni.h>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
+
 
 #include "utils/jnistring.h"
 #include "types/log.h"
@@ -25,9 +29,8 @@
     if (env == nullptr) return _RET_FAIL
 
 namespace libRetroRunner {
-    extern "C" JavaVM *gVm = nullptr;
+    extern "C" JavaVM *javaVM = nullptr;
     extern "C" jobject gRRNativeRef = nullptr;
-
 }
 
 using namespace libRetroRunner;
@@ -37,11 +40,11 @@ void OnFrontendNotifyCallback(void *data) {
     auto notifyObj = (FrontendNotifyObject *) data;
     int notifyType = notifyObj->GetNotifyType();
     JNIEnv *env = nullptr;
-    gVm->AttachCurrentThread(&env, nullptr);
+    javaVM->AttachCurrentThread(&env, nullptr);
     jclass rrNativeClass = env->GetObjectClass(gRRNativeRef);
     jmethodID gRRNative_onFrontendNotify = env->GetStaticMethodID(rrNativeClass, "onEmuAppNotification", "(I)V");
     env->CallStaticVoidMethod(rrNativeClass, gRRNative_onFrontendNotify, notifyType);
-    gVm->DetachCurrentThread();
+    javaVM->DetachCurrentThread();
 
     switch (notifyType) {
         case kAppNotificationContentLoaded:
@@ -60,13 +63,14 @@ void OnFrontendNotifyCallback(void *data) {
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_initEnv(JNIEnv *env, jclass clazz, jobject rrNative) {
-    env->GetJavaVM(&(gVm));
+    env->GetJavaVM(&(javaVM));
     gRRNativeRef = env->NewGlobalRef(rrNative);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_create(JNIEnv *env, jclass clazz, jstring rom_path, jstring core_path, jstring system_path, jstring save_path) {
     const std::shared_ptr<AppContext> &app = AppContext::CreateNew();
+    app->SetJavaVm(javaVM);
     JString rom(env, rom_path);
     JString core(env, core_path);
     JString system(env, system_path);
@@ -90,6 +94,45 @@ Java_com_aidoo_retrorunner_RRNative_addVariable(JNIEnv *env, jclass clazz, jstri
     environment->UpdateVariable(keyVal.stdString(), valueVal.stdString(), notify_core);
 }
 
+
+std::unique_ptr<std::thread> emuThreadPtr = nullptr;
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_aidoo_retrorunner_RRNative_isEmuStarted(JNIEnv *env, jclass clazz) {
+    return emuThreadPtr != nullptr;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_aidoo_retrorunner_RRNative_startEmuThread(JNIEnv *env, jclass clazz) {
+    if (emuThreadPtr != nullptr) return -1;
+    emuThreadPtr = std::make_unique<std::thread>([]() {
+        LOGD_JNI("emu thread now running...");
+        auto app = AppContext::Current();
+        while (app->Step()) {
+
+        }
+        app->Stop();
+        LOGD_JNI("emu thread run end.");
+    });
+    return 0;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_aidoo_retrorunner_RRNative_waitEmuThreadStop(JNIEnv *env, jclass clazz) {
+    if (emuThreadPtr) {
+        if (emuThreadPtr->joinable()) {
+            emuThreadPtr->join();
+        }
+        emuThreadPtr = nullptr;
+        auto app = AppContext::Current();
+        if (app) {
+            app->Destroy();
+            LOGD_JNI("emu thread has stopped.");
+        }
+    } else {
+        LOGD_JNI("no emu thread exists.");
+    }
+}
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_aidoo_retrorunner_RRNative_pause(JNIEnv *env, jclass clazz) {
@@ -115,8 +158,7 @@ Java_com_aidoo_retrorunner_RRNative_stop(JNIEnv *env, jclass clazz) {
     if (app.get() != nullptr) app->Stop();
 }
 
-extern "C"
-JNIEXPORT jboolean JNICALL
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_aidoo_retrorunner_RRNative_step(JNIEnv *env, jclass clazz) {
     const std::shared_ptr<AppContext> &app = AppContext::Current();
     if (app) return app->Step();
@@ -160,7 +202,9 @@ Java_com_aidoo_retrorunner_RRNative_getAspectRatio(JNIEnv *env, jclass clazz) {
     auto app = AppContext::Current();
     if (!app) return 0;
     auto gameCtx = app->GetGameRuntimeContext();
-    return gameCtx->GetGeometryRotation();
+    if (gameCtx)
+        return gameCtx->GetGeometryRotation();
+    return 0;
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -168,7 +212,9 @@ Java_com_aidoo_retrorunner_RRNative_getGameWidth(JNIEnv *env, jclass clazz) {
     auto app = AppContext::Current();
     if (!app) return 0;
     auto gameCtx = app->GetGameRuntimeContext();
-    return (int) gameCtx->GetGeometryWidth();
+    if (gameCtx)
+        return (int) gameCtx->GetGeometryWidth();
+    return 0;
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -176,7 +222,9 @@ Java_com_aidoo_retrorunner_RRNative_getGameHeight(JNIEnv *env, jclass clazz) {
     auto app = AppContext::Current();
     if (!app) return 0;
     auto gameCtx = app->GetGameRuntimeContext();
-    return (int) gameCtx->GetGeometryHeight();
+    if (gameCtx)
+        return (int) gameCtx->GetGeometryHeight();
+    return 0;
 }
 
 extern "C" JNIEXPORT jint JNICALL

@@ -337,12 +337,4 @@ namespace libRetroRunner {
         vkEndCommandBuffer(commandBuffer);
     }
 
-    void VulkanVideoContext::setHWRenderContextNegotiationInterface(const void *interface) {
-        if (!interface) return;
-        auto baseInterface = static_cast<const retro_hw_render_context_negotiation_interface *>(interface);
-        if (baseInterface->interface_type == RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN) {
-            retroHWNegotiationInterface_ = static_cast<const retro_hw_render_context_negotiation_interface_vulkan *>(interface);
-        }
-    }
-
 }

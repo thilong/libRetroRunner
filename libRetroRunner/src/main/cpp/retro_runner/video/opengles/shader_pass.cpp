@@ -7,7 +7,7 @@
 #include "shader_pass.h"
 #include "shaders.h"
 #include "../../types/log.h"
-
+#include "../../app/app_context.h"
 
 #define LOGD_SP(...) LOGD("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
 #define LOGW_SP(...) LOGW("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
@@ -15,11 +15,9 @@
 #define LOGI_SP(...) LOGI("[VIDEO]:[SHADERPASS] " __VA_ARGS__)
 namespace libRetroRunner {
 #ifdef ANDROID
-    extern "C" JavaVM *gVm;
 
     void savePixelsToFile(GLubyte *flippedPixels, int width, int height, const std::string &path) {
-        JNIEnv *env = nullptr;
-        gVm->AttachCurrentThread(&env, nullptr);
+        JNIEnv *env = AppContext::Current()->GetJniEnv();
 
         // 3. 创建 Bitmap 对象
         jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
@@ -82,7 +80,6 @@ namespace libRetroRunner {
         env->DeleteLocalRef(fileObj);
         env->DeleteLocalRef(compressFormatClass);
         env->DeleteLocalRef(bitmapClass2);
-        gVm->DetachCurrentThread();
     }
 
 #else

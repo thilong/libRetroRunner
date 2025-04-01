@@ -27,9 +27,6 @@
 #define ENABLE_GL_DEBUG 1
 
 namespace libRetroRunner {
-
-    extern "C" JavaVM *gVm;
-
 #ifdef HAVE_GLES3
 
     static void MessageCallback(
@@ -164,7 +161,7 @@ namespace libRetroRunner {
 
         auto app = AppContext::Current();
         AppWindow appWindow = app->GetAppWindow();
-
+        if (surface_id_ == appWindow.surfaceId) return true;
         ANativeWindow_setBuffersGeometry(appWindow.window, 0, 0, egl_format_);
         EGLint window_attribs[] = {
                 EGL_RENDER_BUFFER, EGL_BACK_BUFFER,

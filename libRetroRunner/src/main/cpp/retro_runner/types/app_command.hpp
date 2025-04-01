@@ -9,6 +9,7 @@
 #include <random>
 #include <memory>
 #include <queue>
+#include <string>
 
 #include "semaphore_rr.h"
 
@@ -20,21 +21,21 @@ namespace libRetroRunner {
         kLoadCore,
         kLoadContent,
         kInitComponents,
-        kLoadVideo,
+        kLoadVideo,         //15
         kUnloadVideo,
         kUpdateVideoSize,
 
-        kResetGame,
+        kResetGame,         //18
         kPauseGame,
         kStopGame,
 
-        kEnableAudio,
+        kEnableAudio,       //21
         kDisableAudio,
 
         kTakeScreenshot,
 
         //---here
-        kSaveSRAM,
+        kSaveSRAM,          //24
         kLoadSRAM,
 
         kSaveState,
@@ -140,5 +141,7 @@ namespace libRetroRunner {
     };
 
 }
+
+
 
 #endif

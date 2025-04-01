@@ -132,5 +132,12 @@ namespace libRetroRunner {
         return 1.0 - (finalAdjustment);
     }
 
+    void OboeAudioContext::Destroy() {
+        audioStream->requestStop();
+        audioFifoBuffer = nullptr;
+        audioStreamBuffer = nullptr;
+        latencyTuner = nullptr;
+    }
+
 
 }

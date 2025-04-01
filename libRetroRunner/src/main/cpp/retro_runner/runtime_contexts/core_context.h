@@ -54,7 +54,7 @@ namespace libRetroRunner {
 
         inline retro_hw_context_reset_t GetRenderHWContextDestroyCallback() const { return render_hw_context_destroy_; }
 
-        inline struct retro_hw_render_context_negotiation_interface *GetRenderHWNegotiationInterface() const { return negotiation_interface_; }
+        inline const struct retro_hw_render_context_negotiation_interface *GetRenderHWNegotiationInterface() const { return negotiation_interface_; }
 
         //setter
         inline void SetCorePath(std::string core_path) { core_path_ = core_path; }

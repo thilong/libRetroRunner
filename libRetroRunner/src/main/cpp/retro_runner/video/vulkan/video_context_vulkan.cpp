@@ -24,12 +24,25 @@
 #include "vk_sampling_texture.h"
 #include "vk_read_write_buffer.h"
 
-#define LOGD_VVC(...) LOGD("[Video] " __VA_ARGS__)
-#define LOGW_VVC(...) LOGW("[Video] " __VA_ARGS__)
-#define LOGE_VVC(...) LOGE("[Video] " __VA_ARGS__)
-#define LOGI_VVC(...) LOGI("[Video] " __VA_ARGS__)
+#define LOGD_VVC(...) LOGD("[Vulkan] " __VA_ARGS__)
+#define LOGW_VVC(...) LOGW("[Vulkan] " __VA_ARGS__)
+#define LOGE_VVC(...) LOGE("[Vulkan] " __VA_ARGS__)
+#define LOGI_VVC(...) LOGI("[Vulkan] " __VA_ARGS__)
 
 #define CHECK_VK_OBJ_NOT_NULL(arg, msg) if (arg == nullptr) { LOGE_VVC(msg); return false; }
+
+#define VVC_ASSERT_RETURN(_CON_, _MSG_, _RET_VALUE_) \
+    if (!(_CON_)) {          \
+        LOGE_VVC(_MSG_);        \
+        return _RET_VALUE_;       \
+    }
+
+#define VVC_ASSERT(_CON_, _MSG_) \
+    if (!(_CON_)) {          \
+        LOGE_VVC(_MSG_);        \
+        return;       \
+    }
+
 
 void *getVKApiAddress(const char *sym) {
     void *libvulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
@@ -43,12 +56,14 @@ namespace libRetroRunner {
     VulkanVideoContext::VulkanVideoContext() {
         InitVulkanApi();
         getHWProcAddress = (rr_hardware_render_proc_address_t) &getVKApiAddress;
-        vulkanInstance_ = nullptr;
-        vulkanPipeline_ = nullptr;
         screen_width_ = 1;
         screen_height_ = 100;
         is_ready_ = false;
-        vk_context_ = nullptr;
+        retro_vk_context_ = nullptr;
+        vk_instance_ = VK_NULL_HANDLE;
+        vk_physical_device_ = VK_NULL_HANDLE;
+        vk_surface_ = VK_NULL_HANDLE;
+        
     }
 
     VulkanVideoContext::~VulkanVideoContext() {
@@ -60,76 +75,55 @@ namespace libRetroRunner {
         auto coreCtx = appContext->GetCoreRuntimeContext();
         auto gameCtx = appContext->GetGameRuntimeContext();
         core_pixel_format_ = coreCtx->GetPixelFormat();
-
         if (!InitVulkanApi()) {
             LOGE_VVC("Failed to init vulkan api.");
             return false;
         }
-        if (vulkanInstance_ == nullptr) {
-            vulkanInstance_ = new VulkanInstance();
-            if (retroHWNegotiationInterface_) {
-                vulkanInstance_->setRetroNegotiationInterface(retroHWNegotiationInterface_);
-            }
-            vulkanInstance_->setEnableLogger(true);
-            if (!vulkanInstance_->init()) {
-                vulkanInstance_->destroy();
-                delete vulkanInstance_;
-                vulkanInstance_ = nullptr;
-                LOGE_VVC("Failed to init vulkan instance.");
-                return false;
-            }
 
+        createVkInstance();
+        VVC_ASSERT_RETURN(vk_instance_ != VK_NULL_HANDLE, "vulkan instance should not be null.", false);
+        selectVkPhysicalDevice();
+        VVC_ASSERT_RETURN(vk_physical_device_ != VK_NULL_HANDLE, "no suitable gpu.", false);
+        createVkSurface();
+        VVC_ASSERT_RETURN(vk_surface_ != VK_NULL_HANDLE, "no surface found.", false)
+
+        if (!retro_vk_context_) {
+            retro_vk_context_ = new retro_vulkan_context();
         }
-        CHECK_VK_OBJ_NOT_NULL(vulkanInstance_, "vulkan instance is null.")
-        if (vulkanPipeline_ == nullptr) {
-            vulkanPipeline_ = new VulkanPipeline(vulkanInstance_->getLogicalDevice());
-            if (!vulkanPipeline_->init(width_, height_)) {
-                delete vulkanPipeline_;
-                vulkanPipeline_ = nullptr;
-                LOGE_VVC("Failed to init vulkan pipeline.");
+
+        auto iNegotiation = getNegotiationInterface();
+
+        if (iNegotiation && iNegotiation->create_device) {
+            LOGD_VVC("negotiation: %p", vkGetInstanceProcAddr(vk_instance_, "vkGetDeviceProcAddr"));
+            bool createDeviceResult = iNegotiation->create_device(retro_vk_context_, vk_instance_, vk_physical_device_, vk_surface_,
+                                                                  vkGetInstanceProcAddr,
+                                                                  vk_extensions_.data(), vk_extensions_.size(),
+                                                                  nullptr, 0, &vk_physical_device_feature_);
+            if (!createDeviceResult) {
+                LOGE_VVC("[NEGOTIATION] failed to create device");
                 return false;
             }
+            vulkanIsReady_ = true;
+            return true;
         }
-        CHECK_VK_OBJ_NOT_NULL(vulkanPipeline_, "vulkan pipe line is null.")
-        if (vulkanSwapchain_ == nullptr) {
-            vulkanSwapchain_ = new VulkanSwapchain();
-            vulkanSwapchain_->setInstance(vulkanInstance_->getInstance());
-            vulkanSwapchain_->setPhysicalDevice(vulkanInstance_->getPhysicalDevice());
-            vulkanSwapchain_->setLogicalDevice(vulkanInstance_->getLogicalDevice());
-            vulkanSwapchain_->setQueueFamilyIndex(vulkanInstance_->getQueueFamilyIndex());
-            vulkanSwapchain_->setRenderPass(vulkanPipeline_->getRenderPass());
-            vulkanSwapchain_->setCommandPool(vulkanInstance_->getCommandPool());
-            if (!vulkanSwapchain_->init(window_)) {
-                delete vulkanSwapchain_;
-                vulkanSwapchain_ = nullptr;
-                LOGE_VVC("Failed to init vulkan swapchain.");
-                return false;
-            }
-        }
-        CHECK_VK_OBJ_NOT_NULL(vulkanSwapchain_, "vulkan swapchain is null.")
-        vulkanIsReady_ = true;
-        return true;
+        vulkanIsReady_ = false;
+        return false;
     }
 
     void VulkanVideoContext::Destroy() {
-
+        if (retro_vk_context_) {
+            delete retro_vk_context_;
+            retro_vk_context_ = nullptr;
+        }
     }
 
     void VulkanVideoContext::Unload() {
         vulkanIsReady_ = false;
-        if (vulkanSwapchain_) {
-            vkQueueWaitIdle(vulkanInstance_->getGraphicQueue());
-            vkDeviceWaitIdle(vulkanInstance_->getLogicalDevice());
-            delete vulkanSwapchain_;
-            vulkanSwapchain_ = nullptr;
-        }
-
     }
 
     void VulkanVideoContext::UpdateVideoSize(unsigned int width, unsigned int height) {
 
     }
-
 
     /*
     void VulkanVideoContext::SetSurface(int argc, void **argv) {
@@ -180,17 +174,6 @@ namespace libRetroRunner {
 
     void VulkanVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {
         if (data && data != RETRO_HW_FRAME_BUFFER_VALID && vulkanIsReady_) {
-            if (softwareTexture_ == nullptr || !(softwareTexture_->getWidth() == width && softwareTexture_->getHeight() == height)) {
-                if (softwareTexture_) {
-                    delete softwareTexture_;
-                }
-                softwareTexture_ = new VulkanSamplingTexture(vulkanInstance_->getPhysicalDevice(), vulkanInstance_->getLogicalDevice(), vulkanInstance_->getQueueFamilyIndex());
-                softwareTexture_->create(width, height);
-            }
-            softwareTexture_->update(vulkanInstance_->getGraphicQueue(), vulkanInstance_->getCommandPool(), data, pitch * height, core_pixel_format_);
-            VkDescriptorSet descriptorSet = vulkanPipeline_->getDescriptorSet();
-            if (descriptorSet)
-                softwareTexture_->updateToDescriptorSet(descriptorSet);
 
         }
         if (data)
@@ -198,9 +181,7 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::DrawFrame() {
-        if (vulkanIsReady_ && softwareTexture_) {
-            vulkanCommitFrame();
-        }
+
     }
 
 
@@ -210,59 +191,6 @@ namespace libRetroRunner {
 
     void VulkanVideoContext::vulkanCommitFrame() {
 
-        uint32_t nextImageIndex = 0;
-        VkSemaphore semaphore = vulkanSwapchain_->getSemaphore();
-        VkFence fence = vulkanSwapchain_->getFence();
-        VkDevice logicalDevice = vulkanInstance_->getLogicalDevice();
-        VkSwapchainKHR swapchain = vulkanSwapchain_->getSwapchain();
-
-        VkResult acquireImageResult = vkAcquireNextImageKHR(logicalDevice, swapchain, UINT64_MAX, semaphore, fence, &nextImageIndex);
-        VkCommandBuffer commandBuffer = vulkanSwapchain_->getCommandBuffer(nextImageIndex);
-        vkResetCommandBuffer(commandBuffer, 0);
-
-        recordCommandBufferForSoftwareRender(commandBuffer, nextImageIndex);
-
-        if (acquireImageResult != VK_SUCCESS) {
-            LOGE_VC("Failed to acquire next image!\n");
-            return;
-        }
-        vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, UINT64_MAX);
-        if (vkResetFences(logicalDevice, 1, &fence) != VK_SUCCESS) {
-            LOGE_VC("Failed to reset fence!\n");
-            return;
-        }
-
-        VkQueue queue = vulkanInstance_->getGraphicQueue();
-
-        VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo submit_info = {
-                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                .pNext = nullptr,
-                .waitSemaphoreCount = 1,
-                .pWaitSemaphores = &semaphore,
-                .pWaitDstStageMask = &waitStageMask,
-                .commandBufferCount = 1,
-                .pCommandBuffers = &commandBuffer,
-                .signalSemaphoreCount = 0,
-                .pSignalSemaphores = nullptr};
-        VkResult submitResult = vkQueueSubmit(queue, 1, &submit_info, fence);
-        if (submitResult != VK_SUCCESS) {
-            LOGE_VC("Failed to submit queue: %d", submitResult);
-            return;
-        }
-
-        VkResult result;
-        VkPresentInfoKHR presentInfo{
-                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-                .pNext = nullptr,
-                .waitSemaphoreCount = 0,
-                .pWaitSemaphores = nullptr,
-                .swapchainCount = 1,
-                .pSwapchains = &swapchain,
-                .pImageIndices = &nextImageIndex,
-                .pResults = &result,
-        };
-        vkQueuePresentKHR(queue, &presentInfo);
     }
 
     struct VObject {
@@ -283,71 +211,124 @@ namespace libRetroRunner {
 
     void VulkanVideoContext::recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex) {
 
-        if (vertexBuffer_ == nullptr) {
-            vertexBuffer_ = new VulkanRWBuffer(vulkanInstance_->getPhysicalDevice(), vulkanInstance_->getLogicalDevice(), vulkanInstance_->getQueueFamilyIndex());
-            vertexBuffer_->create(sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-            vertexBuffer_->update(vertices, sizeof(vertices));
-        }
-
-        VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-        VkCommandBuffer commandBuffer = (VkCommandBuffer) pCommandBuffer;
-
-        VkCommandBufferBeginInfo beginInfo{
-                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-                .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
-        };
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-        VkRenderPassBeginInfo renderPassInfo{};
-        {
-            renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            renderPassInfo.renderPass = vulkanPipeline_->getRenderPass();
-            renderPassInfo.framebuffer = vulkanSwapchain_->getFramebuffer(imageIndex);
-            renderPassInfo.renderArea.offset = {0, 0};
-            renderPassInfo.renderArea.extent = vulkanSwapchain_->getExtent();
-
-            renderPassInfo.clearValueCount = 1;
-            renderPassInfo.pClearValues = &clearColor;
-        }
-        vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline_->getPipeline());
-
-        VkViewport viewport{
-                .width = (float) width_,
-                .height = (float) height_,
-                .minDepth = 0.0f,
-                .maxDepth = 1.0f
-        };
-        VkRect2D scissor{
-                .offset = {0, 0},
-                .extent = {width_, width_}
-        };
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-        //绑定顶点缓冲区
-        VkDeviceSize offsets[] = {0};
-        VkBuffer vertexBuffer = vertexBuffer_->getBuffer();
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
-
-        //绑定描述符集（纹理）
-        VkDescriptorSet descriptorSet = vulkanPipeline_->getDescriptorSet();
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline_->getLayout(),
-                                0, 1, &descriptorSet, 0, nullptr);
-
-        vkCmdDraw(commandBuffer, 6, 1, 0, 0);
-
-        vkCmdEndRenderPass(commandBuffer);
-        vkEndCommandBuffer(commandBuffer);
     }
 
-    void VulkanVideoContext::setHWRenderContextNegotiationInterface(const void *interface) {
-        if (!interface) return;
-        auto baseInterface = static_cast<const retro_hw_render_context_negotiation_interface *>(interface);
-        if (baseInterface->interface_type == RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN) {
-            retroHWNegotiationInterface_ = static_cast<const retro_hw_render_context_negotiation_interface_vulkan *>(interface);
+
+    //=== VULKAN methods ==============================
+
+    const retro_hw_render_context_negotiation_interface_vulkan *VulkanVideoContext::getNegotiationInterface() {
+        auto interface = AppContext::Current()->GetCoreRuntimeContext()->GetRenderHWNegotiationInterface();
+        if (interface && interface->interface_type == RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN) {
+            return (const retro_hw_render_context_negotiation_interface_vulkan *) interface;
+        }
+        return nullptr;
+    }
+
+    void VulkanVideoContext::createVkInstance() {
+        if (vk_instance_) return;
+        vk_extensions_.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+
+#ifdef ANDROID
+        vk_extensions_.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+#endif
+        VkApplicationInfo appInfo{
+                .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+                .pApplicationName = "libRetroRunner",
+                .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+                .pEngineName = "No Engine",
+                .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+                .apiVersion = VK_API_VERSION_1_0,
+        };
+        VkInstanceCreateInfo createInfo{
+                .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                .pApplicationInfo = &appInfo,
+                .enabledExtensionCount = static_cast<uint32_t>(vk_extensions_.size()),
+                .ppEnabledExtensionNames = vk_extensions_.data()
+        };
+        auto iNegotiation = getNegotiationInterface();
+
+        if (iNegotiation && iNegotiation->get_application_info) {
+            auto negotiationAppInfo = iNegotiation->get_application_info();
+            createInfo.pApplicationInfo = negotiationAppInfo;
+        }
+        VkResult createResult = vkCreateInstance(&createInfo, nullptr, &vk_instance_);
+        if (createResult != VK_SUCCESS || vk_instance_ == nullptr) {
+            LOGE_VVC("failed to create vulkan instance: %d", createResult);
+        } else {
+            LOGD_VVC("Instance:\t\t%p", vk_instance_);
         }
     }
+
+    bool VulkanVideoContext::isPhysicalDeviceSuitable(VkPhysicalDevice device, int *graphicsFamily) {
+        uint32_t queueFamilyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+        *graphicsFamily = -1;
+
+        for (int idx = 0; idx < queueFamilies.size(); idx++) {
+            const auto &queueFamily = queueFamilies[idx];
+            if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                *graphicsFamily = idx;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void VulkanVideoContext::selectVkPhysicalDevice() {
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(vk_instance_, &deviceCount, nullptr);
+        VVC_ASSERT(deviceCount != 0, "Can't find any gpu for vulkan.")
+
+        LOGD_VVC("gpu device count: %d", deviceCount);
+
+        std::vector<VkPhysicalDevice> physicalDevices(deviceCount);
+        VkResult result = vkEnumeratePhysicalDevices(vk_instance_, &deviceCount, physicalDevices.data());
+        if (result != VK_SUCCESS) {
+            LOGE_VVC("Error finding physical device:%d", result);
+            return;
+        }
+
+        //TODO:Better way to choose physical device?
+        for (const auto &device: physicalDevices) {
+            int graphicsFamily = -1;
+            VkPhysicalDeviceProperties deviceProperties;
+            vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+            if ((deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
+                 deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) &&
+                isPhysicalDeviceSuitable(device, &graphicsFamily)) {
+                vk_physical_device_ = device;
+                LOGD_VVC("physical device:\t%s", deviceProperties.deviceName);
+                //LOGD_VC("graphics family:\t%d", graphicsFamily);
+                break;
+            }
+        }
+        VVC_ASSERT(vk_physical_device_ != VK_NULL_HANDLE, "Can not find any suitable physical device.\n")
+    }
+
+    void VulkanVideoContext::createVkSurface() {
+        if (vk_surface_) return;
+
+        auto app = AppContext::Current();
+        auto appWindow = app->GetAppWindow();
+        VkAndroidSurfaceCreateInfoKHR createInfo{
+                .sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
+                .pNext = nullptr,
+                .flags = 0,
+                .window = (ANativeWindow *) appWindow.window
+        };
+        VkResult createRet = vkCreateAndroidSurfaceKHR(vk_instance_, &createInfo, nullptr, &vk_surface_);
+        if (createRet != VK_SUCCESS || vk_surface_ == VK_NULL_HANDLE) {
+            LOGE_VC("Surface create failed:  %d\n", createRet);
+        } else {
+            LOGD_VC("Surface KHR:\t\t%p\n", vk_surface_);
+        }
+
+
+    }
+
 
 }

@@ -44,7 +44,7 @@ namespace libRetroRunner {
         virtual bool TakeScreenshot(const std::string &path) = 0;
 
         /** provide hardware render interface, return false if no interface .  */
-        virtual bool getRetroHardwareRenderInterface(const struct retro_hw_render_interface **) { return false; };
+        virtual bool getRetroHardwareRenderInterface(void **) { return false; };
 
         /* set the path to store the next screenshot, when finish dumping, path will be set to empty. */
         void SetNextScreenshotStorePath(std::string &path);

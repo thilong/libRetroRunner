@@ -63,7 +63,7 @@ namespace libRetroRunner {
         vk_instance_ = VK_NULL_HANDLE;
         vk_physical_device_ = VK_NULL_HANDLE;
         vk_surface_ = VK_NULL_HANDLE;
-        
+        retro_render_interface_ = nullptr;
     }
 
     VulkanVideoContext::~VulkanVideoContext() {
@@ -80,6 +80,11 @@ namespace libRetroRunner {
             return false;
         }
 
+        //create vk context
+
+        //context_reset
+
+        /*
         createVkInstance();
         VVC_ASSERT_RETURN(vk_instance_ != VK_NULL_HANDLE, "vulkan instance should not be null.", false);
         selectVkPhysicalDevice();
@@ -106,6 +111,7 @@ namespace libRetroRunner {
             vulkanIsReady_ = true;
             return true;
         }
+         */
         vulkanIsReady_ = false;
         return false;
     }
@@ -118,55 +124,13 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::Unload() {
+        //context_destroy
         vulkanIsReady_ = false;
     }
 
     void VulkanVideoContext::UpdateVideoSize(unsigned int width, unsigned int height) {
 
     }
-
-    /*
-    void VulkanVideoContext::SetSurface(int argc, void **argv) {
-        JNIEnv *env = (JNIEnv *) argv[0];
-        jobject surface = (jobject) argv[1];
-        if (surface == nullptr) {
-            window_ = nullptr;
-            vulkanIsReady_ = false;
-            if (vulkanInstance_ && vulkanSwapchain_) {
-                vkQueueWaitIdle(vulkanInstance_->getGraphicQueue());
-                vkDeviceWaitIdle(vulkanInstance_->getLogicalDevice());
-                delete vulkanSwapchain_;
-                vulkanSwapchain_ = nullptr;
-            }
-        } else {
-            ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
-            if (window == nullptr) {
-                LOGE_VVC("Failed to get ANativeWindow from surface.");
-                return;
-            }
-            window_ = window;
-        }
-    }
-
-    void VulkanVideoContext::SetSurfaceSize(unsigned int width, unsigned int height) {
-        if (width_ == width && height_ == height) {
-            return;
-        }
-        width_ = width;
-        height_ = height;
-
-        if (vulkanIsReady_ && vulkanSwapchain_) {
-            vulkanIsReady_ = false;
-            vkQueueWaitIdle(vulkanInstance_->getGraphicQueue());
-            vkDeviceWaitIdle(vulkanInstance_->getLogicalDevice());
-            delete vulkanSwapchain_;
-            vulkanSwapchain_ = nullptr;
-            vkQueueWaitIdle(vulkanInstance_->getGraphicQueue());
-            vkDeviceWaitIdle(vulkanInstance_->getLogicalDevice());
-            Init();
-
-        }
-    }*/
 
     void VulkanVideoContext::Prepare() {
 
@@ -184,9 +148,13 @@ namespace libRetroRunner {
 
     }
 
-
     bool VulkanVideoContext::TakeScreenshot(const std::string &path) {
         return false;
+    }
+
+    bool VulkanVideoContext::getRetroHardwareRenderInterface(void **interface) {
+        *interface = retro_render_interface_;
+        return retro_render_interface_ != nullptr;
     }
 
     void VulkanVideoContext::vulkanCommitFrame() {

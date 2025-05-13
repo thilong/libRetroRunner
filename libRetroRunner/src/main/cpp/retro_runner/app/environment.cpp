@@ -229,7 +229,7 @@ namespace libRetroRunner {
                 auto video = AppContext::Current()->GetVideo();
                 if (video) {
                     LOGD_Env("call RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE -> [by video component]");
-                    return video->getRetroHardwareRenderInterface((const retro_hw_render_interface **) (data));
+                    return video->getRetroHardwareRenderInterface((void **) (data));
                 } else {
                     LOGD_Env("call RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE -> [NO IMPL]");
                     return false;

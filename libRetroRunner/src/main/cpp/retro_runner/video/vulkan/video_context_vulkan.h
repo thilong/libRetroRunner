@@ -46,6 +46,8 @@ namespace libRetroRunner {
 
         bool TakeScreenshot(const std::string &path) override;
 
+        bool getRetroHardwareRenderInterface(void **) override;
+
     private:
         void recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex);
 
@@ -68,7 +70,9 @@ namespace libRetroRunner {
         uint32_t screen_height_;
         bool is_ready_;
 
-        retro_vulkan_context *retro_vk_context_{};
+        retro_vulkan_context *retro_vk_context_;
+
+        retro_hw_render_interface_vulkan *retro_render_interface_;
 
         std::vector<const char *> vk_extensions_{};
         VkInstance vk_instance_;

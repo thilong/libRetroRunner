@@ -44,7 +44,8 @@ public class RetroRunnerActivity extends AppCompatActivity {
             FileUtil.copyFromAsses(this, "bj.cdi", testRom);
         } else if (platform.equals("psp")) {
             testRom = getExternalFilesDir(null).getAbsolutePath() + "/psp.iso";
-            testCore = "libppsspp.so";
+            //testCore = "libppsspp.so";
+            testCore = "libppsspp_libretro_android.so";
         }
 
         RRParam runnerArgument = new RRParam();

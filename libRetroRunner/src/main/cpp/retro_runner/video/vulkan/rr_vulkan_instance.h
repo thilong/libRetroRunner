@@ -16,7 +16,7 @@ namespace libRetroRunner {
         ~VulkanInstance();
 
 
-        bool createInstance();
+        bool createInstance(const VkApplicationInfo *extVkAppInfo);
 
         bool createLogger();
 
@@ -24,7 +24,7 @@ namespace libRetroRunner {
 
         bool createLogicalDevice();
         bool createCommandPool();
-        bool init();
+        bool init(const VkApplicationInfo *extVkAppInfo);
 
         void destroy();
 

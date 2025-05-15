@@ -26,6 +26,7 @@ int InitVulkanApi(void);
 
 // VK_core
 extern PFN_vkCreateInstance vkCreateInstance;
+extern PFN_vkEnumerateInstanceVersion vkEnumerateInstanceVersion;
 extern PFN_vkDestroyInstance vkDestroyInstance;
 extern PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
 extern PFN_vkGetPhysicalDeviceFeatures vkGetPhysicalDeviceFeatures;

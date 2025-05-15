@@ -19,11 +19,13 @@ namespace libRetroRunner {
         render_stencil_ = false;
         render_hw_context_destroy_ = nullptr;
         render_hw_context_reset_ = nullptr;
+        negotiation_interface_ = nullptr;
     }
 
     CoreRuntimeContext::~CoreRuntimeContext() {
         render_hw_context_destroy_ = nullptr;
         render_hw_context_reset_ = nullptr;
+        negotiation_interface_ = nullptr;
     }
 }
 

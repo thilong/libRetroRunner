@@ -114,14 +114,14 @@ namespace libRetroRunner {
 
             if (enableLogger_ && strstr(ext.extensionName, "debug")) {
                 extensions_.push_back(ext.extensionName);
-                LOGD_VC(" - %s [selected]", ext.extensionName);
+                LOGD_VC(" - %s \t\t[selected]", ext.extensionName);
             } else {
                 LOGD_VC(" - %s", ext.extensionName);
             }
         }
     }
 
-    bool VulkanInstance::createInstance() {
+    bool VulkanInstance::createInstance(const VkApplicationInfo *extVkAppInfo) {
         if (instance_) {
             LOGW_VC("Vulkan instance already created.");
             return true;
@@ -134,7 +134,7 @@ namespace libRetroRunner {
 
         VkApplicationInfo appInfo{
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                .pApplicationName = "libRetroRunner",
+                .pApplicationName = "RetroRunner",
                 .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
                 .pEngineName = "No Engine",
                 .engineVersion = VK_MAKE_VERSION(1, 0, 0),
@@ -143,7 +143,7 @@ namespace libRetroRunner {
 
         VkInstanceCreateInfo createInfo{
                 .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                .pApplicationInfo = &appInfo,
+                .pApplicationInfo = (extVkAppInfo != nullptr ? extVkAppInfo : &appInfo),
                 .enabledExtensionCount = static_cast<uint32_t>(extensions_.size()),
                 .ppEnabledExtensionNames = extensions_.data()
         };
@@ -273,7 +273,7 @@ namespace libRetroRunner {
         return true;
     }
 
-    bool VulkanInstance::init() {
+    bool VulkanInstance::init(const VkApplicationInfo *extVkAppInfo) {
         if (allReady) return true;
 
         extensions_.clear();
@@ -282,7 +282,7 @@ namespace libRetroRunner {
             logAvailableExtensions();
             logAvailableLayers();
         }
-        if (!createInstance()) return false;
+        if (!createInstance(extVkAppInfo)) return false;
         createLogger();
         if (!choosePhysicalDevice()) return false;
         if (!createLogicalDevice()) return false;
@@ -333,7 +333,6 @@ namespace libRetroRunner {
         }
         return true;
     }
-
 
 
 }

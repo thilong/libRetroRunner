@@ -48,22 +48,36 @@ namespace libRetroRunner {
 
         bool getRetroHardwareRenderInterface(void **) override;
 
+
+    public:
+        VkInstance retro_vulkan_create_instance_wrapper(const VkInstanceCreateInfo *create_info);
+
+        VkDevice retro_vulkan_create_device_wrapper(VkPhysicalDevice gpu, const VkDeviceCreateInfo *create_info);
+
     private:
         void recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex);
 
         void vulkanCommitFrame();
 
+        bool vulkanCreateInstanceIfNeeded();
+
+        bool vulkanCreateSurfaceIfNeeded();
+
+        bool vulkanChooseGPU();
+
+        bool vulkanCreateDeviceIfNeeded();
+
+        bool vulkanCreateSwapchainIfNeeded();
+
+
+
+        bool vulkanClearSwapchainIfNeeded();
+    private:
+        const retro_hw_render_context_negotiation_interface_vulkan *getNegotiationInterface();
 
     private:
-        const retro_hw_render_context_negotiation_interface_vulkan* getNegotiationInterface();
-
-        void createVkInstance();
-        bool isPhysicalDeviceSuitable(VkPhysicalDevice device, int *graphicsFamily);
-        void selectVkPhysicalDevice();
-        void createVkSurface();
-
-    private:
-        void *window_{};
+        void *window_;
+        long surface_id_ = 0;
         int core_pixel_format_;
 
         uint32_t screen_width_;
@@ -71,17 +85,29 @@ namespace libRetroRunner {
         bool is_ready_;
 
         retro_vulkan_context *retro_vk_context_;
-
         retro_hw_render_interface_vulkan *retro_render_interface_;
+        VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures{};
 
-        std::vector<const char *> vk_extensions_{};
-        VkInstance vk_instance_;
-        VkPhysicalDeviceFeatures vk_physical_device_feature_;
-        VkPhysicalDevice vk_physical_device_;
-        VkSurfaceKHR vk_surface_;
-
+        VulkanInstance *vkInstance_;
+        VulkanPipeline *vkPipeline_;
+        VulkanSwapchain *vkSwapchain_;
 
         bool vulkanIsReady_{};
+
+
+        VkInstance instance_;
+        VkPhysicalDevice physicalDevice_;
+        VkPhysicalDeviceProperties physicalDeviceProperties_{};
+        VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties_{};
+
+        uint32_t queueFamilyIndex_;
+
+        VkSurfaceKHR surface_;
+
+        VkDevice logicalDevice_;
+        VkQueue graphicQueue_;
+
+        retro_vulkan_destroy_device_t destroyDeviceImpl_;
 
     };
 }

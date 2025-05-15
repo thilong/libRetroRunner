@@ -244,9 +244,10 @@ namespace libRetroRunner {
                 //通知前端核心硬件渲染上下文协商接口
                 LOGD_Env("call RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE %p", data);
                 const auto *interface = static_cast<const struct retro_hw_render_context_negotiation_interface *>(data);
+                //const auto *interfaceVulkan = static_cast<const struct retro_hw_render_context_negotiation_interface_vulkan *>(data);
                 auto core_ctx = core_runtime_context_.lock();
                 if (core_ctx) {
-                    core_ctx->negotiation_interface_ = interface;
+                    core_ctx->SetRenderHWNegotiationInterface(interface);
                     return true;
                 }
                 return false;
@@ -345,9 +346,9 @@ namespace libRetroRunner {
                 std::string driver = Setting::Current()->GetVideoDriver();
                 if (driver.find("vulkan") != std::string::npos) {
                     POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_VULKAN;
-                } else if (driver.find("gl") != std::string::npos){
+                } else if (driver.find("gl") != std::string::npos) {
                     POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_OPENGL;
-                }else{
+                } else {
                     POINTER_VAL(retro_hw_context_type) = RETRO_HW_CONTEXT_DUMMY;
                 }
                 return true;

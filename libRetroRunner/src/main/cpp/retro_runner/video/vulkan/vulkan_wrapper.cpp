@@ -22,6 +22,7 @@ int InitVulkanApi(void) {
 
     // Vulkan supported, set function addresses
     vkCreateInstance = reinterpret_cast<PFN_vkCreateInstance>(dlsym(libvulkan, "vkCreateInstance"));
+    vkEnumerateInstanceVersion = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(dlsym(libvulkan, "vkEnumerateInstanceVersion"));
     vkDestroyInstance = reinterpret_cast<PFN_vkDestroyInstance>(dlsym(libvulkan, "vkDestroyInstance"));
     vkEnumeratePhysicalDevices = reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(dlsym(libvulkan, "vkEnumeratePhysicalDevices"));
     vkGetPhysicalDeviceFeatures = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures>(dlsym(libvulkan, "vkGetPhysicalDeviceFeatures"));
@@ -215,6 +216,7 @@ int InitVulkanApi(void) {
 
 // No Vulkan support, do not set function addresses
 PFN_vkCreateInstance vkCreateInstance;
+PFN_vkEnumerateInstanceVersion vkEnumerateInstanceVersion;
 PFN_vkDestroyInstance vkDestroyInstance;
 PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
 PFN_vkGetPhysicalDeviceFeatures vkGetPhysicalDeviceFeatures;

@@ -18,11 +18,24 @@ class VulkanRWBuffer;
 
 namespace libRetroRunner {
 
-    class VulkanInstance;
+    struct RRVulkanRenderContext {
+        bool valid;
 
-    class VulkanPipeline;
+        VkFormat format;
+        VkRenderPass renderPass;
+        VkDescriptorSet descriptorSet;
+        VkDescriptorPool descriptorPool;
 
-    class VulkanSwapchain;
+        VkDescriptorSetLayout descriptorSetLayout;
+        VkPipelineLayout pipelineLayout;
+        VkPipeline pipeline;
+        VkPipelineCache pipelineCache;
+
+        const char *vertexShaderCode;
+        const char *fragmentShaderCode;
+        VkShaderModule vertexShaderModule;
+        VkShaderModule fragmentShaderModule;
+    };
 
     class VulkanVideoContext : public VideoContext {
     public:
@@ -67,11 +80,15 @@ namespace libRetroRunner {
 
         bool vulkanCreateDeviceIfNeeded();
 
+        bool vulkanCreateCommandPoolIfNeeded();
+
         bool vulkanCreateSwapchainIfNeeded();
 
-
-
         bool vulkanClearSwapchainIfNeeded();
+
+        bool vulkanCreateRenderContextIfNeeded();
+
+
     private:
         const retro_hw_render_context_negotiation_interface_vulkan *getNegotiationInterface();
 
@@ -88,10 +105,6 @@ namespace libRetroRunner {
         retro_hw_render_interface_vulkan *retro_render_interface_;
         VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures{};
 
-        VulkanInstance *vkInstance_;
-        VulkanPipeline *vkPipeline_;
-        VulkanSwapchain *vkSwapchain_;
-
         bool vulkanIsReady_{};
 
 
@@ -106,6 +119,12 @@ namespace libRetroRunner {
 
         VkDevice logicalDevice_;
         VkQueue graphicQueue_;
+
+        VkCommandPool commandPool_;
+
+
+        RRVulkanRenderContext renderContext_;
+
 
         retro_vulkan_destroy_device_t destroyDeviceImpl_;
 

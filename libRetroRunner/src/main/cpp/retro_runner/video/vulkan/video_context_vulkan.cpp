@@ -115,16 +115,16 @@ namespace libRetroRunner {
         retro_render_interface_ = nullptr;
 
         window_ = nullptr;
-        vkInstance_ = nullptr;
-        vkPipeline_ = nullptr;
-        vkSwapchain_ = nullptr;
-
 
         instance_ = VK_NULL_HANDLE;
         physicalDevice_ = VK_NULL_HANDLE;
         queueFamilyIndex_ = 0;
         logicalDevice_ = VK_NULL_HANDLE;
         graphicQueue_ = VK_NULL_HANDLE;
+
+        commandPool_ = VK_NULL_HANDLE;
+
+        memset(&renderContext_, 0, sizeof(renderContext_));
         destroyDeviceImpl_ = nullptr;
 
     }
@@ -173,8 +173,11 @@ namespace libRetroRunner {
         if (!vulkanCreateDeviceIfNeeded()) return false;
 
         //step: command pool
-
+        if (!vulkanCreateCommandPoolIfNeeded()) return false;
         //step: pipeline
+        if (!vulkanCreateCommandPoolIfNeeded()) return false;
+
+
         //step: render pass
         //step: others
 
@@ -183,6 +186,7 @@ namespace libRetroRunner {
 
         //step: call context_reset
         if (false) {
+            /*
             AppWindow appWindow = appContext->GetAppWindow();
             screen_width_ = appWindow.width;
             screen_height_ = appWindow.height;
@@ -283,7 +287,7 @@ namespace libRetroRunner {
             retro_render_interface_->queue = vkInstance_->getGraphicQueue();
             retro_render_interface_->queue_index = vkInstance_->getQueueFamilyIndex();
 
-
+            */
             //context_reset
             LOGI_VVC("call context_reset now.");
             retro_hw_context_reset_t reset_func = coreCtx->GetRenderHWContextResetCallback();
@@ -507,7 +511,7 @@ namespace libRetroRunner {
      * because the vulkan implementation in HarmonyOS's ndk is different from Android NDK.
      * */
     bool VulkanVideoContext::vulkanCreateDeviceIfNeeded() {
-        if(logicalDevice_ != nullptr) return true;
+        if (logicalDevice_ != nullptr) return true;
 
         VkPhysicalDeviceFeatures features{false};
         const retro_hw_render_context_negotiation_interface_vulkan *negotiation = getNegotiationInterface();
@@ -623,6 +627,25 @@ namespace libRetroRunner {
         return true;
     }
 
+    bool VulkanVideoContext::vulkanCreateCommandPoolIfNeeded() {
+        if (commandPool_) return true;
+        VkCommandPoolCreateInfo cmdPoolCreateInfo{
+                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                .queueFamilyIndex = queueFamilyIndex_,
+        };
+        VkResult createCmdPoolResult = vkCreateCommandPool(logicalDevice_, &cmdPoolCreateInfo, nullptr, &commandPool_);
+
+        if (createCmdPoolResult != VK_SUCCESS || commandPool_ == VK_NULL_HANDLE) {
+            LOGE_VC("Failed to create command pool! %d\n", createCmdPoolResult);
+            return false;
+        } else {
+            LOGD_VC("Command pool created: %p\n", commandPool_);
+        }
+        return true;
+    }
+
     bool VulkanVideoContext::vulkanCreateSwapchainIfNeeded() {
         vkDeviceWaitIdle(logicalDevice_);
         //todo: remove swapchain image fences
@@ -642,6 +665,12 @@ namespace libRetroRunner {
     bool VulkanVideoContext::vulkanClearSwapchainIfNeeded() {
         return true;
     }
+
+    bool VulkanVideoContext::vulkanCreateRenderContextIfNeeded() {
+        if (renderContext_.valid) return true;
+        return true;
+    }
+
 }
 
 namespace libRetroRunner {

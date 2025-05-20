@@ -17,6 +17,9 @@ class VulkanRWBuffer;
 
 
 namespace libRetroRunner {
+    enum VulkanShaderType {
+        SHADER_VERTEX, SHADER_FRAGMENT
+    };
 
     struct RRVulkanRenderContext {
         bool valid;
@@ -31,8 +34,8 @@ namespace libRetroRunner {
         VkPipeline pipeline;
         VkPipelineCache pipelineCache;
 
-        const char *vertexShaderCode;
-        const char *fragmentShaderCode;
+        char *vertexShaderCode;
+        char *fragmentShaderCode;
         VkShaderModule vertexShaderModule;
         VkShaderModule fragmentShaderModule;
     };
@@ -88,7 +91,8 @@ namespace libRetroRunner {
 
         bool vulkanCreateRenderContextIfNeeded();
 
-
+        void clearVulkanRenderContext();
+        bool createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader);
     private:
         const retro_hw_render_context_negotiation_interface_vulkan *getNegotiationInterface();
 

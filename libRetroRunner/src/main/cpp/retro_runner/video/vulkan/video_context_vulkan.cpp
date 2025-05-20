@@ -24,6 +24,10 @@
 #include "vk_sampling_texture.h"
 #include "vk_read_write_buffer.h"
 
+#include "shader_code_frag.h"
+#include "shader_code_vert.h"
+
+
 #define LOGD_VVC(...) LOGD("[Vulkan] " __VA_ARGS__)
 #define LOGW_VVC(...) LOGW("[Vulkan] " __VA_ARGS__)
 #define LOGE_VVC(...) LOGE("[Vulkan] " __VA_ARGS__)
@@ -125,6 +129,7 @@ namespace libRetroRunner {
         commandPool_ = VK_NULL_HANDLE;
 
         memset(&renderContext_, 0, sizeof(renderContext_));
+        renderContext_.valid = false;
         destroyDeviceImpl_ = nullptr;
 
     }
@@ -177,9 +182,7 @@ namespace libRetroRunner {
         //step: pipeline
         if (!vulkanCreateCommandPoolIfNeeded()) return false;
 
-
-        //step: render pass
-        //step: others
+        if (!vulkanCreateRenderContextIfNeeded()) return false;
 
         //step: create swapchain L:1684
         if (!vulkanCreateSwapchainIfNeeded()) return false;
@@ -658,8 +661,7 @@ namespace libRetroRunner {
             return false;
         }
 
-
-        return false;
+        return true;
     }
 
     bool VulkanVideoContext::vulkanClearSwapchainIfNeeded() {
@@ -668,9 +670,314 @@ namespace libRetroRunner {
 
     bool VulkanVideoContext::vulkanCreateRenderContextIfNeeded() {
         if (renderContext_.valid) return true;
-        return true;
+        //TODO: which format to use?
+        renderContext_.format = VK_FORMAT_R8G8B8A8_UNORM;
+        do {
+            //render pass
+            VkAttachmentDescription attachmentDescriptions{
+                    .format = renderContext_.format,
+                    .samples = VK_SAMPLE_COUNT_1_BIT,
+                    .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                    .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                    .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                    .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            };
+            VkAttachmentReference colourReference = {.attachment = 0, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+            VkSubpassDescription subpassDescription{
+                    .flags = 0,
+                    .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    .inputAttachmentCount = 0,
+                    .pInputAttachments = nullptr,
+                    .colorAttachmentCount = 1,
+                    .pColorAttachments = &colourReference,
+                    .pResolveAttachments = nullptr,
+                    .pDepthStencilAttachment = nullptr,
+                    .preserveAttachmentCount = 0,
+                    .pPreserveAttachments = nullptr,
+            };
+            VkRenderPassCreateInfo renderPassCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+                    .pNext = nullptr,
+                    .attachmentCount = 1,
+                    .pAttachments = &attachmentDescriptions,
+                    .subpassCount = 1,
+                    .pSubpasses = &subpassDescription,
+                    .dependencyCount = 0,
+                    .pDependencies = nullptr,
+            };
+            VkResult createRenderPassResult = vkCreateRenderPass(logicalDevice_, &renderPassCreateInfo, nullptr, &renderContext_.renderPass);
+
+            if (createRenderPassResult || renderContext_.renderPass == VK_NULL_HANDLE) {
+                LOGE_VC("Failed to create render pass: %d\n", createRenderPassResult);
+                break;
+            } else {
+                LOGD_VC("Render pass created: %p\n", renderContext_.renderPass);
+            }
+            // create pipeline
+
+            // dynamic state, let viewport and scissor dynamic, can change at runtime
+            VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+            VkPipelineDynamicStateCreateInfo dynamicStateInfo{};
+            dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+            dynamicStateInfo.dynamicStateCount = 2;
+            dynamicStateInfo.pDynamicStates = dynamicStates;
+
+            VkGraphicsPipelineCreateInfo pipelineCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                    .renderPass = renderContext_.renderPass
+            };
+            pipelineCreateInfo.pDynamicState = &dynamicStateInfo;
+
+            VkViewport viewport{
+                    .width = (float) screen_width_,
+                    .height = (float) screen_height_,
+                    .minDepth = 0.0f,
+                    .maxDepth = 1.0f
+            };
+            VkRect2D scissor{
+                    .offset = {0, 0},
+                    .extent = {screen_width_, screen_height_}
+            };
+
+            VkPipelineViewportStateCreateInfo viewportStateCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                    .viewportCount = 1,
+                    .pViewports = &viewport,
+                    .scissorCount = 1,
+                    .pScissors = &scissor
+            };
+            pipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
+
+            //vertex assembly
+            VkPipelineInputAssemblyStateCreateInfo assemblyStateCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+                    .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,                       //TOPOLOGY_TRIANGLE_LIST, 3 points for a triangle
+                    .primitiveRestartEnable = VK_FALSE
+            };
+            pipelineCreateInfo.pInputAssemblyState = &assemblyStateCreateInfo;
+
+            //TODO: create shaders
+            if (!createShader((void *) shader_vertex_code, shader_vertex_code_size, VulkanShaderType::SHADER_VERTEX, &renderContext_.vertexShaderModule)) {
+                LOGE_VC("failed to create vertex shader.");
+            }
+            if (!createShader((void *) shader_fragment_code, shader_fragment_code_size, VulkanShaderType::SHADER_FRAGMENT, &renderContext_.fragmentShaderModule)) {
+                LOGE_VC("failed to create fragment shader.");
+            }
+
+
+            //vertex binding, should base on vertex shader
+            VkVertexInputBindingDescription vertexInputBindingDescription{
+                    .binding = 0,
+                    .stride = 6 * sizeof(float),                                            //size of point
+                    .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+            };
+            VkVertexInputAttributeDescription attributeDescriptions[2]{};
+            attributeDescriptions[0].binding = 0;
+            attributeDescriptions[0].location = 0;
+            attributeDescriptions[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+            attributeDescriptions[0].offset = 0;
+
+            attributeDescriptions[1].binding = 0;
+            attributeDescriptions[1].location = 1;
+            attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
+            attributeDescriptions[1].offset = 4 * sizeof(float);
+
+            VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+                    .vertexBindingDescriptionCount = 1,
+                    .pVertexBindingDescriptions = &vertexInputBindingDescription,
+                    .vertexAttributeDescriptionCount = 2,
+                    .pVertexAttributeDescriptions = attributeDescriptions
+            };
+            pipelineCreateInfo.pVertexInputState = &vertexInputStateCreateInfo;
+
+            //fragment binding(pipeline layout) should base on fragment shader
+            const VkDescriptorSetLayoutBinding descriptorSetLayoutBinding{
+                    .binding = 0,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                    .pImmutableSamplers = nullptr,
+            };
+
+            const VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+                    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                    .pNext = nullptr,
+                    .bindingCount = 1,
+                    .pBindings = &descriptorSetLayoutBinding,
+            };
+
+            VkResult descSetLayoutCreateResult = vkCreateDescriptorSetLayout(logicalDevice_, &descriptorSetLayoutCreateInfo, nullptr, &renderContext_.descriptorSetLayout);
+            if (descSetLayoutCreateResult != VK_SUCCESS || renderContext_.descriptorSetLayout == VK_NULL_HANDLE) {
+                LOGE_VC("Failed to create descriptor set layout: %d", descSetLayoutCreateResult);
+                break;
+            }
+            LOGD_VC("Descriptor set layout created: %p", renderContext_.descriptorSetLayout);
+
+            VkDescriptorPoolSize poolSize{
+                    .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,   //绑定纹理
+                    .descriptorCount = 1                                 //最多1个绑定
+            };
+            VkDescriptorPoolCreateInfo poolCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+                    .pNext = nullptr,
+                    .maxSets = 1,
+                    .poolSizeCount = 1,
+                    .pPoolSizes = &poolSize
+            };
+            VkResult poolCreateResult = vkCreateDescriptorPool(logicalDevice_, &poolCreateInfo, nullptr, &renderContext_.descriptorPool);
+            if (poolCreateResult != VK_SUCCESS || renderContext_.descriptorPool == VK_NULL_HANDLE) {
+                LOGE_VC("Failed to create descriptor pool: %d", poolCreateResult);
+                break;
+            }
+            LOGD_VC("Descriptor pool created: %p", renderContext_.descriptorPool);
+
+            VkDescriptorSetAllocateInfo allocateInfo{
+                    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                    .pNext = nullptr,
+                    .descriptorPool =  renderContext_.descriptorPool,
+                    .descriptorSetCount = 1,
+                    .pSetLayouts = &renderContext_.descriptorSetLayout
+            };
+            VkResult allocateResult = vkAllocateDescriptorSets(logicalDevice_, &allocateInfo, &renderContext_.descriptorSet);
+            if (allocateResult != VK_SUCCESS) {
+                LOGE_VC("Failed to allocate descriptor set: %d", allocateResult);
+                break;
+            }
+            LOGD_VC("Descriptor set allocated: %p", renderContext_.descriptorSet);
+
+            //layout
+            VkPipelineLayoutCreateInfo layoutCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                    .setLayoutCount = 1,
+                    .pSetLayouts = renderContext_.descriptorSetLayout ? &renderContext_.descriptorSetLayout : nullptr
+            };
+            VkResult layoutCreateResult = vkCreatePipelineLayout(logicalDevice_, &layoutCreateInfo, nullptr, &renderContext_.pipelineLayout);
+            if (layoutCreateResult != VK_SUCCESS || renderContext_.pipelineLayout == VK_NULL_HANDLE) {
+                LOGE_VC("Failed to create pipeline layout: %d", layoutCreateResult);
+                break;
+            }
+            pipelineCreateInfo.layout = renderContext_.pipelineLayout;
+
+            //shader stage
+            VkPipelineShaderStageCreateInfo stageCreateInfo[2]{
+                    {
+                            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+                            .module = renderContext_.vertexShaderModule,
+                            .pName = "main"
+                    },
+                    {
+                            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+                            .module = renderContext_.fragmentShaderModule,
+                            .pName = "main"
+                    }
+            };
+            pipelineCreateInfo.stageCount = 2;
+            pipelineCreateInfo.pStages = stageCreateInfo;
+
+            //rasterizer 光栅化设置
+            VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                    .pNext = nullptr,
+                    .depthClampEnable = VK_FALSE,
+                    .rasterizerDiscardEnable = VK_FALSE,
+                    .polygonMode = VK_POLYGON_MODE_FILL,        //填充模式
+                    .cullMode = VK_CULL_MODE_NONE,              //根据面向淘汰的方式
+                    .frontFace = VK_FRONT_FACE_CLOCKWISE,
+                    .depthBiasEnable = VK_FALSE,
+                    .lineWidth = 1,
+            };
+            pipelineCreateInfo.pRasterizationState = &rasterizationStateCreateInfo;
+
+            //multisample 多重采样
+            VkSampleMask sampleMask = ~0u;
+            VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                    .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+                    .pSampleMask = &sampleMask,
+            };
+            pipelineCreateInfo.pMultisampleState = &multisampleStateCreateInfo;
+
+            //depth, stencil 深度与模板测试
+
+            //color blending 混合模式
+            VkPipelineColorBlendAttachmentState colorBlendAttachmentState{
+                    .blendEnable = VK_FALSE,
+                    .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+            };
+            VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                    .logicOpEnable = VK_FALSE,
+                    .logicOp = VK_LOGIC_OP_COPY,
+                    .attachmentCount = 1,
+                    .pAttachments = &colorBlendAttachmentState,
+            };
+
+            pipelineCreateInfo.pColorBlendState = &colorBlendStateCreateInfo;
+
+            //cache
+            VkPipelineCacheCreateInfo pipelineCacheCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+                    .flags = 0
+            };
+            VkResult pipelineCacheCreateResult = vkCreatePipelineCache(logicalDevice_, &pipelineCacheCreateInfo, nullptr, &renderContext_.pipelineCache);
+            if (pipelineCacheCreateResult != VK_SUCCESS || renderContext_.pipelineCache == VK_NULL_HANDLE) {
+                LOGE_VC("pipeline cache create failed: %d", pipelineCacheCreateResult);
+                break;
+            } else {
+                LOGD_VC("pipeline cache:\t%p", renderContext_.pipelineCache);
+            }
+
+            VkResult pipelineCreateResult = vkCreateGraphicsPipelines(logicalDevice_, renderContext_.pipelineCache, 1, &pipelineCreateInfo, nullptr, &renderContext_.pipeline);
+            if (pipelineCreateResult != VK_SUCCESS || renderContext_.pipeline == VK_NULL_HANDLE) {
+                LOGE_VC("pipeline create failed: %d\n", pipelineCreateResult);
+                break;
+            } else {
+                LOGD_VC("pipeline:\t\t%p", renderContext_.pipeline);
+            }
+            renderContext_.valid = true;
+        } while ((false));
+        if (!renderContext_.valid) {
+            clearVulkanRenderContext();
+        }
+        return renderContext_.valid;
     }
 
+    void VulkanVideoContext::clearVulkanRenderContext() {
+        delete[] renderContext_.fragmentShaderCode;
+        delete[] renderContext_.vertexShaderCode;
+        if (renderContext_.vertexShaderModule) vkDestroyShaderModule(logicalDevice_, renderContext_.vertexShaderModule, nullptr);
+        if (renderContext_.fragmentShaderModule) vkDestroyShaderModule(logicalDevice_, renderContext_.fragmentShaderModule, nullptr);
+        if (renderContext_.pipeline) vkDestroyPipeline(logicalDevice_, renderContext_.pipeline, nullptr);
+        if (renderContext_.pipelineCache) vkDestroyPipelineCache(logicalDevice_, renderContext_.pipelineCache, nullptr);
+        if (!renderContext_.descriptorSet) vkFreeDescriptorSets(logicalDevice_, renderContext_.descriptorPool, 1, &renderContext_.descriptorSet);
+        if (renderContext_.descriptorPool) vkDestroyDescriptorPool(logicalDevice_, renderContext_.descriptorPool, nullptr);
+        if (renderContext_.descriptorSetLayout) vkDestroyDescriptorSetLayout(logicalDevice_, renderContext_.descriptorSetLayout, nullptr);
+        if (renderContext_.pipelineLayout) vkDestroyPipelineLayout(logicalDevice_, renderContext_.pipelineLayout, nullptr);
+        if (renderContext_.renderPass) vkDestroyRenderPass(logicalDevice_, renderContext_.renderPass, nullptr);
+        memset(&renderContext_, 0, sizeof(RRVulkanRenderContext));
+        renderContext_.valid = false;
+    }
+
+    bool VulkanVideoContext::createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader){
+        VkShaderModuleCreateInfo createInfo{
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .codeSize = sourceLength,
+                .pCode = (const uint32_t *) source,
+        };
+        VkResult result = vkCreateShaderModule(logicalDevice_, &createInfo, nullptr, shader);
+        if (result != VK_SUCCESS || *shader == VK_NULL_HANDLE) {
+            LOGE_VC("Failed to create shader module! %d", result);
+            return false;
+        } else {
+            LOGD_VC("Shader module created: %p", *shader);
+            return true;
+        }
+    }
 }
 
 namespace libRetroRunner {

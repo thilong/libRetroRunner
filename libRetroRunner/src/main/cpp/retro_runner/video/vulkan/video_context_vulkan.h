@@ -22,22 +22,37 @@ namespace libRetroRunner {
     };
 
     struct RRVulkanRenderContext {
-        bool valid;
+        bool valid = false;
 
-        VkFormat format;
-        VkRenderPass renderPass;
-        VkDescriptorSet descriptorSet;
-        VkDescriptorPool descriptorPool;
+        VkFormat format = VK_FORMAT_UNDEFINED;
+        VkRenderPass renderPass = VK_NULL_HANDLE;
+        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
-        VkDescriptorSetLayout descriptorSetLayout;
-        VkPipelineLayout pipelineLayout;
-        VkPipeline pipeline;
-        VkPipelineCache pipelineCache;
+        VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 
-        char *vertexShaderCode;
-        char *fragmentShaderCode;
-        VkShaderModule vertexShaderModule;
-        VkShaderModule fragmentShaderModule;
+        char *vertexShaderCode = nullptr;
+        char *fragmentShaderCode = nullptr;
+        VkShaderModule vertexShaderModule = VK_NULL_HANDLE;
+        VkShaderModule fragmentShaderModule = VK_NULL_HANDLE;
+    };
+
+    struct RRVulkanSwapchainContext {
+        bool valid = false;
+        long surfaceId = 0;
+
+        VkSurfaceKHR surface = VK_NULL_HANDLE;
+        VkExtent2D extent{};
+        VkFormat format = VK_FORMAT_UNDEFINED;
+        uint32_t minImageCount = 0;
+
+        VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+        VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+
+        uint32_t imageCount = 0;
     };
 
     class VulkanVideoContext : public VideoContext {
@@ -92,13 +107,15 @@ namespace libRetroRunner {
         bool vulkanCreateRenderContextIfNeeded();
 
         void clearVulkanRenderContext();
+
         bool createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader);
+
     private:
         const retro_hw_render_context_negotiation_interface_vulkan *getNegotiationInterface();
 
     private:
         void *window_;
-        long surface_id_ = 0;
+
         int core_pixel_format_;
 
         uint32_t screen_width_;
@@ -119,8 +136,6 @@ namespace libRetroRunner {
 
         uint32_t queueFamilyIndex_;
 
-        VkSurfaceKHR surface_;
-
         VkDevice logicalDevice_;
         VkQueue graphicQueue_;
 
@@ -128,7 +143,7 @@ namespace libRetroRunner {
 
 
         RRVulkanRenderContext renderContext_;
-
+        RRVulkanSwapchainContext swapchainContext_;
 
         retro_vulkan_destroy_device_t destroyDeviceImpl_;
 

@@ -128,8 +128,6 @@ namespace libRetroRunner {
 
         commandPool_ = VK_NULL_HANDLE;
 
-        memset(&renderContext_, 0, sizeof(renderContext_));
-        renderContext_.valid = false;
         destroyDeviceImpl_ = nullptr;
 
     }
@@ -446,9 +444,9 @@ namespace libRetroRunner {
     bool VulkanVideoContext::vulkanCreateSurfaceIfNeeded() {
         auto appContext = AppContext::Current();
         AppWindow appWindow = appContext->GetAppWindow();
-        if (surface_ != nullptr && surface_id_ == appWindow.surfaceId) return true;
+        if (swapchainContext_.surface != nullptr && swapchainContext_.surfaceId == appWindow.surfaceId) return true;
         window_ = appWindow.window;
-        surface_id_ = appWindow.surfaceId;
+        swapchainContext_.surfaceId = appWindow.surfaceId;
 
         VkAndroidSurfaceCreateInfoKHR createInfo{
                 .sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
@@ -456,13 +454,46 @@ namespace libRetroRunner {
                 .flags = 0,
                 .window = (ANativeWindow *) window_
         };
-        VkResult createRet = vkCreateAndroidSurfaceKHR(instance_, &createInfo, nullptr, &surface_);
+        VkResult createRet = vkCreateAndroidSurfaceKHR(instance_, &createInfo, nullptr, &swapchainContext_.surface);
 
-        if (createRet != VK_SUCCESS || surface_ == VK_NULL_HANDLE) {
+        if (createRet != VK_SUCCESS || swapchainContext_.surface == VK_NULL_HANDLE) {
             LOGE_VC("Surface create failed:  %d\n", createRet);
             return false;
         }
-        LOGD_VC("Surface:\t\t%p\n", surface_);
+        LOGD_VC("Surface:\t\t%p\n", swapchainContext_.surface);
+
+        VkSurfaceCapabilitiesKHR surfaceCapabilities;
+        VkResult surfaceCapabilityRet = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice_, swapchainContext_.surface, &surfaceCapabilities);
+        if (surfaceCapabilityRet != VK_SUCCESS) {
+            LOGE_VC("Can't get capability from surface.");
+            return false;
+        }
+        uint32_t surfaceFormatCount = 0;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, swapchainContext_.surface, &surfaceFormatCount, nullptr);
+        if (surfaceFormatCount < 1) {
+            LOGE_VC("No surface format found.");
+            return false;
+        }
+        std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
+        if (VK_SUCCESS != vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, swapchainContext_.surface, &surfaceFormatCount, surfaceFormats.data())) {
+            LOGE_VC("Failed to get formats of surface.");
+            return false;
+        }
+
+        uint32_t chosenIndex = 0;
+        for (; chosenIndex < surfaceFormatCount; chosenIndex++) {
+            if (surfaceFormats[chosenIndex].format == VK_FORMAT_R8G8B8A8_UNORM)
+                break;
+        }
+        if (chosenIndex >= surfaceFormatCount) {
+            LOGE_VC("No suitable surface format found.");
+            return false;
+        }
+        swapchainContext_.extent = surfaceCapabilities.currentExtent;
+        swapchainContext_.format = surfaceFormats[chosenIndex].format;
+        swapchainContext_.colorSpace = surfaceFormats[chosenIndex].colorSpace;
+        swapchainContext_.minImageCount = surfaceCapabilities.minImageCount;
+        LOGD_VC("Surface chosen: [ %d x %d ], format: %d, color space: %d\n", swapchainContext_.extent.width, swapchainContext_.extent.height, swapchainContext_.format, swapchainContext_.colorSpace);
 
         //surface is new, means swapchain should be rebuild.
         vulkanClearSwapchainIfNeeded();
@@ -511,7 +542,7 @@ namespace libRetroRunner {
 
     /* TODO: Need to fix.
      * this function will always return false and lead to crash on HarmonyOS,
-     * because the vulkan implementation in HarmonyOS's ndk is different from Android NDK.
+     * because the vulkan implementation in HarmonyOS is different from Android.
      * */
     bool VulkanVideoContext::vulkanCreateDeviceIfNeeded() {
         if (logicalDevice_ != nullptr) return true;
@@ -526,13 +557,13 @@ namespace libRetroRunner {
                 LOGD_VVC("create device (2) with our selected gpu.");
                 createResult = negotiation->create_device2(
                         &context, instance_, physicalDevice_,
-                        surface_, vkGetInstanceProcAddr,
+                        swapchainContext_.surface, vkGetInstanceProcAddr,
                         retro_vulkan_create_device_wrapper_t_impl, this);
                 if (!createResult) {
                     LOGW_VVC("Failed to create device (2) on provided GPU device, now let the core choose.");
                     createResult = negotiation->create_device2(
                             &context, instance_, VK_NULL_HANDLE,
-                            surface_, vkGetInstanceProcAddr,
+                            swapchainContext_.surface, vkGetInstanceProcAddr,
                             retro_vulkan_create_device_wrapper_t_impl, this);
                 }
             } else {
@@ -540,7 +571,7 @@ namespace libRetroRunner {
                 deviceExtensions.push_back("VK_KHR_swapchain");
                 LOGD_VVC("create device with our selected gpu.");
                 createResult = negotiation->create_device(
-                        &context, instance_, physicalDevice_, surface_, vkGetInstanceProcAddr,
+                        &context, instance_, physicalDevice_, swapchainContext_.surface, vkGetInstanceProcAddr,
                         deviceExtensions.data(), deviceExtensions.size(),
                         nullptr, 0, &features);
             }
@@ -581,7 +612,7 @@ namespace libRetroRunner {
             for (int idx = 0; idx < queueCount; idx++) {
                 auto property = queueFamilyProperties[idx];
                 VkBool32 supported = VK_FALSE;
-                vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice_, idx, surface_, &supported);
+                vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice_, idx, swapchainContext_.surface, &supported);
                 if (supported && ((property.queueFlags & requiredQueueFlag) == requiredQueueFlag)) {
                     queueFamilyIndex_ = idx;
                     queueFamilyIndexFound = true;
@@ -653,13 +684,38 @@ namespace libRetroRunner {
         vkDeviceWaitIdle(logicalDevice_);
         //todo: remove swapchain image fences
 
-        VkSurfaceCapabilitiesKHR surfaceProperties;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice_, surface_, &surfaceProperties);
-
-        //skip to create swapchain when the surface size is 0
-        if (surfaceProperties.currentExtent.width == 0 || surfaceProperties.currentExtent.height == 0) {
+        VkSwapchainCreateInfoKHR swapchainCreateInfo{
+                .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+                .pNext = nullptr,
+                .surface = swapchainContext_.surface,
+                .minImageCount = swapchainContext_.minImageCount,
+                .imageFormat = swapchainContext_.format,
+                .imageColorSpace = swapchainContext_.colorSpace,
+                .imageExtent = swapchainContext_.extent,
+                .imageArrayLayers = 1,
+                .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .queueFamilyIndexCount = 1,
+                .pQueueFamilyIndices = &queueFamilyIndex_,
+                .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+                .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, //android: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,  windows: VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+                .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+                .clipped = VK_FALSE,
+                .oldSwapchain = VK_NULL_HANDLE, //注意这里，是否要在下一次创建的时候释放掉之前的swapchain
+        };
+        VkResult createSwapChainResult = vkCreateSwapchainKHR(logicalDevice_, &swapchainCreateInfo, nullptr, &swapchainContext_.swapchain);
+        if (createSwapChainResult || swapchainContext_.swapchain == VK_NULL_HANDLE) {
+            LOGE_VC("Failed to create swap chain! %d\n", createSwapChainResult);
             return false;
+        } else {
+            LOGD_VC("swapchain:\t\t%p\n", swapchainContext_.swapchain);
         }
+
+        vkGetSwapchainImagesKHR(logicalDevice_, swapchainContext_.swapchain, &swapchainContext_.imageCount, nullptr);
+        LOGD_VC("Swapchain image count: %d\n", swapchainContext_.imageCount);
+
+
+
 
         return true;
     }
@@ -961,9 +1017,10 @@ namespace libRetroRunner {
         if (renderContext_.renderPass) vkDestroyRenderPass(logicalDevice_, renderContext_.renderPass, nullptr);
         memset(&renderContext_, 0, sizeof(RRVulkanRenderContext));
         renderContext_.valid = false;
+        LOGD_VC("pipeline cleared");
     }
 
-    bool VulkanVideoContext::createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader){
+    bool VulkanVideoContext::createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader) {
         VkShaderModuleCreateInfo createInfo{
                 .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                 .codeSize = sourceLength,

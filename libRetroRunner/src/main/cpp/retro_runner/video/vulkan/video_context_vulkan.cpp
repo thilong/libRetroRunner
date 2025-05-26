@@ -42,13 +42,14 @@ void *getVKApiAddress(const char *sym) {
     return dlsym(libvulkan, sym);
 }
 
+/** misc functions */
 namespace libRetroRunner {
     bool isVkPhysicalDeviceSuitable(VkPhysicalDevice device, int *graphicsFamily);
 
     bool vkFindDeviceExtensions(VkPhysicalDevice gpu, std::vector<const char *> &enabledExts, std::vector<const char *> &optionalExts);
 }
 
-/** negotiation interface implementation */
+/** negotiation interface and hardware rendering interface implementation */
 namespace libRetroRunner {
     static VkInstance retro_vulkan_create_instance_wrapper_t_impl(void *opaque, const VkInstanceCreateInfo *create_info) {
         if (opaque) {
@@ -63,47 +64,114 @@ namespace libRetroRunner {
         }
         return VK_NULL_HANDLE;
     }
+
+    void VulkanVideoContext::retro_vulkan_set_image_t_impl(const struct retro_vulkan_image *image, uint32_t num_semaphores, const VkSemaphore *semaphores, uint32_t src_queue_family) {
+        LOGW_VVC("need to implement retro_vulkan_set_image_t_impl");
+    }
+
+    uint32_t VulkanVideoContext::retro_vulkan_get_sync_index_t_impl() {
+        uint32_t ret = swapchainContext_.valid ? swapchainContext_.imageCount : 0;
+        LOGW_VVC("call retro_vulkan_get_sync_index_t_impl with return: %d", ret);
+        return 0;
+    }
+
+    uint32_t VulkanVideoContext::retro_vulkan_get_sync_index_mask_t_impl() {
+        uint32_t ret = swapchainContext_.valid ? swapchainContext_.imageCount : 0;
+        LOGW_VVC("call retro_vulkan_get_sync_index_mask_t_impl with return: %d", ret);
+        return ret;
+    }
+
+    void VulkanVideoContext::retro_vulkan_set_command_buffers_t_impl(uint32_t num_cmd, const VkCommandBuffer *cmd) {
+        LOGW_VVC("need to implement retro_vulkan_set_command_buffers_t_impl");
+    }
+
+    void VulkanVideoContext::retro_vulkan_wait_sync_index_t_impl() {
+        LOGW_VVC("need to implement retro_vulkan_wait_sync_index_t_impl");
+    }
+
+    void VulkanVideoContext::retro_vulkan_lock_queue_t_impl() {
+        LOGW_VVC("need to implement retro_vulkan_lock_queue_t_impl");
+    }
+
+    void VulkanVideoContext::retro_vulkan_unlock_queue_t_impl() {
+        LOGW_VVC("need to implement retro_vulkan_unlock_queue_t_impl");
+    }
+
+    void VulkanVideoContext::retro_vulkan_set_signal_semaphore_t_impl(VkSemaphore semaphore) {
+        LOGW_VVC("need to implement retro_vulkan_set_signal_semaphore_t_impl");
+    }
 }
 
-/** retro hardware render interface implementation */
+/** retro hardware render interface implementation wrapper*/
 namespace libRetroRunner {
 
-    void retro_vulkan_set_image_t_impl(void *handle,
-                                       const struct retro_vulkan_image *image,
-                                       uint32_t num_semaphores,
-                                       const VkSemaphore *semaphores,
-                                       uint32_t src_queue_family) {
-
+    void retro_vulkan_set_image_t_impl_wrapper(void *handle, const struct retro_vulkan_image *image, uint32_t num_semaphores, const VkSemaphore *semaphores, uint32_t src_queue_family) {
+        if (handle) {
+            ((VulkanVideoContext *) handle)->retro_vulkan_set_image_t_impl(image, num_semaphores, semaphores, src_queue_family);
+        } else {
+            LOGE_VVC("can't find retro_vulkan_set_image_t_impl on a null handle");
+        }
     }
 
-    uint32_t retro_vulkan_get_sync_index_t_impl(void *handle) {
+    uint32_t retro_vulkan_get_sync_index_t_impl_wrapper(void *handle) {
+        if (handle) {
+            return ((VulkanVideoContext *) handle)->retro_vulkan_get_sync_index_t_impl();
+        } else {
+            LOGE_VVC("can't find retro_vulkan_get_sync_index_t_impl on a null handle");
+        }
         return 0;
     }
 
-    uint32_t retro_vulkan_get_sync_index_mask_t_impl(void *handle) {
+    uint32_t retro_vulkan_get_sync_index_mask_t_impl_wrapper(void *handle) {
+        if (handle) {
+            return ((VulkanVideoContext *) handle)->retro_vulkan_get_sync_index_mask_t_impl();
+        } else {
+            LOGE_VVC("can't find retro_vulkan_get_sync_index_mask_t_impl on a null handle");
+        }
         return 0;
     }
 
-    void retro_vulkan_set_command_buffers_t_impl(void *handle,
-                                                 uint32_t num_cmd,
-                                                 const VkCommandBuffer *cmd) {
+    void retro_vulkan_set_command_buffers_t_impl_wrapper(void *handle, uint32_t num_cmd, const VkCommandBuffer *cmd) {
+        if (handle) {
+            return ((VulkanVideoContext *) handle)->retro_vulkan_set_command_buffers_t_impl(num_cmd, cmd);
+        } else {
+            LOGE_VVC("can't find retro_vulkan_set_command_buffers_t_impl on a null handle");
+        }
 
     }
 
-    void retro_vulkan_wait_sync_index_t_impl(void *handle) {
+    void retro_vulkan_wait_sync_index_t_impl_wrapper(void *handle) {
+        if (handle) {
+            ((VulkanVideoContext *) handle)->retro_vulkan_wait_sync_index_t_impl();
+        } else {
+            LOGE_VVC("can't find retro_vulkan_wait_sync_index_t_impl on a null handle");
+        }
+    }
+
+    void retro_vulkan_lock_queue_t_impl_wrapper(void *handle) {
+        if (handle) {
+            ((VulkanVideoContext *) handle)->retro_vulkan_lock_queue_t_impl();
+        } else {
+            LOGE_VVC("can't find retro_vulkan_lock_queue_t_impl on a null handle");
+        }
 
     }
 
-    void retro_vulkan_lock_queue_t_impl(void *handle) {
+    void retro_vulkan_unlock_queue_t_impl_wrapper(void *handle) {
+        if (handle) {
+            ((VulkanVideoContext *) handle)->retro_vulkan_unlock_queue_t_impl();
+        } else {
+            LOGE_VVC("can't find retro_vulkan_unlock_queue_t_impl on a null handle");
+        }
 
     }
 
-    void retro_vulkan_unlock_queue_t_impl(void *handle) {
-
-    }
-
-    void retro_vulkan_set_signal_semaphore_t_impl(void *handle, VkSemaphore semaphore) {
-
+    void retro_vulkan_set_signal_semaphore_t_impl_wrapper(void *handle, VkSemaphore semaphore) {
+        if (handle) {
+            ((VulkanVideoContext *) handle)->retro_vulkan_set_signal_semaphore_t_impl(semaphore);
+        } else {
+            LOGE_VVC("can't find retro_vulkan_set_signal_semaphore_t_impl on a null handle");
+        }
     }
 }
 
@@ -112,11 +180,13 @@ namespace libRetroRunner {
     VulkanVideoContext::VulkanVideoContext() {
         InitVulkanApi();
         getHWProcAddress = (rr_hardware_render_proc_address_t) &getVKApiAddress;
+        is_new_surface_ = true;
         screen_width_ = 1;
         screen_height_ = 100;
         is_ready_ = false;
         retro_vk_context_ = nullptr;
         retro_render_interface_ = nullptr;
+        core_pixel_format_ = RETRO_PIXEL_FORMAT_XRGB8888;
 
         window_ = nullptr;
 
@@ -166,6 +236,7 @@ namespace libRetroRunner {
             }
         }
 
+
         //step: create instance if it is null.
         if (!vulkanCreateInstanceIfNeeded()) return false;
 
@@ -177,6 +248,7 @@ namespace libRetroRunner {
 
         //step: command pool
         if (!vulkanCreateCommandPoolIfNeeded()) return false;
+
         //step: pipeline
         if (!vulkanCreateCommandPoolIfNeeded()) return false;
 
@@ -186,116 +258,22 @@ namespace libRetroRunner {
         if (!vulkanCreateSwapchainIfNeeded()) return false;
 
         //step: call context_reset
-        if (false) {
-            /*
-            AppWindow appWindow = appContext->GetAppWindow();
-            screen_width_ = appWindow.width;
-            screen_height_ = appWindow.height;
-            window_ = appWindow.window;
-            if (surface_id_ == appWindow.surfaceId) {
-                return false;
+        retro_hw_context_reset_t reset_func = coreCtx->GetRenderHWContextResetCallback();
+        if(is_new_surface_) {
+            if (reset_func) {
+                LOGD_VVC("Call context reset function.");
+                reset_func();
             }
-
-            surface_id_ = appWindow.surfaceId;
-
-
-            //create vk context
-            if (vkInstance_ == nullptr) {
-                vkInstance_ = new VulkanInstance();
-                vkInstance_->setEnableLogger(true);
-
-                const VkApplicationInfo *extVkAppInfo = nullptr;
-
-                if (negotiator && negotiator->get_application_info) {
-                    extVkAppInfo = negotiator->get_application_info();
-                }
-                LOGD_VVC("vulkan instance init: %p", extVkAppInfo);
-                if (!vkInstance_->init(extVkAppInfo)) {
-                    vkInstance_->destroy();
-                    delete vkInstance_;
-                    vkInstance_ = nullptr;
-                    LOGE_VVC("Failed to init vulkan instance.");
-                    return false;
-                }
-            }
-
-            CHECK_VK_OBJ_NOT_NULL(vkInstance_, "vulkan instance is null.")
-
-            if (vkPipeline_ == nullptr) {
-                vkPipeline_ = new VulkanPipeline(vkInstance_->getLogicalDevice());
-                if (!vkPipeline_->init(screen_width_, screen_height_)) {
-                    delete vkPipeline_;
-                    vkPipeline_ = nullptr;
-                    LOGE_VVC("Failed to init vulkan pipeline.");
-                    return false;
-                }
-            }
-
-
-            CHECK_VK_OBJ_NOT_NULL(vkPipeline_, "vulkan pipe line is null.")
-            if (vkSwapchain_ == nullptr) {
-                vkSwapchain_ = new VulkanSwapchain();
-                vkSwapchain_->setInstance(vkInstance_->getInstance());
-                vkSwapchain_->setPhysicalDevice(vkInstance_->getPhysicalDevice());
-                vkSwapchain_->setLogicalDevice(vkInstance_->getLogicalDevice());
-                vkSwapchain_->setQueueFamilyIndex(vkInstance_->getQueueFamilyIndex());
-                vkSwapchain_->setRenderPass(vkPipeline_->getRenderPass());
-                vkSwapchain_->setCommandPool(vkInstance_->getCommandPool());
-                if (!vkSwapchain_->init(window_)) {
-                    delete vkSwapchain_;
-                    vkSwapchain_ = nullptr;
-                    LOGE_VVC("Failed to init vulkan swapchain.");
-                    return false;
-                }
-            }
-            CHECK_VK_OBJ_NOT_NULL(vkSwapchain_, "vulkan swapchain is null.")
-
-            if (retro_vk_context_ == nullptr) {
-                retro_vk_context_ = new retro_vulkan_context{};
-            }
-
-            if (negotiator && negotiator->create_device) {
-                static const char *vulkan_device_extensions[] = {
-                        "VK_KHR_swapchain",
-                };
-                int ret = negotiator->create_device(retro_vk_context_,
-                                                    vkInstance_->getInstance(),
-                                                    vkInstance_->getPhysicalDevice(),
-                                                    vkSwapchain_->getSurface(),
-                                                    vkGetInstanceProcAddr,
-                                                    vulkan_device_extensions, 1,
-                                                    nullptr, 0,
-                                                    &vkPhysicalDeviceFeatures);
-                LOGD_VVC("negotiator create_device ret: %d", ret);
-            }
-
-
-            vulkanIsReady_ = true;
-
-            if (retro_render_interface_ == nullptr)
-                retro_render_interface_ = new retro_hw_render_interface_vulkan();
-
-            retro_render_interface_->interface_version = RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION;
-            retro_render_interface_->interface_type = RETRO_HW_RENDER_INTERFACE_VULKAN;
-            retro_render_interface_->handle = this;
-            retro_render_interface_->instance = vkInstance_->getInstance();
-            retro_render_interface_->gpu = vkInstance_->getPhysicalDevice();
-            retro_render_interface_->device = vkInstance_->getLogicalDevice();
-
-            retro_render_interface_->get_device_proc_addr = vkGetDeviceProcAddr;
-            retro_render_interface_->get_instance_proc_addr = vkGetInstanceProcAddr;
-
-            retro_render_interface_->queue = vkInstance_->getGraphicQueue();
-            retro_render_interface_->queue_index = vkInstance_->getQueueFamilyIndex();
-
-            */
-            //context_reset
-            LOGI_VVC("call context_reset now.");
-            retro_hw_context_reset_t reset_func = coreCtx->GetRenderHWContextResetCallback();
-            if (reset_func) reset_func();
-
+            is_new_surface_ = false;
         }
+
+        vulkanIsReady_ = true;
         return true;
+    }
+
+    void VulkanVideoContext::Unload() {
+        //context_destroy
+        vulkanIsReady_ = false;
     }
 
     void VulkanVideoContext::Destroy() {
@@ -303,11 +281,6 @@ namespace libRetroRunner {
             delete retro_vk_context_;
             retro_vk_context_ = nullptr;
         }
-    }
-
-    void VulkanVideoContext::Unload() {
-        //context_destroy
-        vulkanIsReady_ = false;
     }
 
     void VulkanVideoContext::UpdateVideoSize(unsigned int width, unsigned int height) {
@@ -336,8 +309,33 @@ namespace libRetroRunner {
     }
 
     bool VulkanVideoContext::getRetroHardwareRenderInterface(void **interface) {
+        if (retro_render_interface_ == nullptr) {
+            retro_render_interface_ = new retro_hw_render_interface_vulkan{
+                    .interface_type = RETRO_HW_RENDER_INTERFACE_VULKAN,
+                    .interface_version = RETRO_HW_RENDER_INTERFACE_VULKAN_VERSION,
+                    .handle = this,
+                    .instance = instance_,
+                    .gpu = physicalDevice_,
+                    .device = logicalDevice_,
+
+                    .get_device_proc_addr = vkGetDeviceProcAddr,
+                    .get_instance_proc_addr = vkGetInstanceProcAddr,
+                    .queue = graphicQueue_,
+                    .queue_index = queueFamilyIndex_,
+
+                    .set_image = retro_vulkan_set_image_t_impl_wrapper,
+                    .get_sync_index = retro_vulkan_get_sync_index_t_impl_wrapper,
+                    .get_sync_index_mask = retro_vulkan_get_sync_index_mask_t_impl_wrapper,
+                    .set_command_buffers = retro_vulkan_set_command_buffers_t_impl_wrapper,
+                    .wait_sync_index = retro_vulkan_wait_sync_index_t_impl_wrapper,
+                    .lock_queue = retro_vulkan_lock_queue_t_impl_wrapper,
+                    .unlock_queue = retro_vulkan_unlock_queue_t_impl_wrapper,
+                    .set_signal_semaphore = retro_vulkan_set_signal_semaphore_t_impl_wrapper
+
+            };
+        }
         *interface = retro_render_interface_;
-        return retro_render_interface_ != nullptr;
+        return true;
     }
 
     void VulkanVideoContext::vulkanCommitFrame() {
@@ -444,7 +442,12 @@ namespace libRetroRunner {
     bool VulkanVideoContext::vulkanCreateSurfaceIfNeeded() {
         auto appContext = AppContext::Current();
         AppWindow appWindow = appContext->GetAppWindow();
-        if (swapchainContext_.surface != nullptr && swapchainContext_.surfaceId == appWindow.surfaceId) return true;
+        if (swapchainContext_.surface != nullptr && swapchainContext_.surfaceId == appWindow.surfaceId) {
+            is_new_surface_ = false;
+            return true;
+        }
+        is_new_surface_ = true;
+
         window_ = appWindow.window;
         swapchainContext_.surfaceId = appWindow.surfaceId;
 
@@ -461,42 +464,6 @@ namespace libRetroRunner {
             return false;
         }
         LOGD_VC("Surface:\t\t%p\n", swapchainContext_.surface);
-
-        VkSurfaceCapabilitiesKHR surfaceCapabilities;
-        VkResult surfaceCapabilityRet = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice_, swapchainContext_.surface, &surfaceCapabilities);
-        if (surfaceCapabilityRet != VK_SUCCESS) {
-            LOGE_VC("Can't get capability from surface.");
-            return false;
-        }
-        uint32_t surfaceFormatCount = 0;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, swapchainContext_.surface, &surfaceFormatCount, nullptr);
-        if (surfaceFormatCount < 1) {
-            LOGE_VC("No surface format found.");
-            return false;
-        }
-        std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
-        if (VK_SUCCESS != vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, swapchainContext_.surface, &surfaceFormatCount, surfaceFormats.data())) {
-            LOGE_VC("Failed to get formats of surface.");
-            return false;
-        }
-
-        uint32_t chosenIndex = 0;
-        for (; chosenIndex < surfaceFormatCount; chosenIndex++) {
-            if (surfaceFormats[chosenIndex].format == VK_FORMAT_R8G8B8A8_UNORM)
-                break;
-        }
-        if (chosenIndex >= surfaceFormatCount) {
-            LOGE_VC("No suitable surface format found.");
-            return false;
-        }
-        swapchainContext_.extent = surfaceCapabilities.currentExtent;
-        swapchainContext_.format = surfaceFormats[chosenIndex].format;
-        swapchainContext_.colorSpace = surfaceFormats[chosenIndex].colorSpace;
-        swapchainContext_.minImageCount = surfaceCapabilities.minImageCount;
-        LOGD_VC("Surface chosen: [ %d x %d ], format: %d, color space: %d\n", swapchainContext_.extent.width, swapchainContext_.extent.height, swapchainContext_.format, swapchainContext_.colorSpace);
-
-        //surface is new, means swapchain should be rebuild.
-        vulkanClearSwapchainIfNeeded();
 
         return true;
     }
@@ -681,7 +648,49 @@ namespace libRetroRunner {
     }
 
     bool VulkanVideoContext::vulkanCreateSwapchainIfNeeded() {
+        if (swapchainContext_.valid) return true;
+        LOGD_VVC("VulkanVideoContext::vulkanCreateSwapchainIfNeeded is called.");
+        //Get swapchain properties
+        VkSurfaceCapabilitiesKHR surfaceCapabilities;
+        VkResult surfaceCapabilityRet = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice_, swapchainContext_.surface, &surfaceCapabilities);
+        if (surfaceCapabilityRet != VK_SUCCESS) {
+            LOGE_VC("Can't get capability from surface.");
+            return false;
+        }
+        uint32_t surfaceFormatCount = 0;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, swapchainContext_.surface, &surfaceFormatCount, nullptr);
+        if (surfaceFormatCount < 1) {
+            LOGE_VC("No surface format found.");
+            return false;
+        }
+        std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
+        if (VK_SUCCESS != vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, swapchainContext_.surface, &surfaceFormatCount, surfaceFormats.data())) {
+            LOGE_VC("Failed to get formats of surface.");
+            return false;
+        }
+
+        uint32_t chosenIndex = 0;
+        for (; chosenIndex < surfaceFormatCount; chosenIndex++) {
+            if (surfaceFormats[chosenIndex].format == VK_FORMAT_R8G8B8A8_UNORM)
+                break;
+        }
+        if (chosenIndex >= surfaceFormatCount) {
+            LOGE_VC("No suitable surface format found.");
+            return false;
+        }
+        swapchainContext_.extent = surfaceCapabilities.currentExtent;
+        swapchainContext_.format = surfaceFormats[chosenIndex].format;
+        swapchainContext_.colorSpace = surfaceFormats[chosenIndex].colorSpace;
+        swapchainContext_.minImageCount = surfaceCapabilities.minImageCount;
+        LOGD_VC("Surface chosen: [ %d x %d ], format: %d, color space: %d\n", swapchainContext_.extent.width, swapchainContext_.extent.height, swapchainContext_.format, swapchainContext_.colorSpace);
+
         vkDeviceWaitIdle(logicalDevice_);
+        //surface is new, means swapchain should be rebuild.
+        if(is_new_surface_) {
+            LOGD_VC("Surface is new, clear swapchain if needed.");
+            vulkanClearSwapchainIfNeeded();
+            //todo: remove swapchain image fences
+        }
         //todo: remove swapchain image fences
 
         VkSwapchainCreateInfoKHR swapchainCreateInfo{
@@ -714,9 +723,7 @@ namespace libRetroRunner {
         vkGetSwapchainImagesKHR(logicalDevice_, swapchainContext_.swapchain, &swapchainContext_.imageCount, nullptr);
         LOGD_VC("Swapchain image count: %d\n", swapchainContext_.imageCount);
 
-
-
-
+        swapchainContext_.valid = true;
         return true;
     }
 

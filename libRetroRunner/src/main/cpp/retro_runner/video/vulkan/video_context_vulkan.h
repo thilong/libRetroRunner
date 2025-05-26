@@ -85,6 +85,16 @@ namespace libRetroRunner {
 
         VkDevice retro_vulkan_create_device_wrapper(VkPhysicalDevice gpu, const VkDeviceCreateInfo *create_info);
 
+
+        void retro_vulkan_set_image_t_impl(const struct retro_vulkan_image *image, uint32_t num_semaphores, const VkSemaphore *semaphores,uint32_t src_queue_family);
+        uint32_t retro_vulkan_get_sync_index_t_impl();
+        uint32_t retro_vulkan_get_sync_index_mask_t_impl();
+        void retro_vulkan_set_command_buffers_t_impl(uint32_t num_cmd,const VkCommandBuffer *cmd);
+        void retro_vulkan_wait_sync_index_t_impl();
+        void retro_vulkan_lock_queue_t_impl();
+        void retro_vulkan_unlock_queue_t_impl();
+        void retro_vulkan_set_signal_semaphore_t_impl(VkSemaphore semaphore);
+
     private:
         void recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex);
 
@@ -115,6 +125,7 @@ namespace libRetroRunner {
 
     private:
         void *window_;
+        bool is_new_surface_;
 
         int core_pixel_format_;
 

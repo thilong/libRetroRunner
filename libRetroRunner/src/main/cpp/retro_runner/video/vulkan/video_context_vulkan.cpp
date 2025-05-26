@@ -70,13 +70,13 @@ namespace libRetroRunner {
     }
 
     uint32_t VulkanVideoContext::retro_vulkan_get_sync_index_t_impl() {
-        uint32_t ret = swapchainContext_.valid ? swapchainContext_.imageCount : 0;
+        uint32_t ret = swapchainContext_.valid ? swapchainContext_.current_image : 0;
         LOGW_VVC("call retro_vulkan_get_sync_index_t_impl with return: %d", ret);
         return 0;
     }
 
     uint32_t VulkanVideoContext::retro_vulkan_get_sync_index_mask_t_impl() {
-        uint32_t ret = swapchainContext_.valid ? swapchainContext_.imageCount : 0;
+        uint32_t ret = swapchainContext_.valid ?  ((1 << swapchainContext_.imageCount) - 1) : 0;
         LOGW_VVC("call retro_vulkan_get_sync_index_mask_t_impl with return: %d", ret);
         return ret;
     }
@@ -650,6 +650,15 @@ namespace libRetroRunner {
     bool VulkanVideoContext::vulkanCreateSwapchainIfNeeded() {
         if (swapchainContext_.valid) return true;
         LOGD_VVC("VulkanVideoContext::vulkanCreateSwapchainIfNeeded is called.");
+
+        vkDeviceWaitIdle(logicalDevice_);
+        //surface is new, means swapchain should be rebuild.
+        if(is_new_surface_) {
+            LOGD_VC("Surface is new, clear swapchain if needed.");
+            vulkanClearSwapchainIfNeeded();
+            //todo: remove swapchain image fences
+        }
+
         //Get swapchain properties
         VkSurfaceCapabilitiesKHR surfaceCapabilities;
         VkResult surfaceCapabilityRet = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice_, swapchainContext_.surface, &surfaceCapabilities);
@@ -684,15 +693,6 @@ namespace libRetroRunner {
         swapchainContext_.minImageCount = surfaceCapabilities.minImageCount;
         LOGD_VC("Surface chosen: [ %d x %d ], format: %d, color space: %d\n", swapchainContext_.extent.width, swapchainContext_.extent.height, swapchainContext_.format, swapchainContext_.colorSpace);
 
-        vkDeviceWaitIdle(logicalDevice_);
-        //surface is new, means swapchain should be rebuild.
-        if(is_new_surface_) {
-            LOGD_VC("Surface is new, clear swapchain if needed.");
-            vulkanClearSwapchainIfNeeded();
-            //todo: remove swapchain image fences
-        }
-        //todo: remove swapchain image fences
-
         VkSwapchainCreateInfoKHR swapchainCreateInfo{
                 .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
                 .pNext = nullptr,
@@ -702,15 +702,15 @@ namespace libRetroRunner {
                 .imageColorSpace = swapchainContext_.colorSpace,
                 .imageExtent = swapchainContext_.extent,
                 .imageArrayLayers = 1,
-                .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                 .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 1,
                 .pQueueFamilyIndices = &queueFamilyIndex_,
                 .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
                 .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, //android: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,  windows: VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
                 .presentMode = VK_PRESENT_MODE_FIFO_KHR,
-                .clipped = VK_FALSE,
-                .oldSwapchain = VK_NULL_HANDLE, //注意这里，是否要在下一次创建的时候释放掉之前的swapchain
+                .clipped = VK_TRUE,
+                .oldSwapchain = VK_NULL_HANDLE, //TODO: 注意这里，是否要在下一次创建的时候释放掉之前的swapchain
         };
         VkResult createSwapChainResult = vkCreateSwapchainKHR(logicalDevice_, &swapchainCreateInfo, nullptr, &swapchainContext_.swapchain);
         if (createSwapChainResult || swapchainContext_.swapchain == VK_NULL_HANDLE) {
@@ -722,12 +722,42 @@ namespace libRetroRunner {
 
         vkGetSwapchainImagesKHR(logicalDevice_, swapchainContext_.swapchain, &swapchainContext_.imageCount, nullptr);
         LOGD_VC("Swapchain image count: %d\n", swapchainContext_.imageCount);
+        swapchainContext_.images.resize(swapchainContext_.imageCount);
+        vkGetSwapchainImagesKHR(logicalDevice_, swapchainContext_.swapchain, &swapchainContext_.imageCount, swapchainContext_.images.data());
+        //create fences
+        swapchainContext_.imageFences.resize(swapchainContext_.imageCount);
+        for (uint32_t i = 0; i < swapchainContext_.imageCount; i++) {
+            VkFenceCreateInfo fenceCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                    .pNext = nullptr,
+                    .flags = 0
+            };
+            VkResult createFenceResult = vkCreateFence(logicalDevice_, &fenceCreateInfo, nullptr, &swapchainContext_.imageFences[i]);
+            if (createFenceResult != VK_SUCCESS || swapchainContext_.imageFences[i] == VK_NULL_HANDLE) {
+                LOGE_VC("Failed to create fence for swapchain image %d: %d\n", i, createFenceResult);
+            }
+        }
 
         swapchainContext_.valid = true;
         return true;
     }
 
     bool VulkanVideoContext::vulkanClearSwapchainIfNeeded() {
+        swapchainContext_.valid = false;
+
+        for(int idx=0;idx < swapchainContext_.imageFences.size(); idx++){
+            if (swapchainContext_.imageFences[idx] != VK_NULL_HANDLE) {
+                vkDestroyFence(logicalDevice_, swapchainContext_.imageFences[idx], nullptr);
+                swapchainContext_.imageFences[idx] = VK_NULL_HANDLE;
+            }
+        }
+        swapchainContext_.images.clear();
+        swapchainContext_.imageCount = 0;
+        if (swapchainContext_.swapchain != VK_NULL_HANDLE) {
+            vkDestroySwapchainKHR(logicalDevice_, swapchainContext_.swapchain, nullptr);
+            swapchainContext_.swapchain = VK_NULL_HANDLE;
+        }
+
         return true;
     }
 

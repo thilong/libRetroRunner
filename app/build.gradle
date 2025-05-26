@@ -31,7 +31,7 @@ android {
 dependencies {
     api project(path: ':libRetroRunner')
     api project(path: ':libDroidVirualPad')
-    api project(path: ':libPPSSPP')
+    //api project(path: ':libPPSSPP')
 
 
     implementation "androidx.core:core-ktx:1.12.0"

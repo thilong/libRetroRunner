@@ -53,6 +53,10 @@ namespace libRetroRunner {
         VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 
         uint32_t imageCount = 0;
+        std::vector<VkImage> images{};
+        std::vector<VkFence> imageFences{};
+
+        uint32_t current_image;
     };
 
     class VulkanVideoContext : public VideoContext {

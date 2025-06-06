@@ -56,7 +56,7 @@ namespace libRetroRunner {
         std::vector<VkImage> images{};
         std::vector<VkFence> imageFences{};
 
-        uint32_t current_image;
+        uint32_t current_image = 0;
     };
 
     class VulkanVideoContext : public VideoContext {
@@ -156,6 +156,7 @@ namespace libRetroRunner {
 
         VkCommandPool commandPool_;
 
+        VkSemaphore semaphore_;
 
         RRVulkanRenderContext renderContext_;
         RRVulkanSwapchainContext swapchainContext_;

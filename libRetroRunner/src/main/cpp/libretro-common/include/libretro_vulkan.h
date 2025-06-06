@@ -279,9 +279,14 @@ struct retro_hw_render_interface_vulkan
    /* Before calling retro_video_refresh_t with RETRO_HW_FRAME_BUFFER_VALID,
     * set which image to use for this frame.
     *
+    * 在使用RETRO_HW_FRAME_BUFFER_VALID参数调用retro_video_refresh_t之前调用，
+    * 设置哪一个图片用于绘制当前这一帧。
+    *
     * If num_semaphores is non-zero, the frontend will wait for the
     * semaphores provided to be signaled before using the results further
     * in the pipeline.
+    *
+    * 如果num_semaphores不为0，前端将会等待提供的信号量被信号化，
     *
     * Semaphores provided by a single call to set_image will only be
     * waited for once (waiting for a semaphore resets it).
@@ -289,8 +294,14 @@ struct retro_hw_render_interface_vulkan
     * video_refresh without set_image,
     * but same image will only wait for semaphores once.
     *
+    * 一次调用set_image提供的信号量只会被等待一次（等待信号量会重置它）。
+    * 例如：set_image，video_refresh
+    * 相同的图像只会等待信号量一次。
+    *
     * For this reason, ownership transfer will only occur if semaphores
     * are waited on for a particular frame in the frontend.
+    *
+    * 因此，所有权才的转移只有在前端等待特定帧的信号量时才会发生。
     *
     * Using semaphores is optional for synchronization purposes,
     * but if not using
@@ -306,10 +317,16 @@ struct retro_hw_render_interface_vulkan
     *       dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
     *    });
     *
+    *  使用信号量是可选的，但如果不使用信号量，一个在vkCmdPipelineBarrier的图像内存屏障
+    *  应该在图形队列中使用。
+    *
     * The use of pipeline barriers instead of semaphores is encouraged
     * as it is simpler and more fine-grained. A layout transition
     * must generally happen anyways which requires a
     * pipeline barrier.
+    *
+    * 使用管线屏障而不是信号量是被鼓励的， 因为它更简单且有更细的粒度。
+    * 需要管线屏障时，一个布局转换通常是必需的，
     *
     * The image passed to set_image must have imageUsage flags set to at least
     * VK_IMAGE_USAGE_TRANSFER_SRC_BIT and VK_IMAGE_USAGE_SAMPLED_BIT.
@@ -318,17 +335,28 @@ struct retro_hw_render_interface_vulkan
     * VK_IMAGE_USAGE_TRANSFER_DST_BIT depending
     * on how the final image is created.
     *
+    *  图像传递给set_image时，必须将imageUsage标志设置为VK_IMAGE_USAGE_TRANSFER_SRC_BIT和VK_IMAGE_USAGE_SAMPLED_BIT
+    *  核心自然会根据最终图像的创建方式使用。比如VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT， VK_IMAGE_USAGE_TRANSFER_DST_BIT
+    *
     * The image must also have been created with MUTABLE_FORMAT bit set if
     * 8-bit formats are used, so that the frontend can reinterpret sRGB
     * formats as it sees fit.
+    *
+    *  8-bit西方式的图像还必须使用MUTABLE_FORMAT位创建，
+    *  以便前端可以根据需要重新解释sRGB格式。
     *
     * Images passed to set_image should be created with TILING_OPTIMAL.
     * The image layout should be transitioned to either
     * VK_IMAGE_LAYOUT_GENERIC or VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
     * The actual image layout used must be set in image_layout.
     *
+    * 使用set_image传递的图像应该使用TILING_OPTIMAL创建。、
+    * 图像布局应该转换为VK_IMAGE_LAYOUT_GENERIC或VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL。
+    * 实际使用的图像布局必须在image_layout中设置。
+    *
     * The image must be a 2D texture which may or not be layered
     * and/or mipmapped.
+    * 图像必须是一个2D纹理，可以是分层的或有mipmapped。
     *
     * The image must be suitable for linear sampling.
     * While the image_view is typically the only field used,
@@ -336,19 +364,32 @@ struct retro_hw_render_interface_vulkan
     * non-sRGB for example so the VkImageViewCreateInfo used to
     * create the image view must also be passed in.
     *
+    *  图像必须适合线性采样。
+    *  虽然image_view通常是唯一使用的字段， 前端有可能想要重新解释纹理为sRGB而不是非sRGB，
+    *  例如，用于创建图像视图的VkImageViewCreateInfo也必须传递。
+    *
     * The data in the pointer to the image struct will not be copied
     * as the pNext field in create_info cannot be reliably deep-copied.
     * The image pointer passed to set_image must be valid until
     * retro_video_refresh_t has returned.
+    *
+    * 指向图片结构的指针中的数据不会被复制， 因为create_info中的pNext字段不能被可靠地深拷贝。
+    * 传递给set_image的图像指针必须在retro_video_refresh_t返回之前有效。
     *
     * If frame duping is used when passing NULL to retro_video_refresh_t,
     * the frontend is free to either use the latest image passed to
     * set_image or reuse the older pointer passed to set_image the
     * frame RETRO_HW_FRAME_BUFFER_VALID was last used.
     *
+    * 如果在传递NULL给retro_video_refresh_t时使用了帧复制，
+    * 前端可以自由地使用最新传递给set_image的图像， 或是重用上次使用RETRO_HW_FRAME_BUFFER_VALID的set_image传递的旧指针。
+    *
     * Essentially, the lifetime of the pointer passed to
     * retro_video_refresh_t should be extended if frame duping is used
     * so that the frontend can reuse the older pointer.
+    *
+    *  基本上，如果使用了帧复制，传递给retro_video_refresh_t的指针的生命周期应该被延长，
+    *  以便前端可以重用旧指针。
     *
     * The image itself however, must not be touched by the core until
     * wait_sync_index has been completed later. The frontend may perform
@@ -357,23 +398,43 @@ struct retro_hw_render_interface_vulkan
     * In this case, the frontend is not allowed to perform any layout transitions,
     * so concurrent reads from core and frontend are allowed.
     *
+    *   图像本身在wait_sync_index完成之前，核心不得触摸它。
+    *   前端可能会对图像执行布局转换， 所以， 即使是只读访问也是不允许的。
+    *   只读规则的例外是如果图像使用了GENERAL布局。
+    *   在这种情况下，前端不允许执行任何布局转换， 所以核心和前端的并发读取是允许的。
+    *
     * If frame duping is used, or if set_command_buffers is used,
     * the frontend will not wait for any semaphores.
+    *
+    *  如果使用了帧复制，或者使用了set_command_buffers，
+    *  前端将不会等待任何信号量。
     *
     * The src_queue_family is used to specify which queue family
     * the image is currently owned by. If using multiple queue families
     * (e.g. async compute), the frontend will need to acquire ownership of the
     * image before rendering with it and release the image afterwards.
     *
+    * src_queue_family用于指定图像当前由哪个队列族拥有。
+    *  如果使用多个队列族（例如异步计算）， 前端需要在渲染之前获取图像的所有权，
+    *  并在渲染之后释放图像。
+    *
+    *
     * If src_queue_family is equal to the queue family (queue_index),
     * no ownership transfer will occur.
     * Similarly, if src_queue_family is VK_QUEUE_FAMILY_IGNORED,
     * no ownership transfer will occur.
     *
+    *   如果src_queue_family等于队列族（queue_index）， 那么不会有所有权转移。
+    *   同样地，如果src_queue_family是VK_QUEUE_FAMILY_IGNORED， 也不会有所有权转移。
+    *
     * The frontend will always release ownership back to src_queue_family.
     * Waiting for frontend to complete with wait_sync_index() ensures that
     * the frontend has released ownership back to the application.
     * Note that in Vulkan, transfering ownership is a two-part process.
+    *
+    *   前端将始终将所有权释放回src_queue_family。
+    *   等待前端完成wait_sync_index()确保前端已经将所有权释放回应用程序。
+    *   注意，在Vulkan中，转移所有权是一个两部分的过程。
     *
     * Example frame:
     *  - core releases ownership from src_queue_index to queue_index with VkImageMemoryBarrier.
@@ -383,8 +444,20 @@ struct retro_hw_render_interface_vulkan
     *  - Frontend releases ownership with queue_index -> src_queue_index.
     *  - Next time image is used, core must acquire ownership from queue_index ...
     *
+    *  核心帧示例：
+    *    - 核心使用VkImageMemoryBarrier从src_queue_index释放所有权到queue_index。
+    *    - 核心调用set_image，使用src_queue_index。
+    *    - 前端也将使用src_queue_index -> queue_index获取图像，完成所有权转移。
+    *    - 前端渲染帧。
+    *    - 前端使用queue_index -> src_queue_index释放所有权。
+    *    - 下次使用图像时，核心必须从queue_index获取所有权...
+    *
     * Since the frontend releases ownership, we cannot necessarily dupe the frame because
     * the core needs to make the roundtrip of ownership transfer.
+    *
+    *  因此，由于前端释放了所有权，我们不一定能复制帧，
+    *  核心需要进行所有权转移的往返。
+    *
     */
    retro_vulkan_set_image_t set_image;
 
@@ -392,50 +465,86 @@ struct retro_hw_render_interface_vulkan
     * frontend by calling e.g. vkAcquireNextImageKHR before calling
     * retro_run().
     *
+    *  获取前端当前帧的同步索引，前端通过在retro_run()之前调用vkAcquireNextImageKHR来获取。
+    *
     * This index will correspond to which swapchain buffer is currently
     * the active one.
     *
+    *  这个索引将对应于当前活动的交换链缓冲区。
+    *
     * Knowing this index is very useful for maintaining safe asynchronous CPU
     * and GPU operation without stalling.
+    *
+    *  知道这个索引对于维护安全的异步CPU和GPU操作而不阻塞非常有用。
     *
     * The common pattern for synchronization is to receive fences when
     * submitting command buffers to Vulkan (vkQueueSubmit) and add this fence
     * to a list of fences for frame number get_sync_index().
     *
+    * 在提交命令缓冲区到Vulkan（vkQueueSubmit）时，常见的同步模式是接收fences，并将此fence添加到get_sync_index()的帧号列表中。
+    *
     * Next time we receive the same get_sync_index(), we can wait for the
     * fences from before, which will usually return immediately as the
     * frontend will generally also avoid letting the GPU run ahead too much.
     *
+    *   下一次我们接收到相同的get_sync_index()时，我们可以等待之前的fences，
+    *   这通常会立即返回， 因为前端通常也会避免让GPU过多地提前运行。
+    *
     * After the fence has signaled, we know that the GPU has completed all
     * GPU work related to work submitted in the frame we last saw get_sync_index().
     *
+    *   在fence发出信号后，我们知道GPU已经完成了与我们上次看到的get_sync_index()提交的帧相关的所有GPU工作。
+    *
     * This means we can safely reuse or free resources allocated in this frame.
+    *
+    *   这意味着我们可以安全地重用或释放在此帧中分配的资源。
     *
     * In theory, even if we wait for the fences correctly, it is not technically
     * safe to write to the image we earlier passed to the frontend since we're
     * not waiting for the frontend GPU jobs to complete.
     *
+    *   理论上，即使我们正确地等待了fences，技术上也不安全
+    *   写入我们之前传递给前端的图像， 因为我们没有等待前端GPU作业完成。
+    *
     * The frontend will guarantee that the appropriate pipeline barrier
     * in graphics_queue has been used such that
     * VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT cannot
     * start until the frontend is done with the image.
+    *
+    *   前端将保证在graphics_queue中使用了适当的管道屏障，
+    *   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    *   不能开始，直到前端完成图像处理。
+    *
     */
    retro_vulkan_get_sync_index_t get_sync_index;
 
    /* Returns a bitmask of how many swapchain images we currently have
     * in the frontend.
     *
+    *   返回当前前端拥有的交换链图像数量的位掩码。
+    *
+    *
     * If bit #N is set in the return value, get_sync_index can return N.
     * Knowing this value is useful for preallocating per-frame management
     * structures ahead of time.
+    *
+    *   如果返回值中的第N位被设置，get_sync_index可以返回N。
+    *   知道这个值对于提前预分配每帧管理结构是有用的。
     *
     * While this value will typically remain constant throughout the
     * applications lifecycle, it may for example change if the frontend
     * suddently changes fullscreen state and/or latency.
     *
+    *   虽然这个值通常在应用程序的生命周期中保持不变，
+    *   但例如，如果前端突然改变全屏状态和/或延迟，这个值可能会改变。
+    *
     * If this value ever changes, it is safe to assume that the device
     * is completely idle and all synchronization objects can be deleted
     * right away as desired.
+    *
+    *  如果这个值发生变化，可以安全地假设设备完全空闲，
+    *  所有同步对象都可以立即删除。
+    *
     */
    retro_vulkan_get_sync_index_mask_t get_sync_index_mask;
 

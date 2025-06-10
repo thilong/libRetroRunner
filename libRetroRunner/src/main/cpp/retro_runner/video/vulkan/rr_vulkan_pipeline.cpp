@@ -272,7 +272,7 @@ namespace libRetroRunner {
         }
         if (!descriptorSet_) {
             vkFreeDescriptorSets(logicalDevice_, descriptorPool_, 1, &descriptorSet_);
-            descriptorSet_ = nullptr;
+            descriptorSet_ = VK_NULL_HANDLE;
         }
         if (descriptorPool_) {
 

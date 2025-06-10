@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'com.aidoo.retrorunner'
+    namespace 'com.aidoo.libppsspp'
     compileSdk 34
 
     defaultConfig {
@@ -14,11 +14,10 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments '-DANDROID_STL=c++_static','-DANDROID=1', '-DHAVE_GLES2=1'
+                arguments '-DLIBRETRO=ON','-DANDROID_PLATFORM=23'
                 abiFilters 'arm64-v8a','armeabi-v7a'  //disable this to build for all architectures, this is for development
             }
         }
-
     }
 
     buildTypes {
@@ -26,10 +25,12 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+
+
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 
     externalNativeBuild {
@@ -38,12 +39,8 @@ android {
             path 'src/main/cpp/CMakeLists.txt'
         }
     }
-    buildFeatures {
-        shaders true
-    }
 }
 
 dependencies {
 
-implementation 'androidx.lifecycle:lifecycle-runtime:2.8.7'
 }

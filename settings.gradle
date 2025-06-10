@@ -1,4 +1,4 @@
 include ':app'
 include ':libRetroRunner'
 include ':libDroidVirualPad'
-//include ':libPPSSPP'
+include ':libPPSSPP'

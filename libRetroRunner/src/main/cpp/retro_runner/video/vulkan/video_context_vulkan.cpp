@@ -468,7 +468,7 @@ namespace libRetroRunner {
     bool VulkanVideoContext::vulkanCreateSurfaceIfNeeded() {
         auto appContext = AppContext::Current();
         AppWindow appWindow = appContext->GetAppWindow();
-        if (swapchainContext_.surface != nullptr && swapchainContext_.surfaceId == appWindow.surfaceId) {
+        if (swapchainContext_.surface != VK_NULL_HANDLE && swapchainContext_.surfaceId == appWindow.surfaceId) {
             is_new_surface_ = false;
             return true;
         }

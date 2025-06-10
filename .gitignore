@@ -11,3 +11,6 @@ local.properties
 **/libflycast.so
 .DS_Store
 /build
+app/src/main/jniLibs/arm64-v8a/libppsspp_libretro_android.so
+
+libPPSSPP/src/main/cpp/**

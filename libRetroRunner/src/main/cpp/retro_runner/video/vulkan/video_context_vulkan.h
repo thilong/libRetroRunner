@@ -156,13 +156,20 @@ namespace libRetroRunner {
 
         VkCommandPool commandPool_;
 
-        VkSemaphore semaphore_;
+
 
         RRVulkanRenderContext renderContext_;
         RRVulkanSwapchainContext swapchainContext_;
 
         retro_vulkan_destroy_device_t destroyDeviceImpl_;
 
+        const retro_vulkan_image* negotiationImage_;
+        uint32_t negotiationSemaphoreCount_;
+        VkSemaphore* negotiationSemaphores_;
+        VkPipelineStageFlags *negotiationWaitStages_;
+        uint32_t negotiationQueueFamily_;
+        VkSemaphore negotiationSemaphore_;
+        std::vector<VkCommandBuffer> negotiationCommandBuffers_;
     };
 }
 

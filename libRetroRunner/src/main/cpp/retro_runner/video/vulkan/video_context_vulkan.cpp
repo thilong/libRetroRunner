@@ -66,6 +66,28 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::retro_vulkan_set_image_t_impl(const struct retro_vulkan_image *image, uint32_t num_semaphores, const VkSemaphore *semaphores, uint32_t src_queue_family) {
+        negotiationImage_ = image;
+       if(!negotiationSemaphores_){
+           negotiationSemaphores_ = new VkSemaphore[20];
+       }
+       if(!negotiationWaitStages_){
+              negotiationWaitStages_ = new VkPipelineStageFlags[20];
+       }
+       negotiationSemaphoreCount_ = num_semaphores;
+       if(semaphores){
+            for (uint32_t i = 0; i < num_semaphores; ++i) {
+                if(i > 19){
+                    LOGE_VVC("semaphores count %u is too large, max is 20", num_semaphores);
+                    break;
+                }
+                negotiationSemaphores_[i] = semaphores[i];
+                negotiationWaitStages_[i] = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            }
+        }
+        negotiationQueueFamily_ = src_queue_family;
+
+
+       //TODO: check line:3080 vk->flags |= VK_FLAG_HW_VALID_SEMAPHORE;
         if(image){
             LOGW_VVC("need to implement retro_vulkan_set_image_t_impl %p, %d, %d, %u, %p, %u", image->image_view, image->image_layout, image->create_info.flags, num_semaphores, semaphores, src_queue_family);
         }else{
@@ -75,7 +97,7 @@ namespace libRetroRunner {
 
     uint32_t VulkanVideoContext::retro_vulkan_get_sync_index_t_impl() {
         uint32_t ret = swapchainContext_.valid ? swapchainContext_.current_image : 0;
-        LOGW_VVC("call retro_vulkan_get_sync_index_t_impl with return: %u", ret);
+        //LOGW_VVC("call retro_vulkan_get_sync_index_t_impl with return: %u", ret);
         return 0;
     }
 
@@ -94,7 +116,7 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::retro_vulkan_lock_queue_t_impl() {
-        //TODO: LOGW_VVC("need to implement retro_vulkan_lock_queue_t_impl");
+        //LOGW_VVC("need to implement retro_vulkan_lock_queue_t_impl");
         /*
         #ifdef HAVE_THREADS
                 vk_t *vk = (vk_t*)handle;
@@ -104,7 +126,7 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::retro_vulkan_unlock_queue_t_impl() {
-        //TODO: LOGW_VVC("need to implement retro_vulkan_unlock_queue_t_impl");
+        //LOGW_VVC("need to implement retro_vulkan_unlock_queue_t_impl");
         /*
         #ifdef HAVE_THREADS
                 vk_t *vk = (vk_t*)handle;
@@ -115,7 +137,7 @@ namespace libRetroRunner {
 
     void VulkanVideoContext::retro_vulkan_set_signal_semaphore_t_impl(VkSemaphore semaphore) {
         //TODO: LOGW_VVC("need to implement retro_vulkan_set_signal_semaphore_t_impl");
-        semaphore_ = semaphore;
+        negotiationSemaphore_ = semaphore;
     }
 }
 
@@ -216,7 +238,8 @@ namespace libRetroRunner {
         commandPool_ = VK_NULL_HANDLE;
 
         destroyDeviceImpl_ = nullptr;
-
+        negotiationSemaphores_ = nullptr;
+        negotiationWaitStages_ = nullptr;
     }
 
     VulkanVideoContext::~VulkanVideoContext() {
@@ -315,12 +338,12 @@ namespace libRetroRunner {
 
         if(data){
             if(data == RETRO_HW_FRAME_BUFFER_VALID) {
-                LOGD_VVC("OnNewFrame called with RETRO_HW_FRAME_BUFFER_VALID, this is a hardware render frame.");
+                //LOGD_VVC("OnNewFrame called with RETRO_HW_FRAME_BUFFER_VALID, this is a hardware render frame.");
             } else {
-                LOGD_VVC("OnNewFrame called with data: %p, width: %u, height: %u, pitch: %zu", data, width, height, pitch);
+                //LOGD_VVC("OnNewFrame called with data: %p, width: %u, height: %u, pitch: %zu", data, width, height, pitch);
             }
             if(vulkanIsReady_)
-            DrawFrame();
+                DrawFrame();
         }else{
             LOGW_VVC("OnNewFrame called with null data, this is not a valid frame.");
         }

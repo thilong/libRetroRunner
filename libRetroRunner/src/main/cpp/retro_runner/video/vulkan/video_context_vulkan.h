@@ -56,6 +56,13 @@ namespace libRetroRunner {
         std::vector<VkImage> images{};
         std::vector<VkFence> imageFences{};
 
+        std::vector<VkImageView> imageViews{};
+        std::vector<VkFramebuffer> frameBuffers{};
+        std::vector<VkCommandBuffer> commandBuffers{};
+
+
+        VkSemaphore semaphore = VK_NULL_HANDLE;
+        VkFence fence = VK_NULL_HANDLE;
         uint32_t current_image = 0;
     };
 
@@ -91,8 +98,8 @@ namespace libRetroRunner {
 
 
         void retro_vulkan_set_image_t_impl(const struct retro_vulkan_image *image, uint32_t num_semaphores, const VkSemaphore *semaphores,uint32_t src_queue_family);
-        uint32_t retro_vulkan_get_sync_index_t_impl();
-        uint32_t retro_vulkan_get_sync_index_mask_t_impl();
+        uint32_t retro_vulkan_get_sync_index_t_impl() const;
+        uint32_t retro_vulkan_get_sync_index_mask_t_impl() const;
         void retro_vulkan_set_command_buffers_t_impl(uint32_t num_cmd,const VkCommandBuffer *cmd);
         void retro_vulkan_wait_sync_index_t_impl();
         void retro_vulkan_lock_queue_t_impl();
@@ -170,6 +177,8 @@ namespace libRetroRunner {
         uint32_t negotiationQueueFamily_;
         VkSemaphore negotiationSemaphore_;
         std::vector<VkCommandBuffer> negotiationCommandBuffers_;
+
+        uint64_t frameCount_ = 0;
     };
 }
 

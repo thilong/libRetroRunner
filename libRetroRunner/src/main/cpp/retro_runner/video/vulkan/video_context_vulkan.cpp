@@ -68,7 +68,7 @@ namespace libRetroRunner {
     bool vkFindDeviceExtensions(VkPhysicalDevice gpu, std::vector<const char *> &enabledExts, std::vector<const char *> &optionalExts);
 }
 
-/** negotiation interface and hardware rendering interface implementation */
+/** negotiation interface implementation */
 namespace libRetroRunner {
     static VkInstance retro_vulkan_create_instance_wrapper_t_impl(void *opaque, const VkInstanceCreateInfo *create_info) {
         if (opaque) {
@@ -84,6 +84,9 @@ namespace libRetroRunner {
         return VK_NULL_HANDLE;
     }
 
+}
+/** hardware rendering interface implementation */
+namespace libRetroRunner{
     void VulkanVideoContext::retro_vulkan_set_image_t_impl(const struct retro_vulkan_image *image, uint32_t num_semaphores, const VkSemaphore *semaphores, uint32_t src_queue_family) {
         negotiationImage_ = image;
        if(!negotiationSemaphores_){
@@ -309,9 +312,7 @@ namespace libRetroRunner {
         //step: command pool
         if (!vulkanCreateCommandPoolIfNeeded()) return false;
 
-        //step: pipeline
-        if (!vulkanCreateCommandPoolIfNeeded()) return false;
-
+        //step: render context: pipeline
         if (!vulkanCreateRenderContextIfNeeded()) return false;
 
         //step: create swapchain L:1684
@@ -327,6 +328,7 @@ namespace libRetroRunner {
             is_new_surface_ = false;
         }
 
+        
         vulkanIsReady_ = true;
         return true;
     }
@@ -351,7 +353,12 @@ namespace libRetroRunner {
     void VulkanVideoContext::Prepare() {
         LOGD_VVC("Prepare for frame: %lu, vulkanIsReady: %d", frameCount_, vulkanIsReady_);
         if(vulkanIsReady_){
-
+            VkResult  acquireRet = vkAcquireNextImageKHR(logicalDevice_, swapchainContext_.swapchain, UINT64_MAX, swapchainContext_.semaphore, VK_NULL_HANDLE, &swapchainContext_.current_image);
+            if (acquireRet != VK_SUCCESS && acquireRet != VK_SUBOPTIMAL_KHR) {
+                LOGE_VC("Failed to acquire next image from swapchain: %d\n", acquireRet);
+            }else{
+                LOGD_VC("Acquired next image from swapchain, image index: %u, result:%d", swapchainContext_.current_image, acquireRet);
+            }
         }
     }
 
@@ -413,11 +420,20 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::vulkanCommitFrame() {
+        VkBool32 surfaceSupported = VK_FALSE;
+        VkResult result2 = vkGetPhysicalDeviceSurfaceSupportKHR(
+                physicalDevice_,
+                queueFamilyIndex_,
+                swapchainContext_.surface,
+                &surfaceSupported
+        );
+
         VkFence fence = swapchainContext_.fence;
 
         VkCommandBuffer commandBuffer = swapchainContext_.commandBuffers[swapchainContext_.current_image];
         vkResetCommandBuffer(commandBuffer, 0);
         recordCommandBufferForSoftwareRender(commandBuffer, swapchainContext_.current_image);
+
 
         vkWaitForFences(logicalDevice_, 1, &fence, VK_TRUE, UINT64_MAX);
         if (vkResetFences(logicalDevice_, 1, &fence) != VK_SUCCESS) {
@@ -425,7 +441,8 @@ namespace libRetroRunner {
             return;
         }
 
-        VkQueue queue = graphicQueue_;
+        VkQueue queue = presentationQueue_ ? presentationQueue_ : graphicQueue_;
+
         VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         VkSubmitInfo submit_info = {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -441,6 +458,8 @@ namespace libRetroRunner {
         if (submitResult != VK_SUCCESS) {
             LOGE_VC("frame: %lu, Failed to submit queue: %d",frameCount_, submitResult);
             return;
+        }else{
+            LOGI_VC("frame: %lu, Queue submitted successfully.", frameCount_);
         }
 
         VkResult result;
@@ -651,44 +670,55 @@ namespace libRetroRunner {
         const retro_hw_render_context_negotiation_interface_vulkan *negotiation = getNegotiationInterface();
         if (!vulkanChooseGPU()) return false;
         if (negotiation && negotiation->create_device) {
-            struct retro_vulkan_context context = {0};
+            if(retro_vk_context_ == nullptr) {
+                retro_vk_context_ = new retro_vulkan_context{};
+            }
+            retro_vk_context_->gpu = physicalDevice_;
+
             bool createResult = false;
             if (negotiation->interface_version > 1 && negotiation->create_device2) {
                 LOGD_VVC("create device (2) with our selected gpu.");
                 createResult = negotiation->create_device2(
-                        &context, instance_, physicalDevice_,
+                        retro_vk_context_, instance_, physicalDevice_,
                         swapchainContext_.surface, vkGetInstanceProcAddr,
                         retro_vulkan_create_device_wrapper_t_impl, this);
                 if (!createResult) {
                     LOGW_VVC("Failed to create device (2) on provided GPU device, now let the core choose.");
                     createResult = negotiation->create_device2(
-                            &context, instance_, VK_NULL_HANDLE,
+                            retro_vk_context_, instance_, VK_NULL_HANDLE,
                             swapchainContext_.surface, vkGetInstanceProcAddr,
                             retro_vulkan_create_device_wrapper_t_impl, this);
                 }
             } else {
                 std::vector<const char *> deviceExtensions{};
                 deviceExtensions.push_back("VK_KHR_swapchain");
-                LOGD_VVC("create device with our selected gpu.");
+                LOGD_VVC("create device with our selected gpu, surface: %p", swapchainContext_.surface);
                 createResult = negotiation->create_device(
-                        &context, instance_, physicalDevice_, swapchainContext_.surface, vkGetInstanceProcAddr,
+                        retro_vk_context_, instance_, physicalDevice_, swapchainContext_.surface, vkGetInstanceProcAddr,
                         deviceExtensions.data(), deviceExtensions.size(),
                         nullptr, 0, &features);
             }
             if (createResult) {
-                if (physicalDevice_ != nullptr && physicalDevice_ != context.gpu) {
+                if (physicalDevice_ != nullptr && physicalDevice_ != retro_vk_context_->gpu) {
                     LOGE_VVC("Got unexpected gpu device, core choose a different one.");
                 }
                 destroyDeviceImpl_ = negotiation->destroy_device;
 
-                logicalDevice_ = context.device;
-                graphicQueue_ = context.queue;
-                physicalDevice_ = context.gpu;
-                queueFamilyIndex_ = context.queue_family_index;
+                logicalDevice_ = retro_vk_context_->device;
+                graphicQueue_ = retro_vk_context_->queue;
+                physicalDevice_ = retro_vk_context_->gpu;
+                queueFamilyIndex_ =retro_vk_context_->queue_family_index;
+
+                presentationQueue_ = retro_vk_context_->presentation_queue;
+                presentationQueueFamilyIndex_ = retro_vk_context_->presentation_queue_family_index;
+
                 LOGD_VC("Logical device [negotiation]: %p", logicalDevice_);
                 LOGD_VC("Physical queue [negotiation]: %p", physicalDevice_);
                 LOGD_VC("Graphic queue [negotiation]: %p", graphicQueue_);
                 LOGD_VC("Queue family index [negotiation]: %d", queueFamilyIndex_);
+
+                LOGD_VC("Presentation queue [negotiation]: %p", presentationQueue_);
+                LOGD_VC("Presentation queue family index [negotiation]: %d", presentationQueueFamilyIndex_);
             } else {
                 LOGE_VVC("Failed to create device with negotiation interface. Falling back to RetroRunner");
                 return false;
@@ -845,7 +875,7 @@ namespace libRetroRunner {
                 .pQueueFamilyIndices = &queueFamilyIndex_,
                 .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
                 .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, //android: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,  windows: VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
-                .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+                .presentMode = VK_PRESENT_MODE_MAILBOX_KHR,   //渲染方式，MAILBOX, FIFO
                 .clipped = VK_TRUE,
                 .oldSwapchain = VK_NULL_HANDLE, //TODO: 注意这里，是否要在下一次创建的时候释放掉之前的swapchain
         };

@@ -161,6 +161,9 @@ namespace libRetroRunner {
         VkDevice logicalDevice_;
         VkQueue graphicQueue_;
 
+        VkQueue presentationQueue_;
+        uint32_t presentationQueueFamilyIndex_ = 0;
+
         VkCommandPool commandPool_;
 
 

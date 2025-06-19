@@ -118,7 +118,7 @@ namespace libRetroRunner{
     }
 
     uint32_t VulkanVideoContext::retro_vulkan_get_sync_index_t_impl() const {
-        uint32_t ret = swapchainContext_.valid ? swapchainContext_.current_image : 0;
+        uint32_t ret = swapchainContext_.valid ? swapchainContext_.image_index : 0;
         //TODO: should check
         LOGW_VVC("frame: %lu, call retro_vulkan_get_sync_index_t_impl : %u",frameCount_, ret);
         return ret;
@@ -141,6 +141,7 @@ namespace libRetroRunner{
 
     void VulkanVideoContext::retro_vulkan_lock_queue_t_impl() {
         //LOGW_VVC("need to implement retro_vulkan_lock_queue_t_impl");
+        pthread_mutex_lock(queue_lock);
         /*
         #ifdef HAVE_THREADS
                 vk_t *vk = (vk_t*)handle;
@@ -151,6 +152,7 @@ namespace libRetroRunner{
 
     void VulkanVideoContext::retro_vulkan_unlock_queue_t_impl() {
         //LOGW_VVC("need to implement retro_vulkan_unlock_queue_t_impl");
+        pthread_mutex_unlock(queue_lock);
         /*
         #ifdef HAVE_THREADS
                 vk_t *vk = (vk_t*)handle;
@@ -264,6 +266,8 @@ namespace libRetroRunner {
         destroyDeviceImpl_ = nullptr;
         negotiationSemaphores_ = nullptr;
         negotiationWaitStages_ = nullptr;
+        queue_lock = new pthread_mutex_t;
+        pthread_mutex_init(queue_lock, nullptr);
     }
 
     VulkanVideoContext::~VulkanVideoContext() {
@@ -328,7 +332,6 @@ namespace libRetroRunner {
             is_new_surface_ = false;
         }
 
-        
         vulkanIsReady_ = true;
         return true;
     }
@@ -339,6 +342,11 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::Destroy() {
+        if(queue_lock) {
+            pthread_mutex_destroy(queue_lock);
+            delete queue_lock;
+            queue_lock = nullptr;
+        }
         if (retro_vk_context_) {
             delete retro_vk_context_;
             retro_vk_context_ = nullptr;
@@ -353,17 +361,63 @@ namespace libRetroRunner {
     void VulkanVideoContext::Prepare() {
         LOGD_VVC("Prepare for frame: %lu, vulkanIsReady: %d", frameCount_, vulkanIsReady_);
         if(vulkanIsReady_){
-            VkResult  acquireRet = vkAcquireNextImageKHR(logicalDevice_, swapchainContext_.swapchain, UINT64_MAX, swapchainContext_.semaphore, VK_NULL_HANDLE, &swapchainContext_.current_image);
+            swapchainContext_.frame_index = (swapchainContext_.frame_index + 1) % swapchainContext_.imageCount;
+            uint32_t  frame_index = swapchainContext_.frame_index;
+
+            VkFence fence = swapchainContext_.imageFences[frame_index];
+            if(swapchainContext_.imageFencesSignalled[frame_index])
+                vkWaitForFences(logicalDevice_, 1, &fence, VK_TRUE, UINT64_MAX);
+            vkResetFences(logicalDevice_, 1, &fence);
+
+            swapchainContext_.imageFencesSignalled[frame_index] = false;
+
+            VkSemaphore waitSemaphore = swapchainContext_.imageAcquireWaitingSemaphores[frame_index];
+            if(waitSemaphore != VK_NULL_HANDLE){
+                swapchainContext_.imageAcquireRecycledSemaphores.push(waitSemaphore);
+            }
+            swapchainContext_.imageAcquireWaitingSemaphores[frame_index] = VK_NULL_HANDLE;
+
+
+            VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
+            if(swapchainContext_.imageAcquireRecycledSemaphores.empty()){
+                VkSemaphoreCreateInfo semaphoreCreateInfo{
+                        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+                        .pNext = nullptr,
+                        .flags = 0
+                };
+                VkResult createSemaphoreResult = vkCreateSemaphore(logicalDevice_, &semaphoreCreateInfo, nullptr, &acquireSemaphore);
+                if (createSemaphoreResult != VK_SUCCESS || acquireSemaphore == VK_NULL_HANDLE) {
+                    LOGE_VC("Failed to create semaphore for swapchain image %d: %d\n", frame_index, createSemaphoreResult);
+                }
+            }else {
+                acquireSemaphore = swapchainContext_.imageAcquireRecycledSemaphores.front();
+                swapchainContext_.imageAcquireRecycledSemaphores.pop();
+            }
+            swapchainContext_.imageAcquireWaitingSemaphores[frame_index] = acquireSemaphore;
+
+            uint32_t image_index = 0;
+            VkResult  acquireRet = vkAcquireNextImageKHR(logicalDevice_,
+                                                         swapchainContext_.swapchain,
+                                                         UINT64_MAX,
+                                                         acquireSemaphore,
+                                                         VK_NULL_HANDLE,
+                                                         &image_index);
+
+            if(acquireRet == VK_ERROR_OUT_OF_DATE_KHR){
+                LOGE_VVC("Swapchain become invalid, should rebuild it.");
+                //TODO: rebuild
+            }
+            //TODO: 处理错误与VK_SUBOPTIMAL_KHR,
             if (acquireRet != VK_SUCCESS && acquireRet != VK_SUBOPTIMAL_KHR) {
                 LOGE_VC("Failed to acquire next image from swapchain: %d\n", acquireRet);
             }else{
-                LOGD_VC("Acquired next image from swapchain, image index: %u, result:%d", swapchainContext_.current_image, acquireRet);
+                LOGD_VC("Acquired next image from swapchain, image index: %u, result:%d", image_index, acquireRet);
+                swapchainContext_.image_index = image_index;
             }
         }
     }
 
     void VulkanVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {
-
         if(data){
             if(data == RETRO_HW_FRAME_BUFFER_VALID) {
                 //LOGD_VVC("OnNewFrame called with RETRO_HW_FRAME_BUFFER_VALID, this is a hardware render frame.");
@@ -420,60 +474,65 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::vulkanCommitFrame() {
-        VkBool32 surfaceSupported = VK_FALSE;
-        VkResult result2 = vkGetPhysicalDeviceSurfaceSupportKHR(
-                physicalDevice_,
-                queueFamilyIndex_,
-                swapchainContext_.surface,
-                &surfaceSupported
-        );
-
-        VkFence fence = swapchainContext_.fence;
-
-        VkCommandBuffer commandBuffer = swapchainContext_.commandBuffers[swapchainContext_.current_image];
-        vkResetCommandBuffer(commandBuffer, 0);
-        recordCommandBufferForSoftwareRender(commandBuffer, swapchainContext_.current_image);
-
-
-        vkWaitForFences(logicalDevice_, 1, &fence, VK_TRUE, UINT64_MAX);
-        if (vkResetFences(logicalDevice_, 1, &fence) != VK_SUCCESS) {
+        //wait for pre submit fence to be signaled
+        /*
+        vkWaitForFences(logicalDevice_, 1, &swapchainContext_.fence, VK_TRUE, UINT64_MAX);
+        if (vkResetFences(logicalDevice_, 1, &swapchainContext_.fence) != VK_SUCCESS) {
             LOGE_VC("Failed to reset fence!\n");
             return;
         }
+        */
+        uint32_t frame_index = swapchainContext_.frame_index;
+
+        vkResetFences(logicalDevice_, 1, &swapchainContext_.imageFences[frame_index]);
+
+
+        VkCommandBuffer commandBuffer = swapchainContext_.commandBuffers[frame_index];
+        vkResetCommandBuffer(commandBuffer, 0);
+        recordCommandBufferForSoftwareRender(commandBuffer, swapchainContext_.image_index);
 
         VkQueue queue = presentationQueue_ ? presentationQueue_ : graphicQueue_;
+        VkSemaphore acquireSemaphore = swapchainContext_.imageAcquireWaitingSemaphores[frame_index];
 
+        pthread_mutex_lock(queue_lock);
         VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         VkSubmitInfo submit_info = {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                 .pNext = nullptr,
                 .waitSemaphoreCount = 1,
-                .pWaitSemaphores = &swapchainContext_.semaphore,
+                .pWaitSemaphores = &acquireSemaphore,
                 .pWaitDstStageMask = &waitStageMask,
                 .commandBufferCount = 1,
                 .pCommandBuffers = &commandBuffer,
-                .signalSemaphoreCount = 0,
-                .pSignalSemaphores = nullptr};
-        VkResult submitResult = vkQueueSubmit(queue, 1, &submit_info, fence);
+                .signalSemaphoreCount = 1,
+                .pSignalSemaphores = &swapchainContext_.renderSemaphores[frame_index]
+        };
+        VkResult submitResult = vkQueueSubmit(queue, 1, &submit_info, swapchainContext_.imageFences[swapchainContext_.frame_index]);
+        swapchainContext_.imageFencesSignalled[swapchainContext_.frame_index] = true;
+        pthread_mutex_unlock(queue_lock);
         if (submitResult != VK_SUCCESS) {
             LOGE_VC("frame: %lu, Failed to submit queue: %d",frameCount_, submitResult);
             return;
         }else{
-            LOGI_VC("frame: %lu, Queue submitted successfully.", frameCount_);
+            LOGI_VC("frame: %lu, Queue submitted successfully, image: %d", frameCount_, swapchainContext_.frame_index);
         }
 
-        VkResult result;
+
+        VkResult result = VK_SUCCESS;
         VkPresentInfoKHR presentInfo{
                 .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                 .pNext = nullptr,
-                .waitSemaphoreCount = 0,
-                .pWaitSemaphores = nullptr,
+                .waitSemaphoreCount = 1,
+                .pWaitSemaphores = &swapchainContext_.renderSemaphores[frame_index],
                 .swapchainCount = 1,
                 .pSwapchains = &swapchainContext_.swapchain,
-                .pImageIndices = &swapchainContext_.current_image,
+                .pImageIndices = &swapchainContext_.image_index,
                 .pResults = &result,
         };
+        pthread_mutex_lock(queue_lock);
         vkQueuePresentKHR(queue, &presentInfo);
+        pthread_mutex_unlock(queue_lock);
+        LOGI_VVC("frame: %lu, Queue present complete, image index: %u, result: %d", frameCount_, swapchainContext_.image_index, result);
     }
 
     void VulkanVideoContext::recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex) {
@@ -528,6 +587,13 @@ namespace libRetroRunner {
     bool VulkanVideoContext::vulkanCreateInstanceIfNeeded() {
         if (instance_) return true;
 
+        uint32_t apiVersionCheck = VK_API_VERSION_1_0;
+        vkEnumerateInstanceVersion(&apiVersionCheck);
+        LOGD_VVC("Current Vulkan API Version: %u.%u.%u",
+                 VK_VERSION_MAJOR(apiVersionCheck),
+                 VK_VERSION_MINOR(apiVersionCheck),
+                 VK_VERSION_PATCH(apiVersionCheck));
+
         const retro_hw_render_context_negotiation_interface_vulkan *negotiator = getNegotiationInterface();
         VkApplicationInfo appInfo{
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -569,6 +635,10 @@ namespace libRetroRunner {
             }
         }
 
+        LOGD_VVC("Use Vulkan API Version: %u.%u.%u",
+                 VK_VERSION_MAJOR(appInfo.apiVersion),
+                 VK_VERSION_MINOR(appInfo.apiVersion),
+                 VK_VERSION_PATCH(appInfo.apiVersion));
         //TODO: check cache vk context?
 
         if (negotiator && negotiator->interface_version >= 2 && negotiator->create_instance) {
@@ -576,9 +646,11 @@ namespace libRetroRunner {
         } else {
             VkInstanceCreateInfo createInfo{
                     .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-                    .pNext = nullptr, .flags = 0,
+                    .pNext = nullptr,
+                    .flags = 0,
                     .pApplicationInfo = &appInfo,
-                    .enabledLayerCount = 0, .ppEnabledLayerNames = nullptr,
+                    .enabledLayerCount = 0,
+                    .ppEnabledLayerNames = nullptr,
                     .enabledExtensionCount = 0,
                     .ppEnabledExtensionNames = nullptr
             };
@@ -858,7 +930,7 @@ namespace libRetroRunner {
         swapchainContext_.format = surfaceFormats[chosenIndex].format;
         swapchainContext_.colorSpace = surfaceFormats[chosenIndex].colorSpace;
         swapchainContext_.minImageCount = surfaceCapabilities.minImageCount;
-        LOGD_VC("Surface chosen: [ %d x %d ], format: %d, color space: %d\n", swapchainContext_.extent.width, swapchainContext_.extent.height, swapchainContext_.format, swapchainContext_.colorSpace);
+        LOGD_VC("Surface chosen: [ %d x %d ], format: %d, color space: %d, minImageCount: %d\n", swapchainContext_.extent.width, swapchainContext_.extent.height, swapchainContext_.format, swapchainContext_.colorSpace,swapchainContext_.minImageCount);
 
         VkSwapchainCreateInfoKHR swapchainCreateInfo{
                 .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -869,15 +941,15 @@ namespace libRetroRunner {
                 .imageColorSpace = swapchainContext_.colorSpace,
                 .imageExtent = swapchainContext_.extent,
                 .imageArrayLayers = 1,
-                .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                 .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                .queueFamilyIndexCount = 1,
-                .pQueueFamilyIndices = &queueFamilyIndex_,
+                .queueFamilyIndexCount = 0,                             // shared mode?
+                .pQueueFamilyIndices = nullptr,
                 .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-                .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, //android: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,  windows: VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
-                .presentMode = VK_PRESENT_MODE_MAILBOX_KHR,   //渲染方式，MAILBOX, FIFO
+                .compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,    //android: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,  windows: VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+                .presentMode = VK_PRESENT_MODE_FIFO_KHR,             //MAILBOX, FIFO? i think we need to check which to be use.
                 .clipped = VK_TRUE,
-                .oldSwapchain = VK_NULL_HANDLE, //TODO: 注意这里，是否要在下一次创建的时候释放掉之前的swapchain
+                .oldSwapchain = VK_NULL_HANDLE,                         //TODO: check maybe we need to pass the old swapchain here.
         };
         VkResult createSwapChainResult = vkCreateSwapchainKHR(logicalDevice_, &swapchainCreateInfo, nullptr, &swapchainContext_.swapchain);
         if (createSwapChainResult || swapchainContext_.swapchain == VK_NULL_HANDLE) {
@@ -891,8 +963,10 @@ namespace libRetroRunner {
         LOGD_VC("Swapchain image count: %d\n", swapchainContext_.imageCount);
         swapchainContext_.images.resize(swapchainContext_.imageCount);
         vkGetSwapchainImagesKHR(logicalDevice_, swapchainContext_.swapchain, &swapchainContext_.imageCount, swapchainContext_.images.data());
+        bool resourceValid = true;
         //create fences
         swapchainContext_.imageFences.resize(swapchainContext_.imageCount);
+        swapchainContext_.imageFencesSignalled.resize(swapchainContext_.imageCount, false);
         for (uint32_t i = 0; i < swapchainContext_.imageCount; i++) {
             VkFenceCreateInfo fenceCreateInfo{
                     .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -902,33 +976,55 @@ namespace libRetroRunner {
             VkResult createFenceResult = vkCreateFence(logicalDevice_, &fenceCreateInfo, nullptr, &swapchainContext_.imageFences[i]);
             if (createFenceResult != VK_SUCCESS || swapchainContext_.imageFences[i] == VK_NULL_HANDLE) {
                 LOGE_VC("Failed to create fence for swapchain image %d: %d\n", i, createFenceResult);
+                resourceValid= false;
             }
         }
-
-        VkSemaphoreCreateInfo semaphoreCreateInfo{
-                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-                .pNext = nullptr,
-                .flags = 0
-        };
-        VkResult createSemaphoreResult = vkCreateSemaphore(logicalDevice_, &semaphoreCreateInfo, nullptr, &swapchainContext_.semaphore);
-        if (createSemaphoreResult != VK_SUCCESS || swapchainContext_.semaphore == VK_NULL_HANDLE) {
-            LOGE_VC("Failed to create semaphore! %d", createSemaphoreResult);
+        if(!resourceValid) {
+            LOGE_VC("Failed to create fences for swapchain images, will not continue.");
             return false;
         }
-        VkFenceCreateInfo fenceCreateInfo{
-                .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-                .pNext = nullptr,
-                .flags = 0,
-        };
 
-        VkResult createFenceResult = vkCreateFence(logicalDevice_, &fenceCreateInfo, nullptr, &swapchainContext_.fence);
-
-        if (createFenceResult != VK_SUCCESS || swapchainContext_.fence == VK_NULL_HANDLE) {
-            LOGE_VC("Failed to create fence! %d\n", createFenceResult);
+        while(!swapchainContext_.imageAcquireRecycledSemaphores.empty()){
+            swapchainContext_.imageAcquireRecycledSemaphores.pop();
+        }
+        swapchainContext_.imageAcquireWaitingSemaphores.resize(swapchainContext_.imageCount);
+        for (uint32_t i = 0; i < swapchainContext_.imageCount; i++) {
+            swapchainContext_.imageAcquireWaitingSemaphores[i] = VK_NULL_HANDLE;
+            /*
+            swapchainContext_.imageAcquireWaitingSemaphores[i] = VK_NULL_HANDLE;
+            VkSemaphoreCreateInfo semaphoreCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+                    .pNext = nullptr,
+                    .flags = 0
+            };
+            VkResult createSemaphoreResult = vkCreateSemaphore(logicalDevice_, &semaphoreCreateInfo, nullptr, &swapchainContext_.imageAcquireRecycledSemaphores[i]);
+            if (createSemaphoreResult != VK_SUCCESS || swapchainContext_.imageAcquireRecycledSemaphores[i] == VK_NULL_HANDLE) {
+                LOGE_VC("Failed to create semaphore for swapchain image %d: %d\n", i, createSemaphoreResult);
+                resourceValid = false;
+            }*/
+        }
+        if (!resourceValid) {
+            LOGE_VC("Failed to create semaphores for swapchain images, will not continue.");
             return false;
         }
-        LOGD_VC("semaphore: %p", swapchainContext_.semaphore);
-        LOGD_VC("fence: %p",  swapchainContext_.fence);
+
+        swapchainContext_.renderSemaphores.resize(swapchainContext_.imageCount);
+        for (uint32_t i = 0; i < swapchainContext_.imageCount; i++) {
+            VkSemaphoreCreateInfo semaphoreCreateInfo{
+                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+                    .pNext = nullptr,
+                    .flags = 0
+            };
+            VkResult createSemaphoreResult = vkCreateSemaphore(logicalDevice_, &semaphoreCreateInfo, nullptr, &swapchainContext_.renderSemaphores[i]);
+            if (createSemaphoreResult != VK_SUCCESS || swapchainContext_.renderSemaphores[i] == VK_NULL_HANDLE) {
+                LOGE_VC("Failed to create render semaphore for swapchain image %d: %d\n", i, createSemaphoreResult);
+                resourceValid = false;
+            }
+        }
+        if (!resourceValid) {
+            LOGE_VC("Failed to create render semaphores , will not continue.");
+            return false;
+        }
 
         //image views
         swapchainContext_.imageViews.resize(swapchainContext_.imageCount);
@@ -999,11 +1095,6 @@ namespace libRetroRunner {
         }
         LOGD_VC("Swapchain command buffers created: %d\n", swapchainContext_.imageCount);
 
-        VkResult  acquireRet = vkAcquireNextImageKHR(logicalDevice_, swapchainContext_.swapchain, UINT64_MAX, swapchainContext_.semaphore, VK_NULL_HANDLE, &swapchainContext_.current_image);
-        if (acquireRet != VK_SUCCESS && acquireRet != VK_SUBOPTIMAL_KHR) {
-            LOGE_VC("Failed to acquire next image from swapchain: %d\n", acquireRet);
-            return false;
-        }
         swapchainContext_.valid = true;
         return true;
     }
@@ -1011,19 +1102,61 @@ namespace libRetroRunner {
     bool VulkanVideoContext::vulkanClearSwapchainIfNeeded() {
         swapchainContext_.valid = false;
 
-        for(int idx=0;idx < swapchainContext_.imageFences.size(); idx++){
-            if (swapchainContext_.imageFences[idx] != VK_NULL_HANDLE) {
-                vkDestroyFence(logicalDevice_, swapchainContext_.imageFences[idx], nullptr);
-                swapchainContext_.imageFences[idx] = VK_NULL_HANDLE;
+        for(auto & imageFence : swapchainContext_.imageFences){
+            if (imageFence != VK_NULL_HANDLE) {
+                vkDestroyFence(logicalDevice_, imageFence, nullptr);
+                imageFence = VK_NULL_HANDLE;
             }
         }
+        for(auto & imageView : swapchainContext_.imageViews){
+            if (imageView != VK_NULL_HANDLE) {
+                vkDestroyImageView(logicalDevice_, imageView, nullptr);
+                imageView = VK_NULL_HANDLE;
+            }
+        }
+        for(auto & frameBuffer : swapchainContext_.frameBuffers){
+            if (frameBuffer != VK_NULL_HANDLE) {
+                vkDestroyFramebuffer(logicalDevice_, frameBuffer, nullptr);
+                frameBuffer = VK_NULL_HANDLE;
+            }
+        }
+        for(auto & commandBuffer : swapchainContext_.commandBuffers){
+            if (commandBuffer != VK_NULL_HANDLE) {
+                vkFreeCommandBuffers(logicalDevice_, commandPool_, 1, &commandBuffer);
+                commandBuffer = VK_NULL_HANDLE;
+            }
+        }
+        for(uint32_t idx =0; idx < swapchainContext_.imageCount; idx++){
+            if (swapchainContext_.renderSemaphores[idx] != VK_NULL_HANDLE) {
+                vkDestroySemaphore(logicalDevice_, swapchainContext_.renderSemaphores[idx], nullptr);
+                swapchainContext_.renderSemaphores[idx] = VK_NULL_HANDLE;
+            }
+            if (swapchainContext_.imageAcquireWaitingSemaphores[idx] != VK_NULL_HANDLE) {
+                vkDestroySemaphore(logicalDevice_, swapchainContext_.imageAcquireWaitingSemaphores[idx], nullptr);
+                swapchainContext_.imageAcquireWaitingSemaphores[idx] = VK_NULL_HANDLE;
+            }
+        }
+        while(!swapchainContext_.imageAcquireRecycledSemaphores.empty()) {
+            VkSemaphore semaphore = swapchainContext_.imageAcquireRecycledSemaphores.front();
+            swapchainContext_.imageAcquireRecycledSemaphores.pop();
+            if (semaphore != VK_NULL_HANDLE) {
+                vkDestroySemaphore(logicalDevice_, semaphore, nullptr);
+            }
+        }
+
+        if (swapchainContext_.fence != VK_NULL_HANDLE) {
+            vkDestroyFence(logicalDevice_, swapchainContext_.fence, nullptr);
+            swapchainContext_.fence = VK_NULL_HANDLE;
+        }
+
         swapchainContext_.images.clear();
         swapchainContext_.imageCount = 0;
         if (swapchainContext_.swapchain != VK_NULL_HANDLE) {
             vkDestroySwapchainKHR(logicalDevice_, swapchainContext_.swapchain, nullptr);
             swapchainContext_.swapchain = VK_NULL_HANDLE;
         }
-
+        swapchainContext_.image_index = 0;
+        swapchainContext_.frame_index = 0;
         return true;
     }
 
@@ -1432,8 +1565,8 @@ namespace libRetroRunner {
         extensions.push_back("VK_KHR_surface");
         extensions.push_back("VK_KHR_android_surface");
 
-        if (false) {
-            extensions.push_back("VK_EXT_debug_utils");
+        if (true) {
+            //extensions.push_back("VK_EXT_debug_utils");
             layers.push_back("VK_LAYER_KHRONOS_validation");
         }
 

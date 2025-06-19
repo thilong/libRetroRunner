@@ -2,11 +2,13 @@
 // Created by aidoo on 1/24/2025.
 //
 #include <vector>
+#include <queue>
 #include <memory>
 
 #include "../video_context.h"
 
 #include <libretro-common/include/libretro_vulkan.h>
+#include <libretro-common/include/rthreads/rthreads.h>
 
 #ifndef LIBRETRORUNNER_VIDEO_CONTEXT_VULKAN_H
 #define LIBRETRORUNNER_VIDEO_CONTEXT_VULKAN_H
@@ -40,6 +42,14 @@ namespace libRetroRunner {
         VkShaderModule fragmentShaderModule = VK_NULL_HANDLE;
     };
 
+    struct RRVulkanFrameContext{
+        VkImage image;
+        VkImageView imageView;
+
+        VkCommandPool commandPool;
+        VkCommandBuffer commandBuffer;
+    };
+
     struct RRVulkanSwapchainContext {
         bool valid = false;
         long surfaceId = 0;
@@ -54,16 +64,22 @@ namespace libRetroRunner {
 
         uint32_t imageCount = 0;
         std::vector<VkImage> images{};
-        std::vector<VkFence> imageFences{};
-
         std::vector<VkImageView> imageViews{};
+
         std::vector<VkFramebuffer> frameBuffers{};
         std::vector<VkCommandBuffer> commandBuffers{};
 
+        std::vector<VkFence> imageFences{};
+        std::vector<bool> imageFencesSignalled{};
 
-        VkSemaphore semaphore = VK_NULL_HANDLE;
+        std::vector<VkSemaphore> imageAcquireWaitingSemaphores{};
+        std::queue<VkSemaphore> imageAcquireRecycledSemaphores{};
+
+        std::vector<VkSemaphore> renderSemaphores{};
+
         VkFence fence = VK_NULL_HANDLE;
-        uint32_t current_image = 0;
+        uint32_t image_index = 0;
+        uint32_t frame_index = 0;
     };
 
     class VulkanVideoContext : public VideoContext {
@@ -166,6 +182,7 @@ namespace libRetroRunner {
 
         VkCommandPool commandPool_;
 
+        pthread_mutex_t *queue_lock = nullptr;
 
 
         RRVulkanRenderContext renderContext_;

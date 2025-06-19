@@ -198,6 +198,8 @@ namespace libRetroRunner {
         VkSemaphore negotiationSemaphore_;
         std::vector<VkCommandBuffer> negotiationCommandBuffers_;
 
+        VulkanRWBuffer *vertexBuffer_ = nullptr;
+        VkSampler sampler_ = VK_NULL_HANDLE;
         uint64_t frameCount_ = 0;
     };
 }

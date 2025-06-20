@@ -358,14 +358,16 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::Prepare() {
-        LOGD_VVC("Prepare for frame: %lu, vulkanIsReady: %d", frameCount_, vulkanIsReady_);
         if (vulkanIsReady_) {
             swapchainContext_.frame_index = (swapchainContext_.frame_index + 1) % swapchainContext_.imageCount;
             uint32_t frame_index = swapchainContext_.frame_index;
 
             VkFence fence = swapchainContext_.imageFences[frame_index];
-            if (swapchainContext_.imageFencesSignalled[frame_index])
+            if (swapchainContext_.imageFencesSignalled[frame_index]) {
+                //to check if the fence is signalled(submitted), if true, we wait for it complete.
+                //TODO: i think we should release some resources here., like descriptor sets etc.
                 vkWaitForFences(logicalDevice_, 1, &fence, VK_TRUE, UINT64_MAX);
+            }
             vkResetFences(logicalDevice_, 1, &fence);
 
             swapchainContext_.imageFencesSignalled[frame_index] = false;
@@ -423,8 +425,10 @@ namespace libRetroRunner {
             } else {
                 //LOGD_VVC("OnNewFrame called with data: %p, width: %u, height: %u, pitch: %zu", data, width, height, pitch);
             }
-            if (vulkanIsReady_)
+            if (vulkanIsReady_){
                 DrawFrame();
+            }
+
         } else {
             LOGW_VVC("OnNewFrame called with null data, this is not a valid frame.");
         }
@@ -475,7 +479,7 @@ namespace libRetroRunner {
     void VulkanVideoContext::vulkanCommitFrame() {
         uint32_t frame_index = swapchainContext_.frame_index;
 
-        vkResetFences(logicalDevice_, 1, &swapchainContext_.imageFences[frame_index]);
+        //vkResetFences(logicalDevice_, 1, &swapchainContext_.imageFences[frame_index]);
 
 
         VkCommandBuffer commandBuffer = swapchainContext_.commandBuffers[frame_index];
@@ -606,14 +610,14 @@ namespace libRetroRunner {
 
             //绑定描述符集（纹理）
             VkDescriptorSet descriptorSet = renderContext_.descriptorSet;
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext_.pipelineLayout,
-                                    0, 1, &descriptorSet, 0, nullptr);
+
 
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             imageInfo.imageView = negotiationImage_->image_view;
             imageInfo.sampler = sampler_;
 
+            //TODO: actually we should save the descriptor set till the submitting complete
             VkWriteDescriptorSet descriptorWrite{};
             descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrite.dstSet = descriptorSet;
@@ -622,9 +626,11 @@ namespace libRetroRunner {
             descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             descriptorWrite.descriptorCount = 1;
             descriptorWrite.pImageInfo = &imageInfo;
-
+            LOGD_VVC("update descriptor %p, set: %p", &descriptorWrite, descriptorSet);
             vkUpdateDescriptorSets(logicalDevice_, 1, &descriptorWrite, 0, nullptr);
 
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext_.pipelineLayout,
+                                    0, 1, &descriptorSet, 0, nullptr);
 
             vkCmdDraw(commandBuffer, 6, 1, 0, 0);
             negotiationImage_ = nullptr; // reset after draw

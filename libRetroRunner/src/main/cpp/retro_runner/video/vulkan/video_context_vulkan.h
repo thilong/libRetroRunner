@@ -46,6 +46,9 @@ namespace libRetroRunner {
         VkImage image;
         VkImageView imageView;
 
+
+
+
         VkCommandPool commandPool;
         VkCommandBuffer commandBuffer;
     };

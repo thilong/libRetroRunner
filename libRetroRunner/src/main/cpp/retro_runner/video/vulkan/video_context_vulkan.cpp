@@ -608,16 +608,15 @@ namespace libRetroRunner {
             VkBuffer vertexBuffer = vertexBuffer_->getBuffer();
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
 
-            //绑定描述符集（纹理）
+            //TODO: actually we should save the descriptor set till the submitting complete
             VkDescriptorSet descriptorSet = renderContext_.descriptorSet;
-
 
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             imageInfo.imageView = negotiationImage_->image_view;
             imageInfo.sampler = sampler_;
 
-            //TODO: actually we should save the descriptor set till the submitting complete
+
             VkWriteDescriptorSet descriptorWrite{};
             descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrite.dstSet = descriptorSet;

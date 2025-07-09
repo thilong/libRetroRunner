@@ -261,7 +261,7 @@ namespace libRetroRunner {
         }
     }
 
-    void AppContext::CreateWithPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save) {
+    void AppContext::CreateWithPaths(const std::string &rom, const std::string &core, const std::string &system, const std::string &save, const std::string &sandboxPath) {
         if (BIT_TEST(state_, AppState::kPathsReady)) {
             return;
         }
@@ -274,9 +274,9 @@ namespace libRetroRunner {
         core_runtime_context_->SetSystemPath(system);
 
         environment_ = std::make_shared<Environment>();
+        environment_->SetAppSandBoxPath(sandboxPath);
         environment_->SetGameRuntimeContext(game_runtime_context_);
         environment_->SetCoreRuntimeContext(core_runtime_context_);
-
         BIT_SET(state_, AppState::kPathsReady);
     }
 

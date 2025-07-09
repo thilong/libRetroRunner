@@ -28,6 +28,8 @@ namespace libRetroRunner {
 
         inline std::string GetSystemPath() const { return system_path_; }
 
+
+
         inline const std::map<unsigned int, std::string> &GetSupportControllers() { return support_controllers_; }
 
         inline unsigned int GetLanguage() const { return language_; }
@@ -88,10 +90,13 @@ namespace libRetroRunner {
 
         inline void SetRenderHWNegotiationInterface(const struct retro_hw_render_context_negotiation_interface *negotiation_interface) { negotiation_interface_ = negotiation_interface; }
 
+
+
     private:
 
         std::string core_path_;
         std::string system_path_;
+
 
         std::map<unsigned int, std::string> support_controllers_;
 

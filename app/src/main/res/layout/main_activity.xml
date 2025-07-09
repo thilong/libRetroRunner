@@ -1,37 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical">
 
-    <LinearLayout
-        android:layout_width="match_parent"
+
+    <Button
+        android:id="@+id/blu_connect"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="#000000"
-        android:paddingStart="10dp">
+        android:layout_marginEnd="0dp"
+        android:text="Conn" />
 
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="10dp"
-            android:text="edit" />
+    <Button
+        android:id="@+id/blu_up"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="0dp"
+        android:text="上" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
+    <Button
+        android:id="@+id/blu_down"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="下" />
 
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="10dp"
-                android:text="zoom in" />
+    <Button
+        android:id="@+id/blu_left"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="0dp"
+        android:text="左" />
 
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="zoom out" />
-        </LinearLayout>
-    </LinearLayout>
+    <Button
+        android:id="@+id/blu_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="右" />
+
+    <Button
+        android:id="@+id/blu_a"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="0dp"
+        android:text="A" />
+
+    <Button
+        android:id="@+id/blu_b"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="B" />
 
 
-</FrameLayout>
+</LinearLayout>

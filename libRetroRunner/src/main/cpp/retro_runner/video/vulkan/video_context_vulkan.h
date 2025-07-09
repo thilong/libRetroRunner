@@ -17,7 +17,6 @@ class VulkanSamplingTexture;
 
 class VulkanRWBuffer;
 
-
 namespace libRetroRunner {
     enum VulkanShaderType {
         SHADER_VERTEX, SHADER_FRAGMENT
@@ -58,8 +57,8 @@ namespace libRetroRunner {
 
     struct RRVulkanBuffer {
         VkDeviceSize size = 0;
-        VkBuffer buffer;
-        VkDeviceMemory memory;
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
     };
 
     struct RRVulkanSurfaceContext {
@@ -75,24 +74,37 @@ namespace libRetroRunner {
     };
 
     struct RRVulkanFrameContext {
-        struct RRVulkanTexture texture;
-        struct RRVulkanBuffer vertexBuffer;
+        struct RRVulkanTexture texture{};
+        struct RRVulkanBuffer vertexBuffer{};
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-        VkCommandPool commandPool;
-        VkCommandBuffer commandBuffer;
+        VkCommandPool commandPool = VK_NULL_HANDLE;
+        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+
+        VkFence fence = VK_NULL_HANDLE;
+        VkSemaphore renderSemaphore = VK_NULL_HANDLE;
+        VkSemaphore imageAcquireSemaphore = VK_NULL_HANDLE;
+    };
+
+    enum RRVulkanRenderState {
+        RRVULKAN_RENDER_STATE_INVALID = 0,
+        RRVULKAN_RENDER_STATE_RENDER_PASS_VALID = 1 << 0,
+        RRVULKAN_RENDER_STATE_SHADERS_VALID = 1 << 1,
+        RRVULKAN_RENDER_STATE_DESCRIPTOR_SET_LAYOUT_VALID = 1 << 2,
+        RRVULKAN_RENDER_STATE_PIPELINE_LAYOUT_VALID = 1 << 3,
+        RRVULKAN_RENDER_STATE_PIPELINE_VALID = 1 << 4,
+        RRVULKAN_RENDER_STATE_DESCRIPTOR_POOL_VALID = 1 << 5,
     };
 
     struct RRVulkanRenderContext {
-        bool valid = false;
+        int flag = RRVULKAN_RENDER_STATE_INVALID;
 
-        VkFormat format = VK_FORMAT_UNDEFINED;
         VkRenderPass renderPass = VK_NULL_HANDLE;
-        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;  //TODO:这个应该分配到每一帧上
-        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
+        VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
         VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+
         VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
         VkPipeline pipeline = VK_NULL_HANDLE;
         VkPipelineCache pipelineCache = VK_NULL_HANDLE;
@@ -107,36 +119,25 @@ namespace libRetroRunner {
         uint32_t current_frame;
     };
 
+    enum RRVulkanSwapChainState {
+        RRVULKAN_SWAPCHAIN_STATE_INVALID = 0,
+        RRVULKAN_SWAPCHAIN_STATE_SWAPCHAIN_VALID = 1 << 0,
+        RRVULKAN_SWAPCHAIN_STATE_IMAGES_VALID = 1 << 1,
+        RRVULKAN_SWAPCHAIN_STATE_SIGNAL_OBJ_VALID = 1 << 2
+    };
 
     struct RRVulkanSwapchainContext {
-        bool valid = false;
-
-
-        VkExtent2D extent{};
-        VkFormat format = VK_FORMAT_UNDEFINED;
-        uint32_t minImageCount = 0;
+        int flag = RRVULKAN_SWAPCHAIN_STATE_INVALID;
 
         VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
         VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-
         uint32_t imageCount = 0;
+
         std::vector<VkImage> images{};
         std::vector<VkImageView> imageViews{};
 
         std::vector<VkFramebuffer> frameBuffers{};
-        std::vector<VkCommandBuffer> commandBuffers{};
 
-        std::vector<VkFence> imageFences{};
-        std::vector<bool> imageFencesSignalled{};
-
-        std::vector<VkSemaphore> imageAcquireWaitingSemaphores{};
-        std::queue<VkSemaphore> imageAcquireRecycledSemaphores{};
-
-        std::vector<VkSemaphore> renderSemaphores{};
-
-        VkFence fence = VK_NULL_HANDLE;
-        uint32_t image_index = 0;
-        uint32_t frame_index = 0;
     };
 
     class VulkanVideoContext : public VideoContext {
@@ -165,10 +166,9 @@ namespace libRetroRunner {
 
 
     public:
-        VkInstance retro_vulkan_create_instance_wrapper(const VkInstanceCreateInfo *create_info);
+        VkInstance retro_vulkan_create_instance_wrapper(const VkInstanceCreateInfo *create_info) const;
 
         VkDevice retro_vulkan_create_device_wrapper(VkPhysicalDevice gpu, const VkDeviceCreateInfo *create_info);
-
 
         void retro_vulkan_set_image_t_impl(const struct retro_vulkan_image *image, uint32_t num_semaphores, const VkSemaphore *semaphores, uint32_t src_queue_family);
 
@@ -176,7 +176,7 @@ namespace libRetroRunner {
 
         uint32_t retro_vulkan_get_sync_index_mask_t_impl() const;
 
-        void retro_vulkan_set_command_buffers_t_impl(uint32_t num_cmd, const VkCommandBuffer *cmd);
+        void retro_vulkan_set_command_buffers_t_impl(uint32_t num_cmd, const VkCommandBuffer *cmd) const;
 
         void retro_vulkan_wait_sync_index_t_impl();
 
@@ -187,7 +187,7 @@ namespace libRetroRunner {
         void retro_vulkan_set_signal_semaphore_t_impl(VkSemaphore semaphore);
 
     private:
-        void recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex);
+        void recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex, VkDescriptorSet frameDescriptorSet);
 
         void vulkanCommitFrame();
 
@@ -201,59 +201,69 @@ namespace libRetroRunner {
 
         bool vulkanGetSurfaceCapabilitiesIfNeeded();
 
-
         bool vulkanCreateCommandPoolIfNeeded();
 
         bool vulkanCreateSwapchainIfNeeded();
 
-        bool vulkanClearSwapchainIfNeeded();
+        bool vulkanCreateRenderPassIfNeeded();
 
-        bool vulkanCreateRenderContextIfNeeded();
+        bool vulkanCreateDescriptorSetLayoutIfNeeded();
+
+        bool vulkanCreateGraphicsPipelineIfNeeded();
+
+        bool vulkanCreateDescriptorPoolIfNeeded();
+
+        bool vulkanCreateFrameResourcesIfNeeded();
+
+
+        bool vulkanCreateSwapchainResourcesIfNeeded();
 
         void clearVulkanRenderContext();
 
         bool createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader);
 
+
+    public:
+        bool vulkanClearSwapchainIfNeeded();
+        bool vulkanClearSwapchainResourcesIfNeeded();
+        bool vulkanClearFrameResourcesIfNeeded();
     private:
         const retro_hw_render_context_negotiation_interface_vulkan *getNegotiationInterface();
 
     private:
         void *window_;
+        long surfaceId_;
         bool is_new_surface_;
         bool is_vulkan_debug_;
         int core_pixel_format_;
 
         uint32_t screen_width_;
         uint32_t screen_height_;
-        bool is_ready_;
 
-        retro_vulkan_context *retro_vk_context_;
         retro_hw_render_interface_vulkan *retro_render_interface_;
-        VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures{};
+
 
         bool vulkanIsReady_{};
 
-
         VkInstance instance_;
         VkPhysicalDevice physicalDevice_;
+        VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures{};
         VkPhysicalDeviceProperties physicalDeviceProperties_{};
         VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties_{};
 
-        uint32_t queueFamilyIndex_;
-
         VkDevice logicalDevice_;
-        VkQueue graphicQueue_;
 
         VkQueue presentationQueue_;
         uint32_t presentationQueueFamilyIndex_ = 0;
-
-        VkCommandPool commandPool_;
-
         pthread_mutex_t *queue_lock = nullptr;
+
+        uint32_t framesInFlight_;
+        VkCommandPool commandPool_;
 
         RRVulkanSurfaceContext surfaceContext_;
         RRVulkanRenderContext renderContext_;
         RRVulkanSwapchainContext swapchainContext_;
+
 
         retro_vulkan_destroy_device_t destroyDeviceImpl_;
 
@@ -268,7 +278,7 @@ namespace libRetroRunner {
         VulkanRWBuffer *vertexBuffer_ = nullptr;
         VkSampler sampler_ = VK_NULL_HANDLE;
         uint64_t frameCount_ = 0;
-        bool preFrameDraw = true;
+
     };
 }
 

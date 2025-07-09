@@ -41,6 +41,7 @@ public class RetroRunnerActivity extends AppCompatActivity {
             testRom = getExternalFilesDir(null).getAbsolutePath() + "/bj.cdi";
             //testRom = getFilesDir().getAbsolutePath() + "/lc.chd";
             testCore = "libflycast.so";
+            //testCore = "libflycast_libretro_android.so";
             FileUtil.copyFromAsses(this, "bj.cdi", testRom);
         } else if (platform.equals("psp")) {
             testRom = getExternalFilesDir(null).getAbsolutePath() + "/psp.iso";

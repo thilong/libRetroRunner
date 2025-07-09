@@ -25,6 +25,7 @@
 #define LOGI_GLVIDEO(...) LOGI("[VIDEO] " __VA_ARGS__)
 
 #define ENABLE_GL_DEBUG 1
+extern rr_hardware_render_proc_address_t getHWProcAddress;
 
 namespace libRetroRunner {
 #ifdef HAVE_GLES3

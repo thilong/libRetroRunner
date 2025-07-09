@@ -68,7 +68,12 @@ namespace libRetroRunner {
 
         const std::string GetVariable(const std::string &key, const std::string &defaultValue = "");
 
+        inline void SetAppSandBoxPath(const std::string &path) {
+            appSandBoxPath_ = path;
+        }
+        inline std::string& GetAppSandBoxPath() { return appSandBoxPath_; }
     private:
+        std::string appSandBoxPath_;
         bool variablesChanged = false;
         std::unordered_map<std::string, struct Variable> variables;
 

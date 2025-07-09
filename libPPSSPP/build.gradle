@@ -15,7 +15,9 @@ android {
         externalNativeBuild {
             cmake {
                 arguments '-DLIBRETRO=ON','-DANDROID_PLATFORM=23'
-                abiFilters 'arm64-v8a','armeabi-v7a'  //disable this to build for all architectures, this is for development
+
+                abiFilters rootProject.ext.abi
+                //abiFilters 'armeabi-v7a'  //'arm64-v8a','armeabi-v7a'  //disable this to build for all architectures, this is for development
             }
         }
     }

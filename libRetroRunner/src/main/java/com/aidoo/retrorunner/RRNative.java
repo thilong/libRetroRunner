@@ -48,7 +48,7 @@ public class RRNative {
      * @param systemPath retro core related path, such as bios, core assets.
      * @param savePath   game save path
      */
-    public static native void create(String romPath, String corePath, String systemPath, String savePath);
+    public static native void create(String romPath, String corePath, String systemPath, String savePath, String sandboxPath);
 
     /**
      * add core variable

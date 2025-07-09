@@ -91,7 +91,7 @@ namespace libRetroRunner {
          */
         void
         CreateWithPaths(const std::string &rom, const std::string &core, const std::string &system,
-                        const std::string &save);;
+                        const std::string &save,const std::string &sandboxPath);;
 
         bool Step();
 

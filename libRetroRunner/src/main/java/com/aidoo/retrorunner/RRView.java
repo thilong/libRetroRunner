@@ -12,6 +12,7 @@ import android.view.SurfaceView;
 
 import androidx.annotation.NonNull;
 
+import java.io.File;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -47,8 +48,8 @@ public class RRView extends SurfaceView implements SurfaceHolder.Callback {
             Log.d(TAG, "emu thread has already started.");
         }
         getHolder().addCallback(this);
-
-        RRNative.create(params.getRomPath(), params.getCorePath(), params.getSystemPath(), params.getSavePath());
+        File files = this.getContext().getFilesDir();
+        RRNative.create(params.getRomPath(), params.getCorePath(), params.getSystemPath(), params.getSavePath(), files.getAbsolutePath());
         RRNative.onEmuNotificationCallback = this::onEmuNotification;
         if (params.haveVariables()) {
             for (String key : params.getVariables().keySet()) {

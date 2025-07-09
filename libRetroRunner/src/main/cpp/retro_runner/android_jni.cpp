@@ -68,15 +68,16 @@ Java_com_aidoo_retrorunner_RRNative_initEnv(JNIEnv *env, jclass clazz, jobject r
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_aidoo_retrorunner_RRNative_create(JNIEnv *env, jclass clazz, jstring rom_path, jstring core_path, jstring system_path, jstring save_path) {
+Java_com_aidoo_retrorunner_RRNative_create(JNIEnv *env, jclass clazz, jstring rom_path, jstring core_path, jstring system_path, jstring save_path, jstring sandbox_path) {
     const std::shared_ptr<AppContext> &app = AppContext::CreateNew();
     app->SetJavaVm(javaVM);
     JString rom(env, rom_path);
     JString core(env, core_path);
     JString system(env, system_path);
     JString save(env, save_path);
-    app->CreateWithPaths(rom.stdString(), core.stdString(), system.stdString(), save.stdString());
-    LOGD_JNI("new app context created: \n\trom:\t%s \n\tcore:\t%s \n\tsystem:\t%s \n\tsave:\t%s", rom.cString(), core.cString(), system.cString(), save.cString());
+    JString sandbox(env, sandbox_path);
+    app->CreateWithPaths(rom.stdString(), core.stdString(), system.stdString(), save.stdString(), sandbox.stdString());
+    LOGD_JNI("new app context created: \n\trom:\t%s \n\tcore:\t%s \n\tsystem:\t%s \n\tsave:\t%s \n\tsandbox:\t%s", rom.cString(), core.cString(), system.cString(), save.cString(), sandbox.cString());
     app->SetFrontendNotify(OnFrontendNotifyCallback);
 
     app->AddCommand(AppCommands::kInitApp);

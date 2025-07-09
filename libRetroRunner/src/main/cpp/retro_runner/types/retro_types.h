@@ -38,5 +38,7 @@
 
 /**/
 typedef void* (*rr_hardware_render_proc_address_t)(const char*);
-static rr_hardware_render_proc_address_t getHWProcAddress = nullptr;
+
+#define RETRO_ENVIRONMENT_GET_APP_SANDBOX_DIRECTORY (1000 | RETRO_ENVIRONMENT_RETROARCH_START_BLOCK)
+
 #endif

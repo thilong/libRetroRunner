@@ -22,6 +22,8 @@
 #define LOGD_Env(...) LOGD("[Environment] "  __VA_ARGS__)
 #define LOGW_Env(...) LOGW("[Environment] "  __VA_ARGS__)
 
+rr_hardware_render_proc_address_t getHWProcAddress;
+
 //变量控制相关
 namespace libRetroRunner {
 
@@ -484,6 +486,14 @@ namespace libRetroRunner {
                 //用于通知前端在后台存储存档的状态
                 break;
             }
+            case RETRO_ENVIRONMENT_GET_APP_SANDBOX_DIRECTORY: {
+                if (!appSandBoxPath_.empty()){
+                    POINTER_VAL(const char*) = appSandBoxPath_.c_str();
+                    LOGD_Env("call RETRO_ENVIRONMENT_GET_APP_SANDBOX_DIRECTORY -> %s", appSandBoxPath_.c_str());
+                    return true;
+                }
+                return false;
+            }
             default:
                 LOGD_Env("not handled: %d, %x -> false  -> [NO IMPL]", cmd, cmd);
                 break;
@@ -690,10 +700,11 @@ namespace libRetroRunner {
 
     retro_proc_address_t Environment::CoreCallbackGetProcAddress(const char *sym) {
         if (getHWProcAddress) {
+            //LOGD_Env("get proc address: %s", sym);
             return (retro_proc_address_t) getHWProcAddress(sym);
         }
         return 0;
-        //LOGD_Env("get proc address: %s", sym);
+        //
         //return (retro_proc_address_t) eglGetProcAddress(sym);
     }
 

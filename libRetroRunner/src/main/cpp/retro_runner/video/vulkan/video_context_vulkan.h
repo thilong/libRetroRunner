@@ -61,12 +61,21 @@ namespace libRetroRunner {
         VkDeviceMemory memory = VK_NULL_HANDLE;
     };
 
+    enum RRVulkanSurfaceState{
+        RRVULKAN_SURFACE_STATE_INVALID = 0,
+        RRVULKAN_SURFACE_STATE_VALID = 1 << 0,
+        RRVULKAN_SURFACE_STATE_CAPABILITY_SET = 1 << 1,
+        RRVULKAN_SURFACE_STATE_CORE_CONTEXT_LOADED = 1 << 2
+    };
+
     struct RRVulkanSurfaceContext {
-        bool valid = false;
+        int flags = RRVULKAN_SURFACE_STATE_INVALID;
+
         long surfaceId = 0;
 
         VkSurfaceKHR surface = VK_NULL_HANDLE;
-        uint32_t imageCount = 2;
+
+        uint32_t imageCount = 2;   //飞行帧的数量
 
         VkExtent2D extent{0, 0};
         VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
@@ -79,7 +88,6 @@ namespace libRetroRunner {
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-        VkCommandPool commandPool = VK_NULL_HANDLE;
         VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
 
         VkFence fence = VK_NULL_HANDLE;
@@ -93,8 +101,9 @@ namespace libRetroRunner {
         RRVULKAN_RENDER_STATE_SHADERS_VALID = 1 << 1,
         RRVULKAN_RENDER_STATE_DESCRIPTOR_SET_LAYOUT_VALID = 1 << 2,
         RRVULKAN_RENDER_STATE_PIPELINE_LAYOUT_VALID = 1 << 3,
-        RRVULKAN_RENDER_STATE_PIPELINE_VALID = 1 << 4,
-        RRVULKAN_RENDER_STATE_DESCRIPTOR_POOL_VALID = 1 << 5,
+        RRVULKAN_RENDER_STATE_PIPELINE_CACHE_VALID = 1 << 4,
+        RRVULKAN_RENDER_STATE_PIPELINE_VALID = 1 << 5,
+        RRVULKAN_RENDER_STATE_DESCRIPTOR_POOL_VALID = 1 << 6,
     };
 
     struct RRVulkanRenderContext {
@@ -115,15 +124,19 @@ namespace libRetroRunner {
         VkShaderModule fragmentShaderModule = VK_NULL_HANDLE;
 
 
+        VkCommandPool commandPool = VK_NULL_HANDLE;
+
         std::vector<RRVulkanFrameContext> frames{};
-        uint32_t current_frame;
+
+        uint32_t current_frame = 0;
     };
 
     enum RRVulkanSwapChainState {
         RRVULKAN_SWAPCHAIN_STATE_INVALID = 0,
         RRVULKAN_SWAPCHAIN_STATE_SWAPCHAIN_VALID = 1 << 0,
         RRVULKAN_SWAPCHAIN_STATE_IMAGES_VALID = 1 << 1,
-        RRVULKAN_SWAPCHAIN_STATE_SIGNAL_OBJ_VALID = 1 << 2
+        RRVULKAN_SWAPCHAIN_STATE_SIGNAL_OBJ_VALID = 1 << 2,
+        RRVULKAN_SWAPCHAIN_STATE_NEED_RECREATE = 1 << 3,
     };
 
     struct RRVulkanSwapchainContext {
@@ -131,7 +144,6 @@ namespace libRetroRunner {
 
         VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
         VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-        uint32_t imageCount = 0;
 
         std::vector<VkImage> images{};
         std::vector<VkImageView> imageViews{};
@@ -215,15 +227,15 @@ namespace libRetroRunner {
 
         bool vulkanCreateFrameResourcesIfNeeded();
 
-
         bool vulkanCreateSwapchainResourcesIfNeeded();
 
-        void clearVulkanRenderContext();
+        void vulkanRecreateSwapchainIfNeeded();
 
         bool createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader);
 
-
     public:
+
+        void clearVulkanRenderContext();
         bool vulkanClearSwapchainIfNeeded();
         bool vulkanClearSwapchainResourcesIfNeeded();
         bool vulkanClearFrameResourcesIfNeeded();
@@ -232,8 +244,7 @@ namespace libRetroRunner {
 
     private:
         void *window_;
-        long surfaceId_;
-        bool is_new_surface_;
+
         bool is_vulkan_debug_;
         int core_pixel_format_;
 
@@ -258,7 +269,7 @@ namespace libRetroRunner {
         pthread_mutex_t *queue_lock = nullptr;
 
         uint32_t framesInFlight_;
-        VkCommandPool commandPool_;
+
 
         RRVulkanSurfaceContext surfaceContext_;
         RRVulkanRenderContext renderContext_;

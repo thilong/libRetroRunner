@@ -131,13 +131,7 @@ namespace libRetroRunner {
     }
 
     uint32_t VulkanVideoContext::retro_vulkan_get_sync_index_mask_t_impl() const {
-        uint32_t mask = 0;
-        for (uint32_t i = 0; i < renderContext_.frames.size(); i++) {
-            auto &frame = renderContext_.frames[i];
-            if (vkGetFenceStatus(logicalDevice_, frame.fence) != VK_SUCCESS) {
-                mask |= (1 << i);
-            }
-        }
+        uint32_t mask = (1 << framesInFlight_) - 1;
         LOGW_VVC("frame: %lu, retro_vulkan_get_sync_index_mask_t_impl : %u", frameCount_, mask);
         return mask;
     }
@@ -151,25 +145,12 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::retro_vulkan_lock_queue_t_impl() {
-        //LOGW_VVC("need to implement retro_vulkan_lock_queue_t_impl");
         pthread_mutex_lock(queue_lock);
-        /*
-        #ifdef HAVE_THREADS
-                vk_t *vk = (vk_t*)handle;
-           slock_lock(vk->context->queue_lock);
-        #endif
-         */
     }
 
     void VulkanVideoContext::retro_vulkan_unlock_queue_t_impl() {
         //LOGW_VVC("need to implement retro_vulkan_unlock_queue_t_impl");
         pthread_mutex_unlock(queue_lock);
-        /*
-        #ifdef HAVE_THREADS
-                vk_t *vk = (vk_t*)handle;
-           slock_unlock(vk->context->queue_lock);
-        #endif
-        */
     }
 
     void VulkanVideoContext::retro_vulkan_set_signal_semaphore_t_impl(VkSemaphore semaphore) {
@@ -363,8 +344,8 @@ namespace libRetroRunner {
         if (logicalDevice_) {
             vkDeviceWaitIdle(logicalDevice_);
         }
-        retro_hw_context_reset_t  destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
-        if(destroy_func) destroy_func();
+        retro_hw_context_reset_t destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
+        if (destroy_func) destroy_func();
 
         vulkanClearSwapchainResourcesIfNeeded();
         vulkanClearFrameResourcesIfNeeded();
@@ -384,7 +365,7 @@ namespace libRetroRunner {
         }
     }
 
-    void VulkanVideoContext::SetWindowPaused(){
+    void VulkanVideoContext::SetWindowPaused() {
         vulkanIsReady_ = false;
     }
 
@@ -400,6 +381,7 @@ namespace libRetroRunner {
 
     void VulkanVideoContext::OnNewFrame(const void *data, unsigned int width, unsigned int height, size_t pitch) {
         if (data) {
+            vulkanCreateDrawingResourceIfNeeded(width, height);
             if (data == RETRO_HW_FRAME_BUFFER_VALID) {
                 //LOGD_VVC("OnNewFrame called with RETRO_HW_FRAME_BUFFER_VALID, this is a hardware render frame.");
             } else {
@@ -416,7 +398,9 @@ namespace libRetroRunner {
 
     void VulkanVideoContext::DrawFrame() {
         if (vulkanIsReady_) {
+            pthread_mutex_lock(queue_lock);
             vulkanCommitFrame();
+            pthread_mutex_unlock(queue_lock);
         }
         LOGD_VVC("DrawFrame : %lu", frameCount_);
         frameCount_++;
@@ -469,7 +453,7 @@ namespace libRetroRunner {
 
         VkQueue queue = presentationQueue_;
 
-        pthread_mutex_lock(queue_lock);
+
         VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         VkSubmitInfo submit_info = {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -485,7 +469,6 @@ namespace libRetroRunner {
         VkResult submitResult = vkQueueSubmit(queue, 1, &submit_info, frame.fence);
 
 
-        pthread_mutex_unlock(queue_lock);
         if (submitResult != VK_SUCCESS) {
             LOGE_VC("frame: %lu, Failed to submit queue: %d", frameCount_, submitResult);
             return;
@@ -505,9 +488,8 @@ namespace libRetroRunner {
                 .pImageIndices = &image_index,
                 .pResults = &result,
         };
-        pthread_mutex_lock(queue_lock);
         vkQueuePresentKHR(queue, &presentInfo);
-        pthread_mutex_unlock(queue_lock);
+
         LOGI_VVC("frame: %lu, Queue present complete, image index: %u, result: %d", frameCount_, renderContext_.current_frame, result);
         renderContext_.current_frame = (renderContext_.current_frame + 1) % renderContext_.frames.size();
     }
@@ -548,42 +530,6 @@ namespace libRetroRunner {
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         if (negotiationImage_) {
-            if (vertexBuffer_ == nullptr) {
-                vertexBuffer_ = new VulkanRWBuffer(physicalDevice_, logicalDevice_, presentationQueueFamilyIndex_);
-                vertexBuffer_->create(sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-                vertexBuffer_->update(vertices, sizeof(vertices));
-            }
-            if (sampler_ == VK_NULL_HANDLE) {
-                VkFilter filter = VK_FILTER_NEAREST;
-                VkSamplerCreateInfo samplerInfo{};
-                {
-                    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-                    samplerInfo.magFilter = filter;
-                    samplerInfo.minFilter = filter;
-                    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-                    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-                    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-
-                    samplerInfo.anisotropyEnable = VK_TRUE;
-                    samplerInfo.maxAnisotropy = 16.0f;
-
-                    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-                    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-
-                    samplerInfo.compareEnable = VK_FALSE;
-                    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-
-                    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-                    samplerInfo.mipLodBias = 0.0f;
-                    samplerInfo.minLod = 0.0f;
-                    samplerInfo.maxLod = 0.0f;
-                }
-                VkResult samplerResult = vkCreateSampler(logicalDevice_, &samplerInfo, nullptr, &sampler_);
-                if (samplerResult != VK_SUCCESS) {
-                    LOGE_VC("failed to create texture sampler: %d", samplerResult);
-                }
-            }
-
 
             //绑定顶点缓冲区
             VkDeviceSize offsets[] = {0};
@@ -591,7 +537,6 @@ namespace libRetroRunner {
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
 
             VkDescriptorSet descriptorSet = frameDescriptorSet;
-
 
             //todo: need fix: 闪烁，因为异步提交有可能导致image_view的数据在提交时发生变化。
             VkDescriptorImageInfo imageInfo{};
@@ -1145,7 +1090,7 @@ namespace libRetroRunner {
 
     bool VulkanVideoContext::vulkanCreateGraphicsPipelineIfNeeded() {
         if (!(renderContext_.flag & RRVULKAN_RENDER_STATE_RENDER_PASS_VALID)) return false;
-        if(VK_BIT_TEST(renderContext_.flag , RRVULKAN_RENDER_STATE_PIPELINE_VALID)) return true;
+        if (VK_BIT_TEST(renderContext_.flag, RRVULKAN_RENDER_STATE_PIPELINE_VALID)) return true;
         //管线布局
         if (!VK_BIT_TEST(renderContext_.flag, RRVULKAN_RENDER_STATE_PIPELINE_LAYOUT_VALID)) {
             VkPipelineLayoutCreateInfo layoutCreateInfo{
@@ -1520,6 +1465,136 @@ namespace libRetroRunner {
         return true;
     }
 
+    void VulkanVideoContext::vulkanCreateDrawingResourceIfNeeded(uint32_t width, uint32_t height) {
+        if (!vulkanIsReady_) return;
+        if (width > 0 && height > 0) {
+            auto &frame = renderContext_.frames[renderContext_.current_frame];
+            if (frame.texture.imageView == VK_NULL_HANDLE || frame.texture.width != width || frame.texture.height != height) {
+                LOGD_VVC("create frame texture if needed: %d x %d", width, height);
+                if (frame.texture.imageView != VK_NULL_HANDLE) {
+                    vkDestroyImageView(logicalDevice_, frame.texture.imageView, nullptr);
+                    frame.texture.imageView = VK_NULL_HANDLE;
+                }
+                if (frame.texture.image != VK_NULL_HANDLE) {
+                    vkDestroyImage(logicalDevice_, frame.texture.image, nullptr);
+                    frame.texture.image = VK_NULL_HANDLE;
+                }
+                if (frame.texture.memory != VK_NULL_HANDLE) {
+                    vkFreeMemory(logicalDevice_, frame.texture.memory, nullptr);
+                    frame.texture.memory = VK_NULL_HANDLE;
+                }
+
+                frame.texture.width = 0;
+                frame.texture.height = 0;
+                do {
+                    VkImageCreateInfo imageCreateInfo{};
+                    {
+                        imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+                        imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+                        imageCreateInfo.format = surfaceContext_.format;
+                        imageCreateInfo.extent.width = width;
+                        imageCreateInfo.extent.height = height;
+                        imageCreateInfo.extent.depth = 1;
+                        imageCreateInfo.mipLevels = 1;
+                        imageCreateInfo.arrayLayers = 1;
+                        imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+                        imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+                        imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+                        imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+                        imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                    };
+                    VkResult imageCreateResult = vkCreateImage(logicalDevice_, &imageCreateInfo, nullptr, &frame.texture.image);
+                    if (imageCreateResult != VK_SUCCESS || frame.texture.image == VK_NULL_HANDLE) {
+                        LOGE_VC("Failed to create texture image: %d", imageCreateResult);
+                        break;
+                    }
+                    LOGD_VC("Texture image created: %p", frame.texture.image);
+                    VkMemoryRequirements memoryRequirements{};
+                    vkGetImageMemoryRequirements(logicalDevice_, frame.texture.image, &memoryRequirements);
+                    VkMemoryAllocateInfo memoryAllocateInfo{};
+                    {
+                        memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+                        memoryAllocateInfo.allocationSize = memoryRequirements.size;
+                        memoryAllocateInfo.memoryTypeIndex = VkUtil::findMemoryType(physicalDevice_, memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);;
+                    }
+                    VkResult memoryAllocateResult = vkAllocateMemory(logicalDevice_, &memoryAllocateInfo, nullptr, &frame.texture.memory);
+                    if (memoryAllocateResult != VK_SUCCESS || frame.texture.memory == VK_NULL_HANDLE) {
+                        LOGE_VC("Failed to allocate texture memory: %d", memoryAllocateResult);
+                        break;
+                    }
+                    LOGD_VC("Texture memory allocated: %p", frame.texture.memory);
+                    VkResult bindImageMemoryResult = vkBindImageMemory(logicalDevice_, frame.texture.image, frame.texture.memory, 0);
+                    if (bindImageMemoryResult != VK_SUCCESS) {
+                        LOGE_VC("Failed to bind texture image memory: %d", bindImageMemoryResult);
+                        break;
+                    }
+                    LOGD_VC("Texture image memory bound: %p", frame.texture.memory);
+                    VkImageViewCreateInfo imageViewCreateInfo{};
+                    {
+                        imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+                        imageViewCreateInfo.image = frame.texture.image;
+                        imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+                        imageViewCreateInfo.format = surfaceContext_.format;
+                        imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+                        imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+                        imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+                        imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+                        imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                        imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+                        imageViewCreateInfo.subresourceRange.levelCount = 1;
+                        imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+                        imageViewCreateInfo.subresourceRange.layerCount = 1;
+                    }
+                    VkResult imageViewCreateResult = vkCreateImageView(logicalDevice_, &imageViewCreateInfo, nullptr, &frame.texture.imageView);
+                    if (imageViewCreateResult != VK_SUCCESS || frame.texture.imageView == VK_NULL_HANDLE) {
+                        LOGE_VC("Failed to create texture image view: %d", imageViewCreateResult);
+                        break;
+                    }
+                    LOGD_VC("Texture image view created: %p", frame.texture.imageView);
+
+
+                    frame.texture.width = width;
+                    frame.texture.height = height;
+                } while (false);
+            }
+        }
+        if (vertexBuffer_ == nullptr) {
+            vertexBuffer_ = new VulkanRWBuffer(physicalDevice_, logicalDevice_, presentationQueueFamilyIndex_);
+            vertexBuffer_->create(sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+            vertexBuffer_->update(vertices, sizeof(vertices));
+        }
+        if (sampler_ == VK_NULL_HANDLE) {
+            VkFilter filter = VK_FILTER_NEAREST;
+            VkSamplerCreateInfo samplerInfo{};
+            {
+                samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+                samplerInfo.magFilter = filter;
+                samplerInfo.minFilter = filter;
+                samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+                samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+                samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+                samplerInfo.anisotropyEnable = VK_TRUE;
+                samplerInfo.maxAnisotropy = 16.0f;
+
+                samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+                samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+                samplerInfo.compareEnable = VK_FALSE;
+                samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+                samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+                samplerInfo.mipLodBias = 0.0f;
+                samplerInfo.minLod = 0.0f;
+                samplerInfo.maxLod = 0.0f;
+            }
+            VkResult samplerResult = vkCreateSampler(logicalDevice_, &samplerInfo, nullptr, &sampler_);
+            if (samplerResult != VK_SUCCESS) {
+                LOGE_VC("failed to create texture sampler: %d", samplerResult);
+            }
+        }
+    }
+
     void VulkanVideoContext::vulkanRecreateSwapchainIfNeeded() {
         if (!VK_BIT_TEST(swapchainContext_.flag, RRVULKAN_SWAPCHAIN_STATE_NEED_RECREATE)) {
             return;
@@ -1559,6 +1634,16 @@ namespace libRetroRunner {
             return true;
         }
     }
+
+    void VulkanVideoContext::copyNegotiationImageToFrameTexture(){
+        if(!negotiationImage_) return;
+
+    }
+
+    void VulkanVideoContext::fillFrameTexture(const void *data, unsigned int width, unsigned int height, size_t pitch){
+
+    }
+
 }
 
 namespace libRetroRunner {
@@ -1586,6 +1671,21 @@ namespace libRetroRunner {
 
     bool VulkanVideoContext::vulkanClearFrameResourcesIfNeeded() {
         for (auto &frame: renderContext_.frames) {
+            if (frame.texture.imageView != VK_NULL_HANDLE) {
+                vkDestroyImageView(logicalDevice_, frame.texture.imageView, nullptr);
+                frame.texture.imageView = VK_NULL_HANDLE;
+            }
+            if (frame.texture.image != VK_NULL_HANDLE) {
+                vkDestroyImage(logicalDevice_, frame.texture.image, nullptr);
+                frame.texture.image = VK_NULL_HANDLE;
+            }
+            if (frame.texture.memory != VK_NULL_HANDLE) {
+                vkFreeMemory(logicalDevice_, frame.texture.memory, nullptr);
+                frame.texture.memory = VK_NULL_HANDLE;
+            }
+            frame.texture.width = 0;
+            frame.texture.height = 0;
+
             if (frame.fence != VK_NULL_HANDLE) {
                 vkDestroyFence(logicalDevice_, frame.fence, nullptr);
                 frame.fence = VK_NULL_HANDLE;
@@ -1637,6 +1737,9 @@ namespace libRetroRunner {
         LOGD_VC("pipeline cleared");
     }
 
+    void VulkanVideoContext::clearDrawingResourceIfNeeded() {
+
+    }
 }
 
 namespace libRetroRunner {

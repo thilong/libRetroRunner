@@ -40,12 +40,12 @@ namespace libRetroRunner {
     };
 
     struct RRVulkanTexture {
-        VkDeviceSize memorySize;
+        VkDeviceSize memorySize = 0;
 
-        VkImage image;
-        VkImageView imageView;
-        VkBuffer buffer;
-        VkDeviceMemory memory;
+        VkImage image = VK_NULL_HANDLE;
+        VkImageView imageView = VK_NULL_HANDLE;
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
 
         size_t stride;  //size of one line pixel in bytes
         size_t size;    //size of the whole texture in bytes
@@ -61,7 +61,7 @@ namespace libRetroRunner {
         VkDeviceMemory memory = VK_NULL_HANDLE;
     };
 
-    enum RRVulkanSurfaceState{
+    enum RRVulkanSurfaceState {
         RRVULKAN_SURFACE_STATE_INVALID = 0,
         RRVULKAN_SURFACE_STATE_VALID = 1 << 0,
         RRVULKAN_SURFACE_STATE_CAPABILITY_SET = 1 << 1,
@@ -231,16 +231,26 @@ namespace libRetroRunner {
 
         bool vulkanCreateSwapchainResourcesIfNeeded();
 
+        void vulkanCreateDrawingResourceIfNeeded(uint32_t width, uint32_t height);
+
         void vulkanRecreateSwapchainIfNeeded();
 
         bool createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader);
 
+        void copyNegotiationImageToFrameTexture();
+        void fillFrameTexture(const void *data, unsigned int width, unsigned int height, size_t pitch);
     public:
 
         void clearVulkanRenderContext();
+
         bool vulkanClearSwapchainIfNeeded();
+
         bool vulkanClearSwapchainResourcesIfNeeded();
+
         bool vulkanClearFrameResourcesIfNeeded();
+
+        void clearDrawingResourceIfNeeded();
+
     private:
         const retro_hw_render_context_negotiation_interface_vulkan *getNegotiationInterface();
 

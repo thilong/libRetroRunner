@@ -592,6 +592,8 @@ namespace libRetroRunner {
 
             VkDescriptorSet descriptorSet = frameDescriptorSet;
 
+
+            //todo: need fix: 闪烁，因为异步提交有可能导致image_view的数据在提交时发生变化。
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             imageInfo.imageView = negotiationImage_->image_view;

@@ -29,6 +29,10 @@ namespace libRetroRunner {
         /*unload video output, keep context.*/
         virtual void Unload() = 0;
 
+        /*显示环境被暂停了，无法再进行显示，比如android的surface暂时清空了
+         * 暂时视频组件的动作，等待UnLoad命令*/
+        virtual void SetWindowPaused() = 0;
+
         virtual void UpdateVideoSize(unsigned width, unsigned height) = 0;
 
         /* prepare video context for every frame before emu-step.*/

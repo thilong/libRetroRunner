@@ -162,6 +162,8 @@ namespace libRetroRunner {
 
         void Unload() override;
 
+        void SetWindowPaused() override;
+
         void UpdateVideoSize(unsigned width, unsigned height) override;
 
         void Destroy() override;

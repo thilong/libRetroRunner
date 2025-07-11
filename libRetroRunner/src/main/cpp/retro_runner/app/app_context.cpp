@@ -312,6 +312,7 @@ namespace libRetroRunner {
             app_window_.surface = nullptr;
             app_window_.surfaceId = 0;
             if (video_) {
+                video_->SetWindowPaused();
                 AddCommand(AppCommands::kUnloadVideo);
             }
         }

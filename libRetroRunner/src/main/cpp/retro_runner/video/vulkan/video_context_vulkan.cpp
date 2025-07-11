@@ -55,14 +55,15 @@ namespace libRetroRunner {
         float vx, vy;      //texture coordinate
     };
 
+    // texture coordinates and positions for a full-screen quad,  this is different from OPENGL ES
     VObject vertices[] = {
-            VObject{-1.0, -1.0, 0.0, 1.0, 0.0, 0.0},     //left-bottom
-            VObject{1.0, -1.0, 0.0, 1.0, 1.0, 0.0},      // right-bottom
-            VObject{1.0, 1.0, 0.0, 1.0, 1.0, 1.0},       //right-top
-            VObject{-1.0, 1.0, 0.0, 1.0, 0.0, 1.0},     //left-top
+            VObject{-1.0, -1.0, 0.0, 1.0, 1.0, 0.0},     //left-bottom
+            VObject{1.0, -1.0, 0.0, 1.0, 1.0, 1.0},      // right-bottom
+            VObject{1.0, 1.0, 0.0, 1.0, 0.0, 1.0},       //right-top
+            VObject{-1.0, 1.0, 0.0, 1.0, 0.0, 0.0},     //left-top
 
-            VObject{-1.0, -1.0, 0.0, 1.0, 0.0, 0.0},    //left-bottom
-            VObject{1.0, -1.0, 0.0, 1.0, 1.0, 0.0},     // right-bottom
+            VObject{-1.0, -1.0, 0.0, 1.0, 1.0, 0.0},    //left-bottom
+            VObject{1.0, -1.0, 0.0, 1.0, 1.0, 1.0},     // right-bottom
     };
 
 }
@@ -352,8 +353,27 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::Unload() {
-        //context_destroy
         vulkanIsReady_ = false;
+        LOGD_VVC("VulkanVideoContext::Unload called, frame count: %lu", frameCount_);
+
+        auto appContext = AppContext::Current();
+        auto coreCtx = appContext->GetCoreRuntimeContext();
+        auto gameCtx = appContext->GetGameRuntimeContext();
+
+        if (logicalDevice_) {
+            vkDeviceWaitIdle(logicalDevice_);
+        }
+        retro_hw_context_reset_t  destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
+        if(destroy_func) destroy_func();
+
+        vulkanClearSwapchainResourcesIfNeeded();
+        vulkanClearFrameResourcesIfNeeded();
+        vulkanClearSwapchainIfNeeded();
+        if (surfaceContext_.surface != VK_NULL_HANDLE) {
+            vkDestroySurfaceKHR(instance_, surfaceContext_.surface, nullptr);
+            surfaceContext_.surface = VK_NULL_HANDLE;
+            surfaceContext_.flags = RRVULKAN_SURFACE_STATE_INVALID;
+        }
     }
 
     void VulkanVideoContext::Destroy() {
@@ -362,6 +382,10 @@ namespace libRetroRunner {
             delete queue_lock;
             queue_lock = nullptr;
         }
+    }
+
+    void VulkanVideoContext::SetWindowPaused(){
+        vulkanIsReady_ = false;
     }
 
     void VulkanVideoContext::UpdateVideoSize(unsigned int width, unsigned int height) {
@@ -1119,6 +1143,7 @@ namespace libRetroRunner {
 
     bool VulkanVideoContext::vulkanCreateGraphicsPipelineIfNeeded() {
         if (!(renderContext_.flag & RRVULKAN_RENDER_STATE_RENDER_PASS_VALID)) return false;
+        if(VK_BIT_TEST(renderContext_.flag , RRVULKAN_RENDER_STATE_PIPELINE_VALID)) return true;
         //管线布局
         if (!VK_BIT_TEST(renderContext_.flag, RRVULKAN_RENDER_STATE_PIPELINE_LAYOUT_VALID)) {
             VkPipelineLayoutCreateInfo layoutCreateInfo{
@@ -1300,16 +1325,18 @@ namespace libRetroRunner {
     bool VulkanVideoContext::vulkanCreateDescriptorPoolIfNeeded() {
         if (renderContext_.flag & RRVULKAN_RENDER_STATE_DESCRIPTOR_POOL_VALID) return true;
         VkDescriptorPoolSize poolSize{
-                .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,   //绑定纹理
-                .descriptorCount = 16                               //每帧会有一个绑定
+                .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,              //绑定纹理
+                .descriptorCount = 16                                           //每帧会有一个绑定
         };
         VkDescriptorPoolCreateInfo poolCreateInfo{
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                 .pNext = nullptr,
-                .maxSets = 16,                                //每帧会有一个绑定,数量需要大于飞行帧数量
+                .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,     //允许释放描述符集
+                .maxSets = 16,                                                  //每帧会有一个绑定,数量需要大于飞行帧数量
                 .poolSizeCount = 1,
                 .pPoolSizes = &poolSize
         };
+        //VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
         VkResult poolCreateResult = vkCreateDescriptorPool(logicalDevice_, &poolCreateInfo, nullptr, &renderContext_.descriptorPool);
         if (poolCreateResult != VK_SUCCESS || renderContext_.descriptorPool == VK_NULL_HANDLE) {
             LOGE_VC("Failed to create descriptor pool: %d", poolCreateResult);
@@ -1411,6 +1438,11 @@ namespace libRetroRunner {
 
         if (!VK_BIT_TEST(swapchainContext_.flag, RRVULKAN_SWAPCHAIN_STATE_IMAGES_VALID)) {
             do {
+
+                uint32_t imageCount = 0;
+                VkResult getSwapchainImagesResult = vkGetSwapchainImagesKHR(logicalDevice_, swapchainContext_.swapchain, &imageCount, nullptr);
+
+                LOGD_VVC("swapchain image count: %d, calced count: %d", imageCount, surfaceContext_.imageCount);
 
                 swapchainContext_.images.resize(surfaceContext_.imageCount);
                 vkGetSwapchainImagesKHR(logicalDevice_, swapchainContext_.swapchain, &surfaceContext_.imageCount, swapchainContext_.images.data());
@@ -1551,6 +1583,30 @@ namespace libRetroRunner {
     }
 
     bool VulkanVideoContext::vulkanClearFrameResourcesIfNeeded() {
+        for (auto &frame: renderContext_.frames) {
+            if (frame.fence != VK_NULL_HANDLE) {
+                vkDestroyFence(logicalDevice_, frame.fence, nullptr);
+                frame.fence = VK_NULL_HANDLE;
+            }
+            if (frame.imageAcquireSemaphore != VK_NULL_HANDLE) {
+                vkDestroySemaphore(logicalDevice_, frame.imageAcquireSemaphore, nullptr);
+                frame.imageAcquireSemaphore = VK_NULL_HANDLE;
+            }
+            if (frame.renderSemaphore != VK_NULL_HANDLE) {
+                vkDestroySemaphore(logicalDevice_, frame.renderSemaphore, nullptr);
+                frame.renderSemaphore = VK_NULL_HANDLE;
+            }
+            if (frame.descriptorSet != VK_NULL_HANDLE) {
+                vkFreeDescriptorSets(logicalDevice_, renderContext_.descriptorPool, 1, &frame.descriptorSet);
+                frame.descriptorSet = VK_NULL_HANDLE;
+            }
+            if (frame.commandBuffer != VK_NULL_HANDLE) {
+                vkFreeCommandBuffers(logicalDevice_, renderContext_.commandPool, 1, &frame.commandBuffer);
+                frame.commandBuffer = VK_NULL_HANDLE;
+            }
+        }
+
+        renderContext_.frames.clear();
         return true;
     }
 

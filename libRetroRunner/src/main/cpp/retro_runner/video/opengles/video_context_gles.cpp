@@ -224,6 +224,10 @@ namespace libRetroRunner {
 
     }
 
+    void GLESVideoContext::SetWindowPaused(){
+        is_ready_ = false;
+    }
+
     void GLESVideoContext::UpdateVideoSize(unsigned width, unsigned height) {
         screen_width_ = width;
         screen_height_ = height;

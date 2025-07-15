@@ -84,7 +84,8 @@ namespace libRetroRunner {
 
     struct RRVulkanFrameContext {
         struct RRVulkanTexture texture{};
-        struct RRVulkanBuffer vertexBuffer{};
+        struct RRVulkanBuffer stagingBuffer{};
+
 
         VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
@@ -302,6 +303,7 @@ namespace libRetroRunner {
         VkSampler sampler_ = VK_NULL_HANDLE;
         uint64_t frameCount_ = 0;
 
+        bool videoContentNeedUpdate_ = false;
     };
 }
 

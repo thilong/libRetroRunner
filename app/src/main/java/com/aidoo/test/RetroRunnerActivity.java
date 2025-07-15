@@ -31,7 +31,7 @@ public class RetroRunnerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.sample_activity);
         String platform = "psp";
-
+        //String platform = "n64";
         String testCore = "";
         if (platform.equals("nes")) {
             testRom = getExternalFilesDir(null).getAbsolutePath() + "/test.nes";
@@ -47,6 +47,10 @@ public class RetroRunnerActivity extends AppCompatActivity {
             testRom = getExternalFilesDir(null).getAbsolutePath() + "/psp.iso";
             //testCore = "libppsspp.so";
             testCore = "libppsspp_libretro_android.so";
+        }else if(platform.equals("n64")){
+            testRom = getExternalFilesDir(null).getAbsolutePath() + "/n64.z64";
+            testCore = "libparallel_n64.so";
+
         }
 
         RRParam runnerArgument = new RRParam();

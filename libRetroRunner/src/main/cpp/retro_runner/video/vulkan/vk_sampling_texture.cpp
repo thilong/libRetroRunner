@@ -106,7 +106,7 @@ bool VulkanSamplingTexture::create(uint32_t width, uint32_t height) {
 }
 
 bool VulkanSamplingTexture::update(VkQueue queue, VkCommandPool commandPool, const void *data, size_t size, int pixelFormat) {
-    VkDeviceSize imageSize = height_ * height_ * 4;  //for R8G8B8A8
+    VkDeviceSize imageSize = width_ * height_ * 4;  //for R8G8B8A8
     if (!stagingBuffer_) {
         stagingBuffer_ = new VulkanRWBuffer(physicalDevice_, logicalDevice_, queueFamilyIndex_);
     }

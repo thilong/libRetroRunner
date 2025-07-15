@@ -38,6 +38,8 @@
 #define VK_BIT_TEST(flag, bit) (((flag) & (bit)) == (bit))
 #define VK_BIT_SET(flag, bit) ((flag) |= (bit))
 #define VK_BIT_CLEAR(flag, bit) ((flag) &= ~(bit))
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 
 extern rr_hardware_render_proc_address_t getHWProcAddress;
 
@@ -118,6 +120,7 @@ namespace libRetroRunner {
 
         //TODO: check line:3080 vk->flags |= VK_FLAG_HW_VALID_SEMAPHORE;
         if (image && image->image_view) {
+            videoContentNeedUpdate_ = true;
             LOGW_VVC("HW callback, frame: %lu, retro_vulkan_set_image_t_impl, image view: %p, layout: %d, flags: %d, semaphore count: %u, semaphore: %p, queue family: %u", frameCount_, image->image_view, image->image_layout, image->create_info.flags, num_semaphores, semaphores, src_queue_family);
         } else {
             LOGW_VVC("HW callback, frame: %lu, retro_vulkan_set_image_t_impl empty: %p, %u, %p, %u", frameCount_, image, num_semaphores, semaphores, src_queue_family);
@@ -385,6 +388,7 @@ namespace libRetroRunner {
             if (data == RETRO_HW_FRAME_BUFFER_VALID) {
                 //LOGD_VVC("OnNewFrame called with RETRO_HW_FRAME_BUFFER_VALID, this is a hardware render frame.");
             } else {
+                fillFrameTexture(data, width, height, pitch);
                 //LOGD_VVC("OnNewFrame called with data: %p, width: %u, height: %u, pitch: %zu", data, width, height, pitch);
             }
             if (vulkanIsReady_) {
@@ -441,6 +445,7 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::vulkanCommitFrame() {
+        if(!videoContentNeedUpdate_) return;
         auto &frame = renderContext_.frames[renderContext_.current_frame];
 
         vkWaitForFences(logicalDevice_, 1, &frame.fence, VK_TRUE, UINT64_MAX);
@@ -492,6 +497,7 @@ namespace libRetroRunner {
 
         LOGI_VVC("frame: %lu, Queue present complete, image index: %u, result: %d", frameCount_, renderContext_.current_frame, result);
         renderContext_.current_frame = (renderContext_.current_frame + 1) % renderContext_.frames.size();
+        videoContentNeedUpdate_ = false;
     }
 
     void VulkanVideoContext::recordCommandBufferForSoftwareRender(void *pCommandBuffer, uint32_t imageIndex, VkDescriptorSet frameDescriptorSet) {
@@ -553,7 +559,7 @@ namespace libRetroRunner {
             descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             descriptorWrite.descriptorCount = 1;
             descriptorWrite.pImageInfo = &imageInfo;
-            LOGD_VVC("update descriptor %p, set: %p", &descriptorWrite, descriptorSet);
+            LOGD_VVC("update descriptor %p, set: %p, image: %p", &descriptorWrite, descriptorSet, negotiationImage_->image_view);
             vkUpdateDescriptorSets(logicalDevice_, 1, &descriptorWrite, 0, nullptr);
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext_.pipelineLayout,
@@ -870,6 +876,9 @@ namespace libRetroRunner {
                 return false;
             }
             LOGD_VVC("Vulkan logical device: %p", logicalDevice_);
+
+            vkGetDeviceQueue(logicalDevice_, presentationQueueFamilyIndex_, 0, &presentationQueue_);
+            LOGD_VC("graphics queue:\t%p", presentationQueue_);
         }
 
         return true;
@@ -1574,7 +1583,7 @@ namespace libRetroRunner {
                 samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
                 samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
-                samplerInfo.anisotropyEnable = VK_TRUE;
+                samplerInfo.anisotropyEnable = VK_FALSE;  //各向异性
                 samplerInfo.maxAnisotropy = 16.0f;
 
                 samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
@@ -1635,13 +1644,80 @@ namespace libRetroRunner {
         }
     }
 
-    void VulkanVideoContext::copyNegotiationImageToFrameTexture(){
-        if(!negotiationImage_) return;
+    void VulkanVideoContext::copyNegotiationImageToFrameTexture() {
+        if (!negotiationImage_) return;
 
     }
 
-    void VulkanVideoContext::fillFrameTexture(const void *data, unsigned int width, unsigned int height, size_t pitch){
+    void VulkanVideoContext::fillFrameTexture(const void *data, unsigned int width, unsigned int height, size_t pitch) {
+        if (!vulkanIsReady_ || data == nullptr) return;
+        auto frame = &renderContext_.frames[renderContext_.current_frame];
 
+        if (frame->stagingBuffer.buffer == VK_NULL_HANDLE) {
+            VkBufferCreateInfo createBufferInfo{
+                    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                    .pNext = nullptr,
+                    .flags = 0,
+                    .size = width * height * 4,
+                    .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                    .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                    .queueFamilyIndexCount = 1,
+                    .pQueueFamilyIndices = &presentationQueueFamilyIndex_
+            };
+            VkResult result = vkCreateBuffer(logicalDevice_, &createBufferInfo, nullptr, (VkBuffer *) &frame->stagingBuffer.buffer);
+            if (result != VK_SUCCESS) {
+                LOGE_VC("failed to create staging buffer, error %d", result);
+                return;
+            }
+            VkMemoryRequirements memRequirements;
+            vkGetBufferMemoryRequirements(logicalDevice_, (VkBuffer) frame->stagingBuffer.buffer, &memRequirements);
+
+            VkMemoryAllocateInfo allocInfo{};
+            allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            allocInfo.allocationSize = memRequirements.size;
+            VkUtil::MapMemoryTypeToIndex(
+                    physicalDevice_,
+                    memRequirements.memoryTypeBits,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                    &allocInfo.memoryTypeIndex);
+            result = vkAllocateMemory(logicalDevice_, &allocInfo, nullptr, (VkDeviceMemory *) &frame->stagingBuffer.memory);
+            if (result != VK_SUCCESS) {
+                LOGE_VC("failed to allocate staging buffer memory, error %d", result);
+            }
+            frame->stagingBuffer.size = allocInfo.allocationSize;
+            vkBindBufferMemory(logicalDevice_, (VkBuffer) frame->stagingBuffer.buffer, (VkDeviceMemory) frame->stagingBuffer.memory, 0);
+        }
+
+        //使用data填充frame的纹理
+        //TODO: 检测pixel格式转换
+        //copy data to staging buffer
+        void *toData;
+        vkMapMemory(logicalDevice_, frame->stagingBuffer.memory, 0, frame->stagingBuffer.size, 0, &toData);
+        memcpy(toData, data, min(frame->stagingBuffer.size, pitch * height));
+        vkUnmapMemory(logicalDevice_, frame->stagingBuffer.memory);
+
+        //copy staging buffer to texture image
+        VkCommandBuffer commandBuffer = VkUtil::beginSingleTimeCommands(logicalDevice_, renderContext_.commandPool);
+
+        // 转换图像布局为 `VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL`
+        VkUtil::transitionImageLayout(logicalDevice_, renderContext_.commandPool, presentationQueue_, frame->texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+        VkBufferImageCopy region{};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent = {width, height, 1};
+
+        vkCmdCopyBufferToImage(commandBuffer, frame->stagingBuffer.buffer, frame->texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+        //转换图像布局回 `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`
+        VkUtil::transitionImageLayout(logicalDevice_, renderContext_.commandPool, presentationQueue_, frame->texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+        VkUtil::endSingleTimeCommands(logicalDevice_, renderContext_.commandPool, presentationQueue_, commandBuffer);
+
+        LOGD_VVC("Frame texture updated: %d x %d, core pixel format: %d", width, height, core_pixel_format_);
     }
 
 }

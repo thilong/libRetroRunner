@@ -48,6 +48,8 @@ private:
 
     VkSampler sampler_;
 
+    VkImageLayout layout_;
+
     class VulkanRWBuffer *stagingBuffer_;
 
     unsigned char *convertBuffer;

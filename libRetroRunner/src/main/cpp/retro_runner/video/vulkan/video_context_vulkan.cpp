@@ -68,6 +68,16 @@ namespace libRetroRunner {
             VObject{1.0, -1.0, 0.0, 1.0, 1.0, 1.0},     // right-bottom
     };
 
+    VObject verticesOpenGL[] = {
+            VObject{-1.0, -1.0, 0.0, 1.0, 0.0, 0.0},     //left-bottom
+            VObject{1.0, -1.0, 0.0, 1.0, 1.0, 0.0},      // right-bottom
+            VObject{1.0, 1.0, 0.0, 1.0, 1.0, 1.0},       //right-top
+            VObject{-1.0, 1.0, 0.0, 1.0, 0.0, 1.0},     //left-top
+
+            VObject{-1.0, -1.0, 0.0, 1.0, 0.0, 0.0},    //left-bottom
+            VObject{1.0, -1.0, 0.0, 1.0, 1.0, 0.0},     // right-bottom
+    };
+
 }
 
 /** misc functions */
@@ -445,7 +455,7 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::vulkanCommitFrame() {
-        if(!videoContentNeedUpdate_) return;
+        if (!videoContentNeedUpdate_) return;
         auto &frame = renderContext_.frames[renderContext_.current_frame];
 
         vkWaitForFences(logicalDevice_, 1, &frame.fence, VK_TRUE, UINT64_MAX);
@@ -535,7 +545,15 @@ namespace libRetroRunner {
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        if (negotiationImage_) {
+        VkImageView imageViewToBePresent = VK_NULL_HANDLE;
+        if(negotiationImage_ && negotiationImage_->image_view){
+            imageViewToBePresent = negotiationImage_->image_view;
+        }
+        if(imageViewToBePresent == VK_NULL_HANDLE){
+            auto& frame = renderContext_.frames[renderContext_.current_frame];
+            imageViewToBePresent = frame.texture.imageView;
+        }
+        if (imageViewToBePresent) {
 
             //绑定顶点缓冲区
             VkDeviceSize offsets[] = {0};
@@ -544,10 +562,9 @@ namespace libRetroRunner {
 
             VkDescriptorSet descriptorSet = frameDescriptorSet;
 
-            //todo: need fix: 闪烁，因为异步提交有可能导致image_view的数据在提交时发生变化。
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = negotiationImage_->image_view;
+            imageInfo.imageView = imageViewToBePresent;
             imageInfo.sampler = sampler_;
 
 
@@ -559,15 +576,17 @@ namespace libRetroRunner {
             descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             descriptorWrite.descriptorCount = 1;
             descriptorWrite.pImageInfo = &imageInfo;
-            LOGD_VVC("update descriptor %p, set: %p, image: %p", &descriptorWrite, descriptorSet, negotiationImage_->image_view);
+            LOGD_VVC("update descriptor %p, set: %p, image: %p", &descriptorWrite, descriptorSet, imageViewToBePresent);
             vkUpdateDescriptorSets(logicalDevice_, 1, &descriptorWrite, 0, nullptr);
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext_.pipelineLayout,
                                     0, 1, &descriptorSet, 0, nullptr);
 
             vkCmdDraw(commandBuffer, 6, 1, 0, 0);
-            negotiationImage_ = nullptr; // reset after draw
+
         }
+
+        negotiationImage_ = nullptr; // reset after draw
 
         vkCmdEndRenderPass(commandBuffer);
         vkEndCommandBuffer(commandBuffer);
@@ -1517,6 +1536,8 @@ namespace libRetroRunner {
                         LOGE_VC("Failed to create texture image: %d", imageCreateResult);
                         break;
                     }
+                    frame.texture.layout = imageCreateInfo.initialLayout;
+
                     LOGD_VC("Texture image created: %p", frame.texture.image);
                     VkMemoryRequirements memoryRequirements{};
                     vkGetImageMemoryRequirements(logicalDevice_, frame.texture.image, &memoryRequirements);
@@ -1569,8 +1590,14 @@ namespace libRetroRunner {
         }
         if (vertexBuffer_ == nullptr) {
             vertexBuffer_ = new VulkanRWBuffer(physicalDevice_, logicalDevice_, presentationQueueFamilyIndex_);
-            vertexBuffer_->create(sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-            vertexBuffer_->update(vertices, sizeof(vertices));
+            //如果核心没有提供渲染接口，那么软件渲染一般使用的是opengl生成的图片, 图片则需要使用opengl的坐标
+            if(retro_render_interface_ == nullptr){
+                vertexBuffer_->create(sizeof(verticesOpenGL), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+                vertexBuffer_->update(verticesOpenGL, sizeof(verticesOpenGL));
+            }else {
+                vertexBuffer_->create(sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+                vertexBuffer_->update(vertices, sizeof(vertices));
+            }
         }
         if (sampler_ == VK_NULL_HANDLE) {
             VkFilter filter = VK_FILTER_NEAREST;
@@ -1690,18 +1717,26 @@ namespace libRetroRunner {
         }
 
         //使用data填充frame的纹理
-        //TODO: 检测pixel格式转换
+        const void *finalData = data;
+        if (core_pixel_format_ == RETRO_PIXEL_FORMAT_RGB565) {
+            convertingBuffer.resize(width * height * 4);
+            VkUtil::convertRGB565ToRGBA8888(data, width, height, convertingBuffer.data());
+            finalData = convertingBuffer.data();
+        } else if (core_pixel_format_ == RETRO_PIXEL_FORMAT_0RGB1555) {
+            //TODO: 检测pixel格式转换 RETRO_PIXEL_FORMAT_0RGB1555
+            LOGE_VVC("0RGB1555 pixel format is not supported yet, please use RGB565 or RGBA8888.");
+        }
         //copy data to staging buffer
         void *toData;
         vkMapMemory(logicalDevice_, frame->stagingBuffer.memory, 0, frame->stagingBuffer.size, 0, &toData);
-        memcpy(toData, data, min(frame->stagingBuffer.size, pitch * height));
+        memcpy(toData, finalData, min(frame->stagingBuffer.size, pitch * height));
         vkUnmapMemory(logicalDevice_, frame->stagingBuffer.memory);
 
         //copy staging buffer to texture image
         VkCommandBuffer commandBuffer = VkUtil::beginSingleTimeCommands(logicalDevice_, renderContext_.commandPool);
 
         // 转换图像布局为 `VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL`
-        VkUtil::transitionImageLayout(logicalDevice_, renderContext_.commandPool, presentationQueue_, frame->texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VkUtil::transitionImageLayout(logicalDevice_, renderContext_.commandPool, presentationQueue_, frame->texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &frame->texture.layout);
 
         VkBufferImageCopy region{};
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1711,13 +1746,13 @@ namespace libRetroRunner {
         region.imageExtent = {width, height, 1};
 
         vkCmdCopyBufferToImage(commandBuffer, frame->stagingBuffer.buffer, frame->texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-        //转换图像布局回 `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`
-        VkUtil::transitionImageLayout(logicalDevice_, renderContext_.commandPool, presentationQueue_, frame->texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
         VkUtil::endSingleTimeCommands(logicalDevice_, renderContext_.commandPool, presentationQueue_, commandBuffer);
 
+        //转换图像布局回 `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`
+        VkUtil::transitionImageLayout(logicalDevice_, renderContext_.commandPool, presentationQueue_, frame->texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &frame->texture.layout);
+
         LOGD_VVC("Frame texture updated: %d x %d, core pixel format: %d", width, height, core_pixel_format_);
+        videoContentNeedUpdate_ = true;
     }
 
 }

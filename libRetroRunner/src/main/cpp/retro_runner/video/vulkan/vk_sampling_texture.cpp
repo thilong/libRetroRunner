@@ -35,6 +35,7 @@ bool VulkanSamplingTexture::create(uint32_t width, uint32_t height) {
     if (result != VK_SUCCESS) {
         return false;
     }
+    layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
     VkMemoryRequirements memRequirements;
     vkGetImageMemoryRequirements(logicalDevice_, image_, &memRequirements);
     VkMemoryAllocateInfo allocInfo{};
@@ -128,7 +129,7 @@ bool VulkanSamplingTexture::update(VkQueue queue, VkCommandPool commandPool, con
     VkCommandBuffer commandBuffer = VkUtil::beginSingleTimeCommands(logicalDevice_, commandPool);
 
     // 转换图像布局为 `VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL`
-    VkUtil::transitionImageLayout(logicalDevice_, commandPool, queue, image_, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VkUtil::transitionImageLayout(logicalDevice_, commandPool, queue, image_, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &layout_);
 
     // 复制 Staging Buffer 到 Image
     VkBufferImageCopy region{};
@@ -141,7 +142,7 @@ bool VulkanSamplingTexture::update(VkQueue queue, VkCommandPool commandPool, con
     vkCmdCopyBufferToImage(commandBuffer, stagingBuffer_->getBuffer(), image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     //转换图像布局回 `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`
-    VkUtil::transitionImageLayout(logicalDevice_, commandPool, queue, image_, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    VkUtil::transitionImageLayout(logicalDevice_, commandPool, queue, image_, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &layout_);
 
     VkUtil::endSingleTimeCommands(logicalDevice_, commandPool, queue, commandBuffer);
     return true;

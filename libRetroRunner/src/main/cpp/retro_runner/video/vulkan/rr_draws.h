@@ -37,7 +37,7 @@ namespace libRetroRunner {
         VkBuffer stagingBuffer{};
         VkDeviceMemory stagingBufferMemory{};
 
-
+        VkImageLayout layout_;
         VkSampler sampler_{};
 
         unsigned char *convertBuffer;

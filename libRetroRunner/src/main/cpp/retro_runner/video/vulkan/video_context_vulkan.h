@@ -281,29 +281,31 @@ namespace libRetroRunner {
         uint32_t presentationQueueFamilyIndex_ = 0;
         pthread_mutex_t *queue_lock = nullptr;
 
-        uint32_t framesInFlight_;
+        uint32_t framesInFlight_ = 2;
 
 
-        RRVulkanSurfaceContext surfaceContext_;
-        RRVulkanRenderContext renderContext_;
-        RRVulkanSwapchainContext swapchainContext_;
+        RRVulkanSurfaceContext surfaceContext_{};
+        RRVulkanRenderContext renderContext_{};
+        RRVulkanSwapchainContext swapchainContext_{};
 
 
-        retro_vulkan_destroy_device_t destroyDeviceImpl_;
+        retro_vulkan_destroy_device_t destroyDeviceImpl_ = nullptr;
 
-        const retro_vulkan_image *negotiationImage_;
-        uint32_t negotiationSemaphoreCount_;
-        VkSemaphore *negotiationSemaphores_;
-        VkPipelineStageFlags *negotiationWaitStages_;
-        uint32_t negotiationQueueFamily_;
-        VkSemaphore negotiationSemaphore_;
-        std::vector<VkCommandBuffer> negotiationCommandBuffers_;
+        const retro_vulkan_image *negotiationImage_ = nullptr;
+        uint32_t negotiationSemaphoreCount_ = 0;
+        VkSemaphore *negotiationSemaphores_ = nullptr;
+        VkPipelineStageFlags *negotiationWaitStages_= nullptr;
+        uint32_t negotiationQueueFamily_ = 0;
+        VkSemaphore negotiationSemaphore_ =VK_NULL_HANDLE ;
+        std::vector<VkCommandBuffer> negotiationCommandBuffers_{};
 
         VulkanRWBuffer *vertexBuffer_ = nullptr;
         VkSampler sampler_ = VK_NULL_HANDLE;
         uint64_t frameCount_ = 0;
 
         bool videoContentNeedUpdate_ = false;
+
+        std::vector<unsigned char> convertingBuffer;
     };
 }
 

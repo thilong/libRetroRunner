@@ -30,7 +30,7 @@ public class RetroRunnerActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.sample_activity);
-        String platform = "psp";
+        String platform = "nes";
         //String platform = "n64";
         String testCore = "";
         if (platform.equals("nes")) {

@@ -37,7 +37,7 @@ namespace VkUtil {
 
     void endSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkCommandBuffer commandBuffer);
 
-    void transitionImageLayout(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void transitionImageLayout(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat format, VkImageLayout newLayout, VkImageLayout *imgLayout);
 
     void updateDescriptorSet(VkDevice logicalDevice, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler);
 

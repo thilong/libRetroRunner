@@ -37,6 +37,7 @@ namespace libRetroRunner {
         if (vkCreateImage(device_, &imageInfo, nullptr, &image_) != VK_SUCCESS) {
             return false;
         }
+        layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
         VkMemoryRequirements memRequirements;
         vkGetImageMemoryRequirements(device_, image_, &memRequirements);
 
@@ -130,7 +131,7 @@ namespace libRetroRunner {
         VkCommandBuffer commandBuffer = VkUtil::beginSingleTimeCommands(device_, commandPool);
 
         // 4. 转换图像布局为 `VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL`
-        VkUtil::transitionImageLayout(device_, commandPool, queue, image_, format_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VkUtil::transitionImageLayout(device_, commandPool, queue, image_, format_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &layout_);
 
         // 5. 复制 Staging Buffer 到 Image
         VkBufferImageCopy region{};
@@ -143,7 +144,7 @@ namespace libRetroRunner {
         vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
         // 6. 转换图像布局回 `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`
-        VkUtil::transitionImageLayout(device_, commandPool, queue, image_, format_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VkUtil::transitionImageLayout(device_, commandPool, queue, image_, format_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &layout_);
 
         // 7. 提交命令
         VkUtil::endSingleTimeCommands(device_, commandPool, queue, commandBuffer);

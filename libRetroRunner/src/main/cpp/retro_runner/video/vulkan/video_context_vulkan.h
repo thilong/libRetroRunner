@@ -238,11 +238,10 @@ namespace libRetroRunner {
 
         bool createShader(void *source, size_t sourceLength, VulkanShaderType shaderType, VkShaderModule *shader);
 
-        void copyNegotiationImageToFrameTexture();
         void fillFrameTexture(const void *data, unsigned int width, unsigned int height, size_t pitch);
     public:
 
-        void clearVulkanRenderContext();
+        void vulkanClearRenderContextIfNeeded();
 
         bool vulkanClearSwapchainIfNeeded();
 
@@ -250,7 +249,6 @@ namespace libRetroRunner {
 
         bool vulkanClearFrameResourcesIfNeeded();
 
-        void clearDrawingResourceIfNeeded();
 
     private:
         const retro_hw_render_context_negotiation_interface_vulkan *getNegotiationInterface();

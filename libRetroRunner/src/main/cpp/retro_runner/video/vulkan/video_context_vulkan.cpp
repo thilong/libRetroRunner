@@ -361,8 +361,12 @@ namespace libRetroRunner {
         if (logicalDevice_) {
             vkDeviceWaitIdle(logicalDevice_);
         }
-        retro_hw_context_reset_t destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
-        if (destroy_func) destroy_func();
+
+        if(VK_BIT_TEST(surfaceContext_.flags, RRVULKAN_SURFACE_STATE_CORE_CONTEXT_LOADED)) {
+            retro_hw_context_reset_t destroy_func = coreCtx->GetRenderHWContextDestroyCallback();
+            if (destroy_func) destroy_func();
+            VK_BIT_CLEAR(surfaceContext_.flags, RRVULKAN_SURFACE_STATE_CORE_CONTEXT_LOADED);
+        }
 
         vulkanClearSwapchainResourcesIfNeeded();
         vulkanClearFrameResourcesIfNeeded();
@@ -375,6 +379,12 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::Destroy() {
+        Unload();
+        vulkanClearRenderContextIfNeeded();
+        if(logicalDevice_){
+            vkDestroyDevice(logicalDevice_, nullptr);
+            logicalDevice_ = VK_NULL_HANDLE;
+        }
         if (queue_lock) {
             pthread_mutex_destroy(queue_lock);
             delete queue_lock;
@@ -1678,11 +1688,6 @@ namespace libRetroRunner {
         }
     }
 
-    void VulkanVideoContext::copyNegotiationImageToFrameTexture() {
-        if (!negotiationImage_) return;
-
-    }
-
     void VulkanVideoContext::fillFrameTexture(const void *data, unsigned int width, unsigned int height, size_t pitch) {
         if (!vulkanIsReady_) return;
         auto frame = &renderContext_.frames[renderContext_.current_frame];
@@ -1790,6 +1795,15 @@ namespace libRetroRunner {
 
     bool VulkanVideoContext::vulkanClearFrameResourcesIfNeeded() {
         for (auto &frame: renderContext_.frames) {
+            if(frame.stagingBuffer.buffer != VK_NULL_HANDLE) {
+                vkDestroyBuffer(logicalDevice_, (VkBuffer) frame.stagingBuffer.buffer, nullptr);
+                frame.stagingBuffer.buffer = VK_NULL_HANDLE;
+            }
+            if(frame.stagingBuffer.memory != VK_NULL_HANDLE) {
+                vkFreeMemory(logicalDevice_, (VkDeviceMemory) frame.stagingBuffer.memory, nullptr);
+                frame.stagingBuffer.memory = VK_NULL_HANDLE;
+            }
+
             if (frame.texture.imageView != VK_NULL_HANDLE) {
                 vkDestroyImageView(logicalDevice_, frame.texture.imageView, nullptr);
                 frame.texture.imageView = VK_NULL_HANDLE;
@@ -1840,7 +1854,7 @@ namespace libRetroRunner {
         return true;
     }
 
-    void VulkanVideoContext::clearVulkanRenderContext() {
+    void VulkanVideoContext::vulkanClearRenderContextIfNeeded() {
         delete[] renderContext_.fragmentShaderCode;
         delete[] renderContext_.vertexShaderCode;
         if (renderContext_.vertexShaderModule) vkDestroyShaderModule(logicalDevice_, renderContext_.vertexShaderModule, nullptr);
@@ -1856,9 +1870,6 @@ namespace libRetroRunner {
         LOGD_VC("pipeline cleared");
     }
 
-    void VulkanVideoContext::clearDrawingResourceIfNeeded() {
-
-    }
 }
 
 namespace libRetroRunner {

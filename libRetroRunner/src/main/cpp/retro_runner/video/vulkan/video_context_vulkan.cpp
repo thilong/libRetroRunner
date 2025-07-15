@@ -33,6 +33,8 @@
 #define LOGE_VVC(...) LOGE("[Vulkan] " __VA_ARGS__)
 #define LOGI_VVC(...) LOGI("[Vulkan] " __VA_ARGS__)
 
+#define DRAW_LOGD_VVC(...) LOGD("[Vulkan] " __VA_ARGS__)
+
 #define CHECK_VK_OBJ_NOT_NULL(arg, msg) if (arg == nullptr) { LOGE_VVC(msg); return false; }
 
 #define VK_BIT_TEST(flag, bit) (((flag) & (bit)) == (bit))
@@ -107,6 +109,8 @@ namespace libRetroRunner {
 
 /** hardware rendering interface implementation */
 namespace libRetroRunner {
+
+    //TODO: 当前没有处理核心传出的信号量，当其不为空时，需要在绘制的时候处理
     void VulkanVideoContext::retro_vulkan_set_image_t_impl(const struct retro_vulkan_image *image, uint32_t num_semaphores, const VkSemaphore *semaphores, uint32_t src_queue_family) {
         negotiationImage_ = image;
         if (!negotiationSemaphores_) {
@@ -131,15 +135,15 @@ namespace libRetroRunner {
         //TODO: check line:3080 vk->flags |= VK_FLAG_HW_VALID_SEMAPHORE;
         if (image && image->image_view) {
             videoContentNeedUpdate_ = true;
-            LOGW_VVC("HW callback, frame: %lu, retro_vulkan_set_image_t_impl, image view: %p, layout: %d, flags: %d, semaphore count: %u, semaphore: %p, queue family: %u", frameCount_, image->image_view, image->image_layout, image->create_info.flags, num_semaphores, semaphores, src_queue_family);
+            //LOGW_VVC("HW callback, frame: %lu, retro_vulkan_set_image_t_impl, image view: %p, layout: %d, flags: %d, semaphore count: %u, semaphore: %p, queue family: %u", frameCount_, image->image_view, image->image_layout, image->create_info.flags, num_semaphores, semaphores, src_queue_family);
         } else {
-            LOGW_VVC("HW callback, frame: %lu, retro_vulkan_set_image_t_impl empty: %p, %u, %p, %u", frameCount_, image, num_semaphores, semaphores, src_queue_family);
+            //LOGW_VVC("HW callback, frame: %lu, retro_vulkan_set_image_t_impl empty: %p, %u, %p, %u", frameCount_, image, num_semaphores, semaphores, src_queue_family);
         }
     }
 
     uint32_t VulkanVideoContext::retro_vulkan_get_sync_index_t_impl() const {
         uint32_t ret = renderContext_.current_frame;
-        LOGW_VVC("frame: %lu, call retro_vulkan_get_sync_index_t_impl : %u", frameCount_, ret);
+        //LOGW_VVC("frame: %lu, call retro_vulkan_get_sync_index_t_impl : %u", frameCount_, ret);
         return ret;
     }
 
@@ -399,7 +403,7 @@ namespace libRetroRunner {
                 //LOGD_VVC("OnNewFrame called with RETRO_HW_FRAME_BUFFER_VALID, this is a hardware render frame.");
             } else {
                 fillFrameTexture(data, width, height, pitch);
-                //LOGD_VVC("OnNewFrame called with data: %p, width: %u, height: %u, pitch: %zu", data, width, height, pitch);
+                //DRAW_LOGD_VVC("OnNewFrame called with data: %p, width: %u, height: %u, pitch: %zu, sw: %u, sh: %u", data, width, height, pitch, screen_width_, screen_height_);
             }
             if (vulkanIsReady_) {
                 DrawFrame();
@@ -416,7 +420,7 @@ namespace libRetroRunner {
             vulkanCommitFrame();
             pthread_mutex_unlock(queue_lock);
         }
-        LOGD_VVC("DrawFrame : %lu", frameCount_);
+        //LOGD_VVC("DrawFrame : %lu", frameCount_);
         frameCount_++;
     }
 
@@ -488,7 +492,7 @@ namespace libRetroRunner {
             LOGE_VC("frame: %lu, Failed to submit queue: %d", frameCount_, submitResult);
             return;
         } else {
-            LOGI_VC("frame: %lu, Queue submitted successfully, image: %d", frameCount_, renderContext_.current_frame);
+            //LOGI_VC("frame: %lu, Queue submitted successfully, image: %d", frameCount_, renderContext_.current_frame);
         }
 
 
@@ -505,7 +509,7 @@ namespace libRetroRunner {
         };
         vkQueuePresentKHR(queue, &presentInfo);
 
-        LOGI_VVC("frame: %lu, Queue present complete, image index: %u, result: %d", frameCount_, renderContext_.current_frame, result);
+        //LOGI_VVC("frame: %lu, Queue present complete, image index: %u, result: %d", frameCount_, renderContext_.current_frame, result);
         renderContext_.current_frame = (renderContext_.current_frame + 1) % renderContext_.frames.size();
         videoContentNeedUpdate_ = false;
     }
@@ -546,12 +550,15 @@ namespace libRetroRunner {
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         VkImageView imageViewToBePresent = VK_NULL_HANDLE;
+        VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         if(negotiationImage_ && negotiationImage_->image_view){
             imageViewToBePresent = negotiationImage_->image_view;
+            imageLayout = negotiationImage_->image_layout;
         }
         if(imageViewToBePresent == VK_NULL_HANDLE){
             auto& frame = renderContext_.frames[renderContext_.current_frame];
             imageViewToBePresent = frame.texture.imageView;
+            imageLayout = frame.texture.layout;
         }
         if (imageViewToBePresent) {
 
@@ -563,7 +570,7 @@ namespace libRetroRunner {
             VkDescriptorSet descriptorSet = frameDescriptorSet;
 
             VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfo.imageLayout = imageLayout;
             imageInfo.imageView = imageViewToBePresent;
             imageInfo.sampler = sampler_;
 
@@ -576,7 +583,7 @@ namespace libRetroRunner {
             descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             descriptorWrite.descriptorCount = 1;
             descriptorWrite.pImageInfo = &imageInfo;
-            LOGD_VVC("update descriptor %p, set: %p, image: %p", &descriptorWrite, descriptorSet, imageViewToBePresent);
+            //LOGD_VVC("update descriptor %p, set: %p, image: %p", &descriptorWrite, descriptorSet, imageViewToBePresent);
             vkUpdateDescriptorSets(logicalDevice_, 1, &descriptorWrite, 0, nullptr);
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderContext_.pipelineLayout,
@@ -1677,7 +1684,7 @@ namespace libRetroRunner {
     }
 
     void VulkanVideoContext::fillFrameTexture(const void *data, unsigned int width, unsigned int height, size_t pitch) {
-        if (!vulkanIsReady_ || data == nullptr) return;
+        if (!vulkanIsReady_) return;
         auto frame = &renderContext_.frames[renderContext_.current_frame];
 
         if (frame->stagingBuffer.buffer == VK_NULL_HANDLE) {
@@ -1729,29 +1736,30 @@ namespace libRetroRunner {
         //copy data to staging buffer
         void *toData;
         vkMapMemory(logicalDevice_, frame->stagingBuffer.memory, 0, frame->stagingBuffer.size, 0, &toData);
-        memcpy(toData, finalData, min(frame->stagingBuffer.size, pitch * height));
+        //TODO: 这里需要检测pitch, 拷贝数据的长度，数据超出范围或者拷贝不全
+        //size_t  copySize = min(frame->stagingBuffer.size, pitch * height);
+        memcpy(toData, finalData,frame->stagingBuffer.size );
         vkUnmapMemory(logicalDevice_, frame->stagingBuffer.memory);
-
-        //copy staging buffer to texture image
-        VkCommandBuffer commandBuffer = VkUtil::beginSingleTimeCommands(logicalDevice_, renderContext_.commandPool);
 
         // 转换图像布局为 `VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL`
         VkUtil::transitionImageLayout(logicalDevice_, renderContext_.commandPool, presentationQueue_, frame->texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &frame->texture.layout);
 
+
+        //copy staging buffer to texture image
+        VkCommandBuffer commandBuffer = VkUtil::beginSingleTimeCommands(logicalDevice_, renderContext_.commandPool);
         VkBufferImageCopy region{};
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.mipLevel = 0;
         region.imageSubresource.baseArrayLayer = 0;
         region.imageSubresource.layerCount = 1;
         region.imageExtent = {width, height, 1};
-
         vkCmdCopyBufferToImage(commandBuffer, frame->stagingBuffer.buffer, frame->texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
         VkUtil::endSingleTimeCommands(logicalDevice_, renderContext_.commandPool, presentationQueue_, commandBuffer);
 
         //转换图像布局回 `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`
         VkUtil::transitionImageLayout(logicalDevice_, renderContext_.commandPool, presentationQueue_, frame->texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &frame->texture.layout);
 
-        LOGD_VVC("Frame texture updated: %d x %d, core pixel format: %d", width, height, core_pixel_format_);
+        //LOGD_VVC("Frame texture updated: %d x %d, core pixel format: %d", width, height, core_pixel_format_);
         videoContentNeedUpdate_ = true;
     }
 
